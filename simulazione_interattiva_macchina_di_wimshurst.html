@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Interattiva Macchina di Wimshurst</title>
+    <!-- Tailwind CSS per styling moderno e reattivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per iconografia -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        canvas {
+            touch-action: none;
+            cursor: default;
+        }
+
+        /* Custom scrollbar per il pannello dei controlli */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Slider Styling */
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row overflow-hidden bg-slate-950">
+
+    <!-- MAIN CANVAS AREA -->
+    <div class="relative flex-1 h-full flex flex-col items-center justify-center bg-slate-900 overflow-hidden">
+        
+        <!-- Canvas principale della simulazione -->
+        <canvas id="wimshurstCanvas" class="w-full h-full block"></canvas>
+
+        <!-- Overlay HUD: Telemetria e stato veloce -->
+        <div class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-3 border border-slate-700/50 shadow-lg">
+                <span class="flex items-center gap-1.5 text-slate-300">
+                    <i class="fa-solid fa-bolt text-yellow-400"></i>
+                    Tensione Stimata:
+                </span>
+                <span id="hudVoltage" class="mono text-yellow-400 font-bold text-sm">0 kV</span>
+            </div>
+            
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-3 border border-slate-700/50 shadow-lg">
+                <span class="flex items-center gap-1.5 text-slate-300">
+                    <i class="fa-solid fa-[#3b82f6] fa-circle-dot text-blue-400"></i>
+                    Carica Sfera Isolante:
+                </span>
+                <span id="hudSphereCharge" class="mono text-blue-400 font-bold text-sm">0.0 nC</span>
+            </div>
+
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-3 border border-slate-700/50 shadow-lg">
+                <span class="flex items-center gap-1.5 text-slate-300">
+                    <i class="fa-solid fa-leaf text-amber-400"></i>
+                    Angolo Foglie Elettroscopio:
+                </span>
+                <span id="hudLeafAngle" class="mono text-amber-400 font-bold text-sm">0°</span>
+            </div>
+        </div>
+
+        <!-- Guida di interazione veloce in basso sullo schermo -->
+        <div class="absolute bottom-4 left-4 right-4 md:right-auto pointer-events-none flex justify-center">
+            <div class="glass-panel px-4 py-2 rounded-full text-xs text-slate-300 flex items-center gap-2 shadow-xl border border-slate-700/60">
+                <i class="fa-solid fa-hand-pointer text-blue-400 animate-pulse"></i>
+                <span>Trascina la <b>sfera metallica</b> per avvicinarla agli elettrodi o all'elettroscopio</span>
+            </div>
+        </div>
+
+        <!-- PulsanteInfo/Teoria -->
+        <button id="btnOpenTheory" class="absolute top-4 right-4 bg-slate-800/80 hover:bg-slate-700 text-slate-200 p-3 rounded-full border border-slate-600/50 shadow-lg transition-all hover:scale-105 active:scale-95">
+            <i class="fa-solid fa-book-open text-base"></i>
+        </button>
+    </div>
+
+    <!-- PANNELLO CONTROLLI LATERALE -->
+    <div class="w-full md:w-96 glass-panel border-t md:border-t-0 md:border-l border-slate-800 p-5 flex flex-col justify-between overflow-y-auto h-auto md:h-full z-10 shadow-2xl">
+        <div class="space-y-5">
+            <!-- Intestazione -->
+            <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+                <div>
+                    <h1 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-atom text-blue-500"></i> Macchina di Wimshurst
+                    </h1>
+                    <p class="text-xs text-slate-400 mt-0.5">Laboratorio Virtuale Elettrostatico</p>
+                </div>
+                <button id="btnAudioToggle" class="text-slate-400 hover:text-yellow-400 transition-colors p-2 text-sm">
+                    <i id="audioIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+
+            <!-- Sezione 1: Meccanica della Macchina -->
+            <div class="space-y-3">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-gear text-slate-500"></i> Meccanica e Rotazione
+                </h2>
+
+                <!-- Controllo Velocità Rotazione -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <label for="sliderSpeed" class="text-slate-300">Velocità Manovella (RPM)</label>
+                        <span id="valSpeed" class="mono text-blue-400 font-semibold">120 RPM</span>
+                    </div>
+                    <input type="range" id="sliderSpeed" min="0" max="300" value="120" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- Inversione Rotazione & Spark gap -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnReverseDir" class="bg-slate-800 hover:bg-slate-700 text-xs py-2 px-3 rounded-lg border border-slate-700 transition-colors flex items-center justify-center gap-1.5 text-slate-300">
+                        <i class="fa-solid fa-rotate text-blue-400"></i> Inverti Giro
+                    </button>
+                    <button id="btnToggleLeyden" class="bg-slate-800 hover:bg-slate-700 text-xs py-2 px-3 rounded-lg border border-slate-700 transition-colors flex items-center justify-center gap-1.5 text-slate-300">
+                        <i class="fa-solid fa-bolt-lightning text-yellow-400"></i> <span id="txtLeyden">Bottiglie: ON</span>
+                    </button>
+                </div>
+
+                <!-- Distanza Elettrodi -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <label for="sliderGap" class="text-slate-300">Distanza Scaricatore (cm)</label>
+                        <span id="valGap" class="mono text-yellow-400 font-semibold">4.0 cm</span>
+                    </div>
+                    <input type="range" id="sliderGap" min="1.0" max="10.0" step="0.2" value="4.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Sezione 2: Visualizzazione Cariche e Ambiente -->
+            <div class="space-y-3 border-t border-slate-800/80 pt-4">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-slate-500"></i> Visualizzazione & Clima
+                </h2>
+
+                <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-xs text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-plus-minus text-purple-400"></i> Simboli Cariche (+ / -)
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="chkShowCharges" class="sr-only peer" checked>
+                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Umidità Relativa dell'Aria -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <label for="sliderHumidity" class="text-slate-300">Umidità Relativa dell'Aria</label>
+                        <span id="valHumidity" class="mono text-cyan-400 font-semibold">30%</span>
+                    </div>
+                    <input type="range" id="sliderHumidity" min="10" max="90" value="30" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                    <p class="text-[10px] text-slate-500 mt-1">L'alta umidità causa la dispersione della carica superficiale nell'aria.</p>
+                </div>
+            </div>
+
+            <!-- Sezione 3: Controllo Sfera Isolante & Elettroscopio -->
+            <div class="space-y-3 border-t border-slate-800/80 pt-4">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-vial text-slate-500"></i> Sfera Isolante & Elettroscopio
+                </h2>
+
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Carica la sfera dagli elettrodi della macchina o manualmente, poi avvicinala all'elettroscopio per studiare l'<strong>induzione</strong> o toccalo per la <strong>conduzione</strong>.
+                </p>
+
+                <!-- Azioni Rapide Elettrodi -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnTouchPos" class="bg-red-950/40 hover:bg-red-900/60 border border-red-700/50 text-red-300 text-xs py-2 px-2 rounded-lg transition-all flex items-center justify-center gap-1 font-medium">
+                        <i class="fa-solid fa-bolt text-red-400"></i> Carica da Elettrodo +
+                    </button>
+                    <button id="btnTouchNeg" class="bg-blue-950/40 hover:bg-blue-900/60 border border-blue-700/50 text-blue-300 text-xs py-2 px-2 rounded-lg transition-all flex items-center justify-center gap-1 font-medium">
+                        <i class="fa-solid fa-bolt text-blue-400"></i> Carica da Elettrodo -
+                    </button>
+                </div>
+
+                <!-- Modifica Manuale Carica -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnAddPos" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-red-400 text-xs py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-plus"></i> +5 nC Manuale
+                    </button>
+                    <button id="btnAddNeg" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-blue-400 text-xs py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-minus"></i> -5 nC Manuale
+                    </button>
+                </div>
+
+                <!-- Posizionamento Rapido Sfera -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnMoveToElectroscope" class="bg-amber-950/40 hover:bg-amber-900/60 border border-amber-700/50 text-amber-300 text-xs py-2 px-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-hand-pointer text-amber-400"></i> Portami all'Elettroscopio
+                    </button>
+                    <button id="btnGroundElectroscope" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs py-2 px-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-wire-gnd text-amber-400"></i> Terra Elettroscopio
+                    </button>
+                </div>
+
+                <button id="btnResetSphere" class="w-full bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs py-2 px-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-hand-sparkles text-slate-400"></i> Scarica Sfera
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer / Reset Totale -->
+        <div class="pt-4 border-t border-slate-800 mt-4 flex items-center justify-between text-xs">
+            <button id="btnResetAll" class="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5">
+                <i class="fa-solid fa-arrows-rotate text-xs"></i> Ripristina Tutto
+            </button>
+            <span class="text-[10px] text-slate-500">Fisica Elettrostatica v2.5</span>
+        </div>
+    </div>
+
+    <!-- MODALE SPIEGAZIONE TEORICA -->
+    <div id="theoryModal" class="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 opacity-0 pointer-events-none transition-opacity duration-300 p-4">
+        <div class="glass-panel max-w-2xl w-full max-h-[85vh] rounded-2xl p-6 overflow-y-auto border border-slate-700 shadow-2xl relative">
+            <button id="btnCloseTheory" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-blue-400"></i> Come funziona la Macchina di Wimshurst
+            </h2>
+
+            <div class="space-y-4 text-slate-300 text-sm leading-relaxed">
+                <p>
+                    La <strong>Macchina di Wimshurst</strong> è un generatore elettrostatico a induzione inventato da James Wimshurst tra il 1880 e il 1883. Funziona senza contatto diretto strisciante, sfruttando l'<strong>induzione elettrostatica</strong>.
+                </p>
+
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <h3 class="font-semibold text-blue-400 text-sm">1. I Dischi Controrotanti</h3>
+                    <p class="text-xs text-slate-400">Due dischi trasparenti con settori metallici ruotano in direzioni opposte. Piccole cariche residue sui settori inducono una separazione di carica sui settori del disco opposto quando questi passano sotto le spazzole neutralizzatrici in ottone.</p>
+                </div>
+
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <h3 class="font-semibold text-blue-400 text-sm">2. Spazzole & Pettini Collettori</h3>
+                    <p class="text-xs text-slate-400">Le spazzole diagonali permettono agli elettroni di fluire tra settori opposti. Successivamente, i pettini a punte metalliche ai lati della macchina raccolgono le cariche per effetto corona e le convogliano verso i conduttori principali e le bottiglie di Leida.</p>
+                </div>
+
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <h3 class="font-semibold text-amber-400 text-sm">3. Elettroscopio a Foglie d'Oro & Sfera Isolante</h3>
+                    <p class="text-xs text-slate-400">
+                        • <strong>Induzione:</strong> Avvicinando la sfera carica al pomello superiore dell'elettroscopio, le cariche sulla sfera attraggono cariche opposte sul pomello, spingendo cariche dello stesso segno sulle foglie d'oro che si respingono divaricansosi.<br>
+                        • <strong>Conduzione:</strong> Toccando il pomello con la sfera, la carica si trasferisce direttamente all'elettroscopio e le foglie rimangono divaricate anche allontanando la sfera.
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                <button id="btnCloseTheoryBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-2 rounded-xl text-sm transition-all shadow-lg">
+                    Capito, torna al laboratorio
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT ENGINE -->
+    <script>
+    /* Helper function per il disegno di rettangoli con angoli arrotondati (compatibile con tutti i browser) */
+    function drawRoundRect(context, x, y, width, height, radius) {
+        if (typeof context.roundRect === 'function') {
+            context.roundRect(x, y, width, height, radius);
+            return;
+        }
+        let r = typeof radius === 'number' ? radius : (Array.isArray(radius) ? radius[0] : 0);
+        r = Math.min(r, Math.abs(width) / 2, Math.abs(height) / 2);
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.lineTo(x + width - r, y);
+        context.quadraticCurveTo(x + width, y, x + width, y + r);
+        context.lineTo(x + width, y + height - r);
+        context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        context.lineTo(x + r, y);
+        context.quadraticCurveTo(x, y + height, x, y + height - r);
+        context.lineTo(x, y + r);
+        context.quadraticCurveTo(x, y, x + r, y);
+        context.closePath();
+    }
+
+    /* Motore audio basato su Web Audio API per effetti di scarica elettrica */
+    class SoundEngine {
+        constructor() {
+            this.ctx = null;
+            this.muted = false;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    this.ctx = new AudioCtx();
+                }
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        playSpark(intensity = 1.0) {
+            if (this.muted) return;
+            this.init();
+            if (!this.ctx) return;
+
+            try {
+                const now = this.ctx.currentTime;
+                
+                // Generatore di rumore per lo schiocco dell'arco elettrico
+                const bufferSize = this.ctx.sampleRate * 0.08;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 1200;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.8 * intensity, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start(now);
+
+                // Oscillatore per componente sub-bass dell'esplosione
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.06);
+
+                oscGain.gain.setValueAtTime(0.5 * intensity, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+
+                osc.connect(oscGain);
+                oscGain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } catch (e) {
+                console.warn('Audio non riproducibile:', e);
+            }
+        }
+    }
+
+    // DOM & Canvas Setup
+    const canvas = document.getElementById('wimshurstCanvas');
+    const ctx = canvas.getContext('2d');
+    const soundEngine = new SoundEngine();
+
+    // Stato Globale della Simulazione Fisica
+    const state = {
+        rpm: 120,
+        dir: 1, // 1 = Orario (disco frontale), -1 = Antiorario
+        gapDistance: 4.0, // cm
+        leydenConnected: true,
+        humidity: 30, // %
+        showCharges: true,
+
+        // Angoli dei dischi (radianti)
+        angleFront: 0,
+        angleBack: 0,
+
+        // Tensione accumulata negli elettrodi (kV)
+        voltagePos: 0,
+        voltageNeg: 0,
+
+        // Sfera Isolante di Prova
+        spherePos: { x: 0, y: 0 },
+        sphereRadius: 22,
+        sphereCharge: 0.0, // nC
+        sphereIsDragging: false,
+        dragOffset: { x: 0, y: 0 },
+
+        // Elettroscopio a foglie d'oro
+        electroscopeCharge: 0.0, // nC (carica netta trasferita)
+        electroscopeLeafAngle: 0, // gradi di separazione
+
+        // Settori dei Dischi (20 settori per disco)
+        sectorCount: 20,
+        frontSectors: new Array(20).fill(0.1),
+        backSectors: new Array(20).fill(-0.1),
+
+        // Effetti visivi scintille
+        sparks: []
+    };
+
+    let canvasWidth = 800;
+    let canvasHeight = 600;
+    let centerX = 400;
+    let centerY = 330;
+    let scale = 1.0;
+
+    function resizeCanvas() {
+        const parent = canvas.parentElement;
+        const rect = parent ? parent.getBoundingClientRect() : { width: 800, height: 600 };
+        canvasWidth = Math.max(300, rect.width || 800);
+        canvasHeight = Math.max(300, rect.height || 600);
+        
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = canvasWidth * dpr;
+        canvas.height = canvasHeight * dpr;
+        ctx.scale(dpr, dpr);
+
+        centerX = canvasWidth / 2;
+        centerY = canvasHeight / 2 + 20;
+        scale = Math.min(canvasWidth / 750, canvasHeight / 600);
+
+        // Posizione di default per la sfera se non ancora posizionata
+        if (state.spherePos.x === 0 && state.spherePos.y === 0) {
+            resetSpherePosition();
+        }
+    }
+
+    function resetSpherePosition() {
+        state.spherePos = {
+            x: centerX + 180 * scale,
+            y: centerY - 100 * scale
+        };
+    }
+
+    /* Posizioni chiave nel sistema coordinate del Canvas */
+    function getElectrodePos() {
+        const gapPx = state.gapDistance * 18 * scale;
+        return {
+            left: { x: centerX - gapPx / 2, y: centerY - 170 * scale },
+            right: { x: centerX + gapPx / 2, y: centerY - 170 * scale }
+        };
+    }
+
+    function getElectroscopePos() {
+        return {
+            x: centerX - 240 * scale,
+            y: centerY + 110 * scale
+        };
+    }
+
+    // MOTORE FISICO
+    let lastTime = performance.now();
+
+    function updatePhysics(dt) {
+        const radPerSec = (state.rpm * 2 * Math.PI) / 60;
+        state.angleFront += state.dir * radPerSec * dt;
+        state.angleBack -= state.dir * radPerSec * dt;
+
+        // Perdita di carica per umidità dell'aria
+        const humidityLeak = 1.0 - (state.humidity / 100) * 0.3 * dt;
+
+        // Generazione carica sui settori quando la manovella ruota
+        if (state.rpm > 5) {
+            const chargeGain = (state.rpm / 120) * 0.4 * dt;
+            state.voltagePos = Math.min(45, state.voltagePos + chargeGain * 8);
+            state.voltageNeg = Math.min(45, state.voltageNeg + chargeGain * 8);
+
+            // Popola la carica sui settori
+            for (let i = 0; i < state.sectorCount; i++) {
+                state.frontSectors[i] = Math.min(1.0, state.frontSectors[i] + chargeGain * 0.2);
+                state.backSectors[i] = Math.max(-1.0, state.backSectors[i] - chargeGain * 0.2);
+            }
+        }
+
+        // Dissipazione naturale della carica
+        state.voltagePos *= humidityLeak;
+        state.voltageNeg *= humidityLeak;
+
+        // Tensione totale accumulata tra i terminali
+        const totalVoltage = state.voltagePos + state.voltageNeg;
+
+        // Tensione di scarica elettrica in base alla distanza degli elettrodi
+        const breakdownVoltage = state.gapDistance * 4.5 * (1 + state.humidity / 200);
+
+        const electrodes = getElectrodePos();
+
+        // Controllo Scarica Principale tra Elettrodi
+        if (totalVoltage >= breakdownVoltage && totalVoltage > 2.0) {
+            triggerSpark(electrodes.left, electrodes.right, totalVoltage);
+            soundEngine.playSpark(Math.min(1.0, totalVoltage / 30));
+            
+            const dropFactor = state.leydenConnected ? 0.85 : 0.2;
+            state.voltagePos *= (1 - dropFactor);
+            state.voltageNeg *= (1 - dropFactor);
+        }
+
+        // Controllo Scarica tra Sfera Isolante e Elettrodi / Pettini
+        const dLeft = Math.hypot(state.spherePos.x - electrodes.left.x, state.spherePos.y - electrodes.left.y);
+        const dRight = Math.hypot(state.spherePos.x - electrodes.right.x, state.spherePos.y - electrodes.right.y);
+
+        if (dLeft < 38 * scale && state.voltageNeg > 3.0) {
+            triggerSpark(electrodes.left, state.spherePos, state.voltageNeg);
+            soundEngine.playSpark(0.5);
+            state.sphereCharge -= 1.5;
+            state.voltageNeg *= 0.4;
+        }
+
+        if (dRight < 38 * scale && state.voltagePos > 3.0) {
+            triggerSpark(electrodes.right, state.spherePos, state.voltagePos);
+            soundEngine.playSpark(0.5);
+            state.sphereCharge += 1.5;
+            state.voltagePos *= 0.4;
+        }
+
+        // Calcolo deviazione foglie dell'elettroscopio
+        const elec = getElectroscopePos();
+        const distSphereElec = Math.hypot(state.spherePos.x - elec.x, state.spherePos.y - elec.y);
+
+        // Tocco Sfera - Elettroscopio (Trasferimento di carica per Conduzione)
+        if (distSphereElec < 30 * scale) {
+            if (Math.abs(state.sphereCharge - state.electroscopeCharge) > 0.5) {
+                triggerSpark(state.spherePos, { x: elec.x, y: elec.y }, Math.abs(state.sphereCharge));
+                soundEngine.playSpark(0.4);
+            }
+            const totalQ = state.sphereCharge + state.electroscopeCharge;
+            state.sphereCharge = totalQ * 0.4;
+            state.electroscopeCharge = totalQ * 0.6;
+        }
+
+        // Calcolo Induzione Elettrostatica sulla deviazione
+        let inducedEffect = 0;
+        if (distSphereElec < 200 * scale) {
+            inducedEffect = (Math.abs(state.sphereCharge) * 1800) / Math.pow(distSphereElec + 25, 1.8);
+        }
+
+        const effectiveCharge = Math.abs(state.electroscopeCharge) + inducedEffect;
+        const targetAngle = Math.min(70, effectiveCharge * 13.0);
+        state.electroscopeLeafAngle += (targetAngle - state.electroscopeLeafAngle) * 0.15;
+
+        // Aggiorna HUD UI
+        document.getElementById('hudVoltage').textContent = `${totalVoltage.toFixed(1)} kV`;
+        document.getElementById('hudSphereCharge').textContent = `${state.sphereCharge >= 0 ? '+' : ''}${state.sphereCharge.toFixed(1)} nC`;
+        document.getElementById('hudLeafAngle').textContent = `${Math.round(state.electroscopeLeafAngle)}°`;
+
+        // Aggiorna animazioni scariche
+        for (let i = state.sparks.length - 1; i >= 0; i--) {
+            state.sparks[i].life -= dt * 6.0;
+            if (state.sparks[i].life <= 0) {
+                state.sparks.splice(i, 1);
+            }
+        }
+    }
+
+    function triggerSpark(p1, p2, voltage) {
+        state.sparks.push({
+            p1: { ...p1 },
+            p2: { ...p2 },
+            voltage: voltage,
+            life: 1.0,
+            seed: Math.random()
+        });
+    }
+
+    // RENDERING GRAFICO
+    function drawBaseAndFrame(rDisk) {
+        ctx.save();
+        
+        // Ombra alla base
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY + rDisk + 75 * scale, 250 * scale, 28 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Base in Legno Pregiato
+        const baseWidth = 460 * scale;
+        const baseHeight = 35 * scale;
+        const baseTopY = centerY + rDisk + 45 * scale;
+
+        const woodGrad = ctx.createLinearGradient(centerX - baseWidth / 2, 0, centerX + baseWidth / 2, 0);
+        woodGrad.addColorStop(0, '#2d1500');
+        woodGrad.addColorStop(0.5, '#5c2d0c');
+        woodGrad.addColorStop(1, '#230f00');
+
+        ctx.fillStyle = woodGrad;
+        ctx.beginPath();
+        drawRoundRect(ctx, centerX - baseWidth / 2, baseTopY, baseWidth, baseHeight, 8 * scale);
+        ctx.fill();
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 2 * scale;
+        ctx.stroke();
+
+        // Montanti Verticali in Ghisa/Bachelite
+        const pillarWidth = 20 * scale;
+        const pillarHeight = rDisk + 75 * scale;
+
+        [centerX - 170 * scale, centerX + 170 * scale].forEach(px => {
+            const pilGrad = ctx.createLinearGradient(px - pillarWidth / 2, 0, px + pillarWidth / 2, 0);
+            pilGrad.addColorStop(0, '#0f172a');
+            pilGrad.addColorStop(0.5, '#334155');
+            pilGrad.addColorStop(1, '#020617');
+
+            ctx.fillStyle = pilGrad;
+            ctx.beginPath();
+            drawRoundRect(ctx, px - pillarWidth / 2, centerY - rDisk + 20 * scale, pillarWidth, pillarHeight, 5 * scale);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.stroke();
+        });
+
+        ctx.restore();
+    }
+
+    function drawDisksAndSectors(rDisk) {
+        ctx.save();
+
+        // Perno centrale
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 12 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Disegno Dischi Vetrati
+        [1, -1].forEach((layer) => {
+            const angle = layer === 1 ? state.angleFront : state.angleBack;
+            
+            // Disco trasparente in Plexiglas/Vetro
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, rDisk, 0, Math.PI * 2);
+            ctx.fillStyle = layer === 1 ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 2 * scale;
+            ctx.stroke();
+
+            // Settori Metallici Trapezoidali
+            for (let i = 0; i < state.sectorCount; i++) {
+                const secAngle = angle + (i * 2 * Math.PI) / state.sectorCount;
+                const rIn = rDisk * 0.52;
+                const rOut = rDisk * 0.88;
+                const angularWidth = 0.16;
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(secAngle);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, rOut, -angularWidth / 2, angularWidth / 2);
+                ctx.arc(0, 0, rIn, angularWidth / 2, -angularWidth / 2, true);
+                ctx.closePath();
+
+                // Colore del settore in base alla carica accumulata
+                const chargeVal = layer === 1 ? state.frontSectors[i] : state.backSectors[i];
+                const sectorGrad = ctx.createLinearGradient(0, rIn, 0, rOut);
+                
+                if (state.showCharges) {
+                    if (chargeVal > 0.1) {
+                        sectorGrad.addColorStop(0, '#f87171');
+                        sectorGrad.addColorStop(1, '#ef4444');
+                    } else if (chargeVal < -0.1) {
+                        sectorGrad.addColorStop(0, '#60a5fa');
+                        sectorGrad.addColorStop(1, '#3b82f6');
+                    } else {
+                        sectorGrad.addColorStop(0, '#e2e8f0');
+                        sectorGrad.addColorStop(1, '#94a3b8');
+                    }
+                } else {
+                    sectorGrad.addColorStop(0, '#f1f5f9');
+                    sectorGrad.addColorStop(1, '#64748b');
+                }
+
+                ctx.fillStyle = sectorGrad;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1 * scale;
+                ctx.stroke();
+
+                // Simbolo Carica (+ / -) sui settori
+                if (state.showCharges && Math.abs(chargeVal) > 0.1) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${Math.round(9 * scale)}px Inter, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(chargeVal > 0 ? '+' : '-', 0, (rIn + rOut) / 2);
+                }
+
+                ctx.restore();
+            }
+        });
+
+        ctx.restore();
+    }
+
+    function drawNeutralizers(rDisk) {
+        ctx.save();
+        ctx.strokeStyle = '#d97706'; // Ottone
+        ctx.lineWidth = 5 * scale;
+        ctx.lineCap = 'round';
+
+        // Asta Neutralizzatrice Anteriore (inclinata a +45°)
+        ctx.beginPath();
+        ctx.moveTo(centerX - rDisk * 0.85 * Math.cos(Math.PI / 4), centerY - rDisk * 0.85 * Math.sin(Math.PI / 4));
+        ctx.lineTo(centerX + rDisk * 0.85 * Math.cos(Math.PI / 4), centerY + rDisk * 0.85 * Math.sin(Math.PI / 4));
+        ctx.stroke();
+
+        // Asta Neutralizzatrice Posteriore (inclinata a -45°)
+        ctx.strokeStyle = '#b45309';
+        ctx.beginPath();
+        ctx.moveTo(centerX - rDisk * 0.85 * Math.cos(-Math.PI / 4), centerY - rDisk * 0.85 * Math.sin(-Math.PI / 4));
+        ctx.lineTo(centerX + rDisk * 0.85 * Math.cos(-Math.PI / 4), centerY + rDisk * 0.85 * Math.sin(-Math.PI / 4));
+        ctx.stroke();
+
+        // Spazzoline di rame alle estremità
+        ctx.fillStyle = '#f59e0b';
+        [Math.PI / 4, -Math.PI / 4, Math.PI / 4 + Math.PI, -Math.PI / 4 + Math.PI].forEach(a => {
+            const bx = centerX + rDisk * 0.85 * Math.cos(a);
+            const by = centerY + rDisk * 0.85 * Math.sin(a);
+            ctx.beginPath();
+            ctx.arc(bx, by, 5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+
+    function drawCollectorCombsAndElectrodes(rDisk) {
+        ctx.save();
+        const electrodes = getElectrodePos();
+
+        // Aste Conduttrici Orizzontali
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 6 * scale;
+        ctx.lineCap = 'round';
+
+        // Pettini a U laterali per la raccolta della carica
+        [-1, 1].forEach(dir => {
+            const px = centerX + dir * rDisk * 0.92;
+            ctx.beginPath();
+            ctx.moveTo(px, centerY - 25 * scale);
+            ctx.lineTo(px, centerY + 25 * scale);
+            ctx.stroke();
+
+            // Punte del pettine rivolte verso il disco
+            ctx.fillStyle = '#94a3b8';
+            for (let y = -20; y <= 20; y += 10) {
+                ctx.beginPath();
+                ctx.arc(px - dir * 6 * scale, centerY + y * scale, 2 * scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        // Aste di collegamento verso gli elettrodi superiori
+        ctx.beginPath();
+        ctx.moveTo(centerX - rDisk * 0.92, centerY);
+        ctx.lineTo(centerX - 140 * scale, centerY - 100 * scale);
+        ctx.lineTo(electrodes.left.x, electrodes.left.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX + rDisk * 0.92, centerY);
+        ctx.lineTo(centerX + 140 * scale, centerY - 100 * scale);
+        ctx.lineTo(electrodes.right.x, electrodes.right.y);
+        ctx.stroke();
+
+        // Sfere terminali degli elettrodi principali
+        // Elettrodo Sinistro (-)
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(electrodes.left.x, electrodes.left.y, 14 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2 * scale;
+        ctx.stroke();
+
+        // Elettrodo Destro (+)
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(electrodes.right.x, electrodes.right.y, 14 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#f87171';
+        ctx.stroke();
+
+        // Etichette di Polarità sugli Elettrodi
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.round(14 * scale)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('-', electrodes.left.x, electrodes.left.y);
+        ctx.fillText('+', electrodes.right.x, electrodes.right.y);
+
+        ctx.restore();
+    }
+
+    function drawLeydenJars(rDisk) {
+        if (!state.leydenConnected) return;
+
+        ctx.save();
+        const jarWidth = 42 * scale;
+        const jarHeight = 85 * scale;
+        const jarY = centerY + rDisk - 20 * scale;
+
+        [centerX - 110 * scale, centerX + 110 * scale].forEach((jx, idx) => {
+            // Corpo in Vetro
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2 * scale;
+
+            ctx.beginPath();
+            drawRoundRect(ctx, jx - jarWidth / 2, jarY, jarWidth, jarHeight, 6 * scale);
+            ctx.fill();
+            ctx.stroke();
+
+            // Armatura Metallica Esterna (Stagnola)
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(jx - jarWidth / 2, jarY + jarHeight * 0.4, jarWidth, jarHeight * 0.6);
+
+            // Armatura Metallica Interna (Rosso per +, Blu per -)
+            ctx.fillStyle = idx === 0 ? 'rgba(59, 130, 246, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+            ctx.fillRect(jx - jarWidth / 2 + 3 * scale, jarY + jarHeight * 0.5, jarWidth - 6 * scale, jarHeight * 0.48);
+
+            // Asta Centrale di Connessione
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3 * scale;
+            ctx.beginPath();
+            ctx.moveTo(jx, jarY + jarHeight * 0.3);
+            ctx.lineTo(jx, jarY - 25 * scale);
+            ctx.stroke();
+
+            // Pomello di ottone superiore
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(jx, jarY - 25 * scale, 6 * scale, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+
+    function drawElectroscope() {
+        ctx.save();
+        const elec = getElectroscopePos();
+        const knobX = elec.x;
+        const knobY = elec.y;
+        const jarWidth = 56 * scale;
+        const jarHeight = 72 * scale;
+        const flaskTopY = knobY + 20 * scale;
+
+        // Campana di Vetro dell'Elettroscopio
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2 * scale;
+
+        ctx.beginPath();
+        drawRoundRect(ctx, knobX - jarWidth / 2, flaskTopY, jarWidth, jarHeight, 10 * scale);
+        ctx.fill();
+        ctx.stroke();
+
+        // Tappo Isolante in Gomma/Sughero
+        ctx.fillStyle = '#92400e';
+        ctx.fillRect(knobX - 10 * scale, flaskTopY - 4 * scale, 20 * scale, 8 * scale);
+
+        // Piattello/Pomello Superiore in Ottone
+        const plateWidth = 42 * scale;
+        const plateGrad = ctx.createLinearGradient(knobX - plateWidth / 2, 0, knobX + plateWidth / 2, 0);
+        plateGrad.addColorStop(0, '#fef08a');
+        plateGrad.addColorStop(0.5, '#d4af37');
+        plateGrad.addColorStop(1, '#854d0e');
+
+        ctx.fillStyle = plateGrad;
+        ctx.beginPath();
+        drawRoundRect(ctx, knobX - plateWidth / 2, knobY - 3 * scale, plateWidth, 6 * scale, 3 * scale);
+        ctx.fill();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 1 * scale;
+        ctx.stroke();
+
+        // Asta Interna in Ottone
+        ctx.strokeStyle = '#d4af37';
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(knobX, knobY);
+        ctx.lineTo(knobX, flaskTopY + 35 * scale);
+        ctx.stroke();
+
+        // Induzione Visiva: Simboli di carica sul Piatto Superiore e sulle Foglie
+        const distSphereElec = Math.hypot(state.spherePos.x - knobX, state.spherePos.y - knobY);
+        if (state.showCharges) {
+            // Carica netta o indotta sul piatto superiore
+            let topChargeType = 0;
+            if (distSphereElec < 180 * scale && Math.abs(state.sphereCharge) > 0.3) {
+                topChargeType = state.sphereCharge > 0 ? -1 : 1; // Attratta carica opposta
+            } else if (Math.abs(state.electroscopeCharge) > 0.2) {
+                topChargeType = state.electroscopeCharge > 0 ? 1 : -1;
+            }
+
+            if (topChargeType !== 0) {
+                ctx.fillStyle = topChargeType > 0 ? '#ef4444' : '#3b82f6';
+                ctx.font = `bold ${Math.round(10 * scale)}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(topChargeType > 0 ? '+' : '-', knobX - 10 * scale, knobY - 7 * scale);
+                ctx.fillText(topChargeType > 0 ? '+' : '-', knobX + 10 * scale, knobY - 7 * scale);
+            }
+        }
+
+        // Foglie d'Oro Flessibili
+        const hookY = flaskTopY + 35 * scale;
+        const leafLen = 28 * scale;
+        const radAngle = (state.electroscopeLeafAngle * Math.PI) / 180;
+
+        ctx.strokeStyle = '#facc15'; // Oro brillante
+        ctx.lineWidth = 2 * scale;
+
+        const leftLeafX = knobX - leafLen * Math.sin(radAngle / 2);
+        const leftLeafY = hookY + leafLen * Math.cos(radAngle / 2);
+        const rightLeafX = knobX + leafLen * Math.sin(radAngle / 2);
+        const rightLeafY = hookY + leafLen * Math.cos(radAngle / 2);
+
+        // Foglia Sinistra
+        ctx.beginPath();
+        ctx.moveTo(knobX, hookY);
+        ctx.lineTo(leftLeafX, leftLeafY);
+        ctx.stroke();
+
+        // Foglia Destra
+        ctx.beginPath();
+        ctx.moveTo(knobX, hookY);
+        ctx.lineTo(rightLeafX, rightLeafY);
+        ctx.stroke();
+
+        // Cariche sulle foglie d'oro
+        if (state.showCharges && state.electroscopeLeafAngle > 5) {
+            ctx.fillStyle = (state.sphereCharge > 0 || state.electroscopeCharge > 0) ? '#ef4444' : '#3b82f6';
+            ctx.font = `bold ${Math.round(9 * scale)}px Inter, sans-serif`;
+            ctx.fillText(state.sphereCharge > 0 ? '+' : '-', leftLeafX, leftLeafY + 8 * scale);
+            ctx.fillText(state.sphereCharge > 0 ? '+' : '-', rightLeafX, rightLeafY + 8 * scale);
+        }
+
+        // Etichetta "Elettroscopio"
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = `500 ${Math.round(10 * scale)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Elettroscopio a Foglie', knobX, flaskTopY + jarHeight + 15 * scale);
+
+        ctx.restore();
+    }
+
+    function drawTestSphere() {
+        ctx.save();
+        const sp = state.spherePos;
+        const r = state.sphereRadius * scale;
+        const elec = getElectroscopePos();
+
+        // Manico Isolante
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 5 * scale;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(sp.x + r * 0.7, sp.y + r * 0.7);
+        ctx.lineTo(sp.x + 80 * scale, sp.y + 80 * scale);
+        ctx.stroke();
+
+        // Linee di Campo Elettrico tra Sfera ed Elettroscopio durante l'avvicinamento
+        const distSphereElec = Math.hypot(sp.x - elec.x, sp.y - elec.y);
+        if (distSphereElec < 180 * scale && Math.abs(state.sphereCharge) > 0.5) {
+            ctx.strokeStyle = state.sphereCharge > 0 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(59, 130, 246, 0.35)';
+            ctx.lineWidth = 1.5 * scale;
+            ctx.setLineDash([4 * scale, 4 * scale]);
+            
+            for (let angle = -0.4; angle <= 0.4; angle += 0.4) {
+                ctx.beginPath();
+                ctx.moveTo(sp.x, sp.y);
+                const midX = (sp.x + elec.x) / 2 + Math.sin(angle) * 20 * scale;
+                const midY = (sp.y + elec.y) / 2 + Math.cos(angle) * 20 * scale;
+                ctx.quadraticCurveTo(midX, midY, elec.x, elec.y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        // Aura Elettrostatica se carica
+        if (Math.abs(state.sphereCharge) > 0.2) {
+            const glowColor = state.sphereCharge > 0 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(59, 130, 246, 0.35)';
+            ctx.fillStyle = glowColor;
+            ctx.beginPath();
+            ctx.arc(sp.x, sp.y, r * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Sfera Metallica di Prova
+        const sphereGrad = ctx.createRadialGradient(sp.x - r * 0.3, sp.y - r * 0.3, r * 0.1, sp.x, sp.y, r);
+        sphereGrad.addColorStop(0, '#ffffff');
+        sphereGrad.addColorStop(0.5, '#94a3b8');
+        sphereGrad.addColorStop(1, '#334155');
+
+        ctx.fillStyle = sphereGrad;
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = state.sphereIsDragging ? '#38bdf8' : '#cbd5e1';
+        ctx.lineWidth = state.sphereIsDragging ? 3 * scale : 1.5 * scale;
+        ctx.stroke();
+
+        // Badge Numerico della Carica fluttuante sopra la Sfera
+        ctx.font = `600 ${Math.round(11 * scale)}px JetBrains Mono, monospace`;
+        ctx.textAlign = 'center';
+        const qFormatted = `${state.sphereCharge >= 0 ? '+' : ''}${state.sphereCharge.toFixed(1)} nC`;
+        
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = state.sphereCharge > 0.1 ? '#ef4444' : state.sphereCharge < -0.1 ? '#3b82f6' : '#64748b';
+        ctx.lineWidth = 1 * scale;
+        
+        const textWidth = ctx.measureText(qFormatted).width + 12 * scale;
+        ctx.beginPath();
+        drawRoundRect(ctx, sp.x - textWidth / 2, sp.y - r - 24 * scale, textWidth, 18 * scale, 5 * scale);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = state.sphereCharge > 0.1 ? '#f87171' : state.sphereCharge < -0.1 ? '#60a5fa' : '#94a3b8';
+        ctx.fillText(qFormatted, sp.x, sp.y - r - 11 * scale);
+
+        ctx.restore();
+    }
+
+    function drawSparks() {
+        if (state.sparks.length === 0) return;
+
+        ctx.save();
+        state.sparks.forEach(s => {
+            const alpha = s.life;
+            ctx.strokeStyle = `rgba(186, 230, 253, ${alpha})`;
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 12 * scale;
+            ctx.lineWidth = (2 + Math.random() * 2) * scale;
+
+            // Linea a zig-zag procedurale per l'arco elettrico
+            ctx.beginPath();
+            ctx.moveTo(s.p1.x, s.p1.y);
+
+            const steps = 8;
+            const dx = (s.p2.x - s.p1.x) / steps;
+            const dy = (s.p2.y - s.p1.y) / steps;
+
+            for (let i = 1; i < steps; i++) {
+                const nx = s.p1.x + dx * i + (Math.random() - 0.5) * 18 * scale;
+                const ny = s.p1.y + dy * i + (Math.random() - 0.5) * 18 * scale;
+                ctx.lineTo(nx, ny);
+            }
+
+            ctx.lineTo(s.p2.x, s.p2.y);
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    // MAIN RENDER LOOP
+    function render() {
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        const rDisk = 125 * scale;
+
+        drawBaseAndFrame(rDisk);
+        drawDisksAndSectors(rDisk);
+        drawNeutralizers(rDisk);
+        drawCollectorCombsAndElectrodes(rDisk);
+        drawLeydenJars(rDisk);
+        drawElectroscope();
+        drawTestSphere();
+        drawSparks();
+    }
+
+    function loop(now) {
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+
+        updatePhysics(dt);
+        render();
+
+        requestAnimationFrame(loop);
+    }
+
+    // GESTIONE EVENTI & INTERAZIONI UTENTE
+    function getCanvasCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    function handleStart(e) {
+        soundEngine.init();
+        const pos = getCanvasCoords(e);
+        const dist = Math.hypot(pos.x - state.spherePos.x, pos.y - state.spherePos.y);
+
+        if (dist < (state.sphereRadius + 15) * scale) {
+            state.sphereIsDragging = true;
+            state.dragOffset = {
+                x: pos.x - state.spherePos.x,
+                y: pos.y - state.spherePos.y
+            };
+        }
+    }
+
+    function handleMove(e) {
+        if (!state.sphereIsDragging) return;
+        const pos = getCanvasCoords(e);
+        state.spherePos.x = pos.x - state.dragOffset.x;
+        state.spherePos.y = pos.y - state.dragOffset.y;
+    }
+
+    function handleEnd() {
+        state.sphereIsDragging = false;
+    }
+
+    // Listeners Mouse & Touch
+    canvas.addEventListener('mousedown', handleStart);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+
+    canvas.addEventListener('touchstart', handleStart, { passive: true });
+    window.addEventListener('touchmove', handleMove, { passive: true });
+    window.addEventListener('touchend', handleEnd);
+
+    // BINDING CONTROLLI UI
+    document.getElementById('sliderSpeed').addEventListener('input', (e) => {
+        state.rpm = parseInt(e.target.value, 10);
+        document.getElementById('valSpeed').textContent = `${state.rpm} RPM`;
+    });
+
+    document.getElementById('sliderGap').addEventListener('input', (e) => {
+        state.gapDistance = parseFloat(e.target.value);
+        document.getElementById('valGap').textContent = `${state.gapDistance.toFixed(1)} cm`;
+    });
+
+    document.getElementById('sliderHumidity').addEventListener('input', (e) => {
+        state.humidity = parseInt(e.target.value, 10);
+        document.getElementById('valHumidity').textContent = `${state.humidity}%`;
+    });
+
+    document.getElementById('btnReverseDir').addEventListener('click', () => {
+        state.dir *= -1;
+    });
+
+    document.getElementById('btnToggleLeyden').addEventListener('click', () => {
+        state.leydenConnected = !state.leydenConnected;
+        document.getElementById('txtLeyden').textContent = `Bottiglie: ${state.leydenConnected ? 'ON' : 'OFF'}`;
+    });
+
+    document.getElementById('chkShowCharges').addEventListener('change', (e) => {
+        state.showCharges = e.target.checked;
+    });
+
+    // Azioni Elettrodi
+    document.getElementById('btnTouchPos').addEventListener('click', () => {
+        const electrodes = getElectrodePos();
+        state.spherePos = { x: electrodes.right.x, y: electrodes.right.y + 10 * scale };
+        state.sphereCharge += 8.0;
+        soundEngine.playSpark(0.6);
+    });
+
+    document.getElementById('btnTouchNeg').addEventListener('click', () => {
+        const electrodes = getElectrodePos();
+        state.spherePos = { x: electrodes.left.x, y: electrodes.left.y + 10 * scale };
+        state.sphereCharge -= 8.0;
+        soundEngine.playSpark(0.6);
+    });
+
+    document.getElementById('btnMoveToElectroscope').addEventListener('click', () => {
+        const elec = getElectroscopePos();
+        state.spherePos = { x: elec.x, y: elec.y - 35 * scale };
+    });
+
+    document.getElementById('btnAddPos').addEventListener('click', () => {
+        state.sphereCharge += 5.0;
+    });
+
+    document.getElementById('btnAddNeg').addEventListener('click', () => {
+        state.sphereCharge -= 5.0;
+    });
+
+    document.getElementById('btnResetSphere').addEventListener('click', () => {
+        state.sphereCharge = 0.0;
+    });
+
+    document.getElementById('btnGroundElectroscope').addEventListener('click', () => {
+        state.electroscopeCharge = 0.0;
+    });
+
+    document.getElementById('btnResetAll').addEventListener('click', () => {
+        state.rpm = 120;
+        state.gapDistance = 4.0;
+        state.humidity = 30;
+        state.dir = 1;
+        state.leydenConnected = true;
+        state.sphereCharge = 0;
+        state.electroscopeCharge = 0;
+        state.voltagePos = 0;
+        state.voltageNeg = 0;
+
+        document.getElementById('sliderSpeed').value = 120;
+        document.getElementById('valSpeed').textContent = '120 RPM';
+        document.getElementById('sliderGap').value = 4.0;
+        document.getElementById('valGap').textContent = '4.0 cm';
+        document.getElementById('sliderHumidity').value = 30;
+        document.getElementById('valHumidity').textContent = '30%';
+
+        resetSpherePosition();
+    });
+
+    // Modal Teoria
+    const modal = document.getElementById('theoryModal');
+    const openTheory = () => {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+    };
+    const closeTheory = () => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+    };
+
+    document.getElementById('btnOpenTheory').addEventListener('click', openTheory);
+    document.getElementById('btnCloseTheory').addEventListener('click', closeTheory);
+    document.getElementById('btnCloseTheoryBtn').addEventListener('click', closeTheory);
+
+    // Audio Toggle
+    document.getElementById('btnAudioToggle').addEventListener('click', () => {
+        soundEngine.muted = !soundEngine.muted;
+        document.getElementById('audioIcon').className = soundEngine.muted ? 
+            'fa-solid fa-volume-xmark text-red-400' : 'fa-solid fa-volume-high text-slate-400';
+    });
+
+    // Inizializzazione e Avvio Pulito
+    function initApp() {
+        resizeCanvas();
+        requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(initApp, 50);
+    } else {
+        window.addEventListener('DOMContentLoaded', initApp);
+        window.addEventListener('load', initApp);
+    }
+    </script>
+</body>
+</html>
