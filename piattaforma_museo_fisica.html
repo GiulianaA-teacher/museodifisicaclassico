@@ -34,7 +34,6 @@
 
 <main class="max-w-6xl mx-auto px-5 py-8">
 
-  <!-- Filter bar -->
   <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-8 shadow-sm flex flex-col md:flex-row md:items-end gap-4 md:gap-6">
     <div class="flex-1">
       <label class="block text-xs font-bold text-stone-600 mb-1">fisica classica o moderna</label>
@@ -85,7 +84,6 @@
 </footer>
 
 <script>
-// ============ ESPERIMENTI (riutilizzati e collegati agli armadi / sale del museo) ============
 const EXP = {
   pascal: { nome: "Apparecchio di Pascal", luogo: "Sala medica del Museo", link: "https://docs.google.com/document/d/1hWVqbqIfTODTo_hGf5_OdnDHMpWfmOli/edit?usp=sharing" },
   vasiComunicanti: { nome: "Tubi comunicanti", luogo: "Sala medica del Museo", link: "https://docs.google.com/document/d/1fXz2cOH33ffGj6OKHYKrMCx8U4AvBW5W83vHqGXFVDQ/edit?usp=sharing" },
@@ -109,17 +107,15 @@ const EXP = {
   elettroscopio: { nome: "Elettrostatica con elettroscopio a foglie d'oro", luogo: "Armadio D", link: "https://drive.google.com/drive/folders/1UBe7agd4g0GVxbO6ZPQoTLrVLpRvlUNp?usp=sharing" }
 };
 
-// ============ BANCA ESERCIZI ============
-// Ogni esercizio: materia (classica), ambito (professionale, opzionale), esperimento associato
 const questionsData = [
-  // --- Dal quiz originale, riclassificati con ambito ed esperimento ---
+  // --- Esercizi preesistenti ---
   { id: "archimede", materia: "Meccanica dei Fluidi", ambito: "medico", title: "Spinta di Archimede", text: "A cosa è dovuta la spinta di Archimede esercitata su un corpo immerso in un fluido in quiete?", options: ["A) All'aumento della temperatura del fluido", "B) Alla differenza di pressione esercitata dal liquido sulla superficie superiore ed inferiore dell'oggetto", "C) Alla forza di attrito viscoso del fluido", "D) Alla sola massa del liquido spostato senza gravità"], correct: "B", expl: "La pressione idrostatica aumenta con la profondità ($P = \\rho g h$). La superficie inferiore del corpo subisce una pressione maggiore, generando una spinta netta verso l'alto pari al peso del fluido spostato ($F_A = \\rho V g$).", esperimento: EXP.pascal },
   { id: 14, materia: "Meccanica dei Fluidi", ambito: "medico", title: "Legge di Stevino", text: "Secondo la legge di Stevino, la pressione idrostatica esercitata da un fluido in quiete:", options: ["A) Dipende dal volume totale del recipiente", "B) Aumenta linearmente con la profondità $h$ e la densità $\\rho$", "C) È inversamente proporzionale all'accelerazione di gravità", "D) È indipendente dalla gravità"], correct: "B", expl: "La Legge di Stevino stabilisce che $P = P_0 + \\rho g h$ — la stessa formula usata per i Tubi comunicanti e per calcolare la pressione della sacca di una flebo.", esperimento: EXP.vasiComunicanti },
   { id: 15, materia: "Meccanica dei Fluidi", ambito: null, title: "Equazione di Continuità", text: "L'equazione di continuità per un fluido incomprimibile in regime stazionario stabilisce che:", options: ["A) La velocità del fluido è costante ovunque", "B) La portata volumetrica $Q = A \\cdot v$ si mantiene costante lungo il condotto", "C) La pressione aumenta dove il tubo si stringe", "D) La densità del fluido varia con la sezione"], correct: "B", expl: "Per un fluido incomprimibile la massa si conserva: $Q = A_1 v_1 = A_2 v_2 = \\text{costante}$.", esperimento: EXP.vasiComunicanti },
   { id: 16, materia: "Meccanica dei Fluidi", ambito: null, title: "Principio di Bernoulli", text: "Secondo il principio di Bernoulli per un fluido ideale in condotto orizzontale, dove la velocità aumenta:", options: ["A) La pressione statica diminuisce", "B) La pressione statica aumenta", "C) La densità raddoppia", "D) La temperatura crolla a zero"], correct: "A", expl: "$P + \\frac{1}{2}\\rho v^2 + \\rho g h = \\text{cost}$: in un condotto orizzontale, un aumento di $v$ comporta una riduzione di $P$ (effetto Venturi).", esperimento: EXP.vasiComunicanti },
-  { id: "ferro_sughero", materia: "Meccanica dei Fluidi", ambito: null, title: "Archimede: ferro vs sughero", text: "Si immergono completamente in acqua un pezzo di ferro e un pezzo di sughero della stessa forma e volume. Indicata con $S_{A} la spinta di Archimede e $F_{p} la forza peso, quale affermazione è corretta?", options: ["A) Il momento delle forze da applicare al pezzo di sughero è maggiore", "B) $S_{A,ferro} < S_{A,sughero}$, per questo il ferro affonda", "C) $S_{A,ferro} = S_{A,sughero}$", "D) $S_{A,ferro}=F_{p,ferro}$, $S_{A,sughero}=F_{p,sughero}$", "E) $S_{A,ferro}>F_{p,ferro}$"], correct: "C", expl: "La spinta di Archimede dipende solo dal volume spostato, non dal materiale: $S_{A,ferro} = S_{A,sughero}$. Il ferro affonda perché il suo peso supera la spinta.", esperimento: EXP.pascal },
+  { id: "ferro_sughero", materia: "Meccanica dei Fluidi", ambito: null, title: "Archimede: ferro vs sughero", text: "Si immergono completamente in acqua un pezzo di ferro e un pezzo di sughero della stessa forma e volume. Indicata con $S_{A}$ la spinta di Archimede e $F_{p}$ la forza peso, quale affermazione è corretta?", options: ["A) Il momento delle forze da applicare al pezzo di sughero è maggiore", "B) $S_{A,ferro} < S_{A,sughero}$, per questo il ferro affonda", "C) $S_{A,ferro} = S_{A,sughero}$", "D) $S_{A,ferro}=F_{p,ferro}$, $S_{A,sughero}=F_{p,sughero}$", "E) $S_{A,ferro}>F_{p,ferro}$"], correct: "C", expl: "La spinta di Archimede dipende solo dal volume spostato, non dal materiale: $S_{A,ferro} = S_{A,sughero}$. Il ferro affonda perché il suo peso supera la spinta.", esperimento: EXP.pascal },
   { id: "zattera_percentuale", materia: "Meccanica dei Fluidi", ambito: null, title: "Galleggiamento: zattera in Legno", text: "Una zattera di legno (densità $0,8\\text{ g/cm}^3$), base quadrata di lato $4\\text{ m}$ e altezza $50\\text{ cm}$, galleggia sull'acqua. Quale percentuale dell'altezza è immersa?", options: ["A) 10%", "B) 80%", "C) 50%", "D) Nessuna delle risposte è corretta", "E) 20%"], correct: "B", expl: "$\\frac{V_{immerso}}{V_{tot}} = \\frac{\\rho_{legno}}{\\rho_{acqua}} = 0,8 \\Rightarrow$ l'80% dell'altezza è immersa.", esperimento: EXP.pascal },
-  { id: "zattera_bonus", materia: "Meccanica dei Fluidi", ambito: null, title: "Carico massimo della zattera", text: "una zattera di legno (densità $800\\text{ kg/m}^3$, $4\\text{ m}\\times4\\text{ m}\\times0,5\\text{ m}$) che ha base quadrata di lato $4\\text{ m}$ e altezza $50\\text{ cm}$, galleggia sull'acqua (densità $1000\\text{ kg/m}^3$). Qual è il massimo peso con cui si può caricare la zattera senza che affondi? (in N)?", options: ["A) 8000 N", "B) 16000 N", "C) 32000 N", "D) 64000 N"], correct: "B", expl: "$S_{A,max}=1000\\cdot8\\cdot10=80000\\text{ N}$; $F_{p,zattera}=800\\cdot8\\cdot10=64000\\text{ N}$; carico max $=80000-64000=16000\\text{ N}$.", esperimento: EXP.pascal },
+  { id: "zattera_bonus", materia: "Meccanica dei Fluidi", ambito: null, title: "Carico massimo della zattera", text: "Una zattera di legno (densità $800\\text{ kg/m}^3$, $4\\text{ m}\\times4\\text{ m}\\times0,5\\text{ m}$) che ha base quadrata di lato $4\\text{ m}$ e altezza $50\\text{ cm}$, galleggia sull'acqua (densità $1000\\text{ kg/m}^3$). Qual è il massimo peso con cui si può caricare la zattera senza che affondi? (in N)?", options: ["A) 8000 N", "B) 16000 N", "C) 32000 N", "D) 64000 N"], correct: "B", expl: "$S_{A,max}=1000\\cdot8\\cdot10=80000\\text{ N}$; $F_{p,zattera}=800\\cdot8\\cdot10=64000\\text{ N}$; carico max $=80000-64000=16000\\text{ N}$.", esperimento: EXP.pascal },
   { id: 9, materia: "Termodinamica", ambito: null, title: "Isoterma di Boyle", text: "In un recipiente di $40\\text{ mm}^3$ c'è un gas perfetto a $3\\text{ atm}$ ($T=\\text{cost}$). Riducendo la pressione a $1\\text{ atm}$, il volume sarà:", options: ["A) $20\\text{ mm}^3$", "B) $120\\text{ mm}^3$", "C) $1,2\\text{ mm}^3$", "D) $10,2\\text{ mm}^3$"], correct: "B", expl: "Legge di Boyle: $P_1V_1=P_2V_2 \\Rightarrow 3\\cdot40=1\\cdot V_2 \\Rightarrow V_2=120\\text{ mm}^3$.", esperimento: EXP.boyle },
   { id: "3chem", materia: "Chimica Nucleare", ambito: null, title: "Decadimento Torio", text: "Nel decadimento alfa del torio: $^{232}_{90}\\text{Th} \\rightarrow {}^{A}_{Z}\\text{Ra} + {}^{4}_{2}\\text{He}$, quanto valgono $A$ e $Z$?", options: ["A) $A=232, Z=90$", "B) $A=228, Z=88$", "C) $A=228, Z=90$", "D) $A=232, Z=88$"], correct: "B", expl: "$A=232-4=228$; $Z=90-2=88$.", esperimento: EXP.fisicaModerna },
   { id: 11, materia: "Meccanica", ambito: null, title: "Energia Cinetica", text: "L'unità di misura dell'Energia Cinetica nel Sistema Internazionale è:", options: ["A) $\\text{kg}/\\text{s}^2$", "B) Watt", "C) Joule", "D) Newton"], correct: "C", expl: "$1\\text{ Joule}=1\\text{ kg}\\cdot\\text{m}^2/\\text{s}^2$.", esperimento: EXP.meccanicaA },
@@ -128,29 +124,330 @@ const questionsData = [
   { id: 8, materia: "Termodinamica", ambito: null, title: "Trasformazione Isocora", text: "Un gas è contenuto in un recipiente alla temperatura iniziale $T_1=2\\text{ K}$. Il recipiente viene riscaldato e il gas arriva a temperatura $T_2=4\\text{ K}$ mentre il suo volume resta costante. La pressione:", options: ["A) Resta costante", "B) Quadruplica", "C) Raddoppia", "D) Dimezza"], correct: "C", expl: "Seconda legge di Gay-Lussac: $\\frac{P_1}{T_1}=\\frac{P_2}{T_2}$.", esperimento: EXP.boyle },
   { id: 3, materia: "Elettrostatica", ambito: "elettro", title: "Legge di Coulomb", text: "La forza elettrica $F_e$ è inversamente proporzionale al quadrato della:", options: ["A) carica", "B) massa", "C) distanza", "D) costante dielettrica"], correct: "C", expl: "$F_e = k_0 \\frac{|q_1 q_2|}{r^2}$ — la stessa legge usata per gli Emisferi elettrostatici del museo.", esperimento: EXP.emisferi },
   { id: 6, materia: "Fisiologia", ambito: "medico", title: "Ritorno Venoso", text: "Grazie a quale struttura il sangue riesce a vincere la forza di gravità e a fluire regolarmente anche nella parte superiore del corpo?", options: ["A) cuore", "B) pompa muscolare", "C) valvole venose", "D) tutte le precedenti"], correct: "D", expl: "L'azione coordinata di pompa muscolare, valvole e aspirazione toracica garantisce il ritorno del sangue: la stessa fisica idrostatica dei Tubi comunicanti.", esperimento: EXP.vasiComunicanti },
-
-  // --- Nuovi esercizi: ambito medico (Röntgen, Stereoscopio) ---
   { id: "rontgen1", materia: "Fisica Moderna", ambito: "medico", title: "Assorbimento dei raggi X", text: "Cosa determina principalmente il diverso annerimento di una lastra radiografica nei diversi tessuti del corpo?", options: ["A) La temperatura del tessuto", "B) Il diverso assorbimento della radiazione X in base alla densità del tessuto", "C) Il colore naturale del tessuto", "D) La velocità del paziente durante la scansione"], correct: "B", expl: "$I = I_0 \\cdot e^{-\\mu x}$: tessuti più densi (osso) assorbono più radiazione di quelli meno densi (tessuti molli), creando il contrasto dell'immagine.", esperimento: EXP.rontgen },
   { id: "stereo1", materia: "Ottica", ambito: "medico", title: "Parallasse nell'endoscopio 3D", text: "Un endoscopio ha le due telecamere separate da $b=4\\text{ mm}$ e osserva un tessuto a $D=20\\text{ mm}$. Usando $\\theta \\approx b/D$, quanto vale l'angolo di parallasse?", options: ["A) $0,2\\text{ rad}$", "B) $2\\text{ rad}$", "C) $0,02\\text{ rad}$", "D) $5\\text{ rad}$"], correct: "A", expl: "$\\theta = b/D = 4/20 = 0,2\\text{ rad}$.", esperimento: EXP.stereoscopio },
-
-  // --- Nuovi esercizi: ambito ingegneristico ---
   { id: "torchio1", materia: "Meccanica", ambito: "ingegneristico", title: "Torchio idraulico", text: "In un torchio idraulico il pistone piccolo ha area $5\\text{ cm}^2$, quello grande $50\\text{ cm}^2$. Applicando $20\\text{ N}$ sul pistone piccolo, quale forza si ottiene sul pistone grande?", options: ["A) $20\\text{ N}$", "B) $200\\text{ N}$", "C) $2\\text{ N}$", "D) $2000\\text{ N}$"], correct: "B", expl: "$F_1/A_1=F_2/A_2 \\Rightarrow F_2 = F_1 \\cdot (A_2/A_1) = 20 \\cdot 10 = 200\\text{ N}$.", esperimento: EXP.torchio },
   { id: "watt1", materia: "Meccanica", ambito: "ingegneristico", title: "Regolatore di Watt", text: "Nel regolatore centrifugo di Watt, se la velocità angolare $\\omega$ delle masse raddoppia (a parità di massa e raggio), la forza centrifuga:", options: ["A) Raddoppia", "B) Quadruplica", "C) Dimezza", "D) Resta uguale"], correct: "B", expl: "$F_c = m\\omega^2r$: raddoppiando $\\omega$, $F_c$ aumenta di un fattore $2^2=4$.", esperimento: EXP.regolatoreWatt },
   { id: "manometro1", materia: "Meccanica", ambito: "ingegneristico", title: "Manometro metallico", text: "Un manometro misura $4\\text{ bar}$ ($1\\text{ bar}=10^5\\text{ Pa}$) su una superficie del tubo di Bourdon di $2\\text{ cm}^2$. Qual è la forza corrispondente (in N)?", options: ["A) $8\\text{ N}$", "B) $80\\text{ N}$", "C) $800\\text{ N}$", "D) $0,8\\text{ N}$"], correct: "B", expl: "$F = P \\cdot A = 4\\times10^5\\text{ Pa} \\cdot 2\\times10^{-4}\\text{ m}^2 = 80\\text{ N}$.", esperimento: EXP.manometro },
   { id: "varignon1", materia: "Meccanica", ambito: "ingegneristico", title: "Tavolino di Varignon", text: "Tre forze concorrenti in un punto sono in equilibrio. Due di esse, $3\\text{ N}$ e $4\\text{ N}$, sono perpendicolari. Quanto deve valere la terza forza per l'equilibrio?", options: ["A) $5\\text{ N}$", "B) $7\\text{ N}$", "C) $1\\text{ N}$", "D) $12\\text{ N}$"], correct: "A", expl: "La risultante delle prime due è $\\sqrt{3^2+4^2}=5\\text{ N}$ (Pitagora); la terza forza deve avere lo stesso modulo, in direzione opposta.", esperimento: EXP.varignon },
-
-  // --- Nuovi esercizi: ambito filosofico-naturale ---
-  { id: "cono1", materia: "Meccanica", ambito: "filosofico", title: "Il paradosso del doppio cono", text: "Nel doppio cono su piano inclinato che sembra risalire, cosa succede realmente all'altezza del baricentro durante il moto?", options: ["A) Sale", "B) Scende", "C) Resta costante", "D) Oscilla"], correct: "B", expl: "Il moto avviene sempre nel verso che fa diminuire l'energia potenziale $U=mgh$: il baricentro scende, anche se il cono sembra salire.", esperimento: EXP.doppioCono },
+  { id: "cono1", materia: "Meccanica", ambito: "filosofico", title: "Il paradosso del doppio cono", text: "Nel doppio cono su piano inclinato che sembra risalire, cosa succede réellement all'altezza del baricentro durante il moto?", options: ["A) Sale", "B) Scende", "C) Resta costante", "D) Oscilla"], correct: "B", expl: "Il moto avviene sempre nel verso che fa diminuire l'energia potenziale $U=mgh$: il baricentro scende, anche se il cono sembra salire.", esperimento: EXP.doppioCono },
   { id: "pitagora1", materia: "Meccanica dei Fluidi", ambito: "filosofico", title: "La Coppa di Pitagora", text: "Quale principio fisico spiega perché la Coppa di Pitagora si svuota improvvisamente superata una certa soglia di riempimento?", options: ["A) Capillarità", "B) Effetto sifone", "C) Tensione superficiale", "D) Pressione atmosferica costante"], correct: "B", expl: "Superata la quota critica si forma un tubo a U interno che, per la differenza di pressione $P=\\rho gh$ tra i due rami, svuota l'intera coppa per sifone.", esperimento: EXP.coppaPitagora },
   { id: "foucault1", materia: "Meccanica", ambito: "filosofico", title: "Pendolo di Foucault a Parigi", text: "A Parigi (latitudine $\\varphi \\approx 49°$), usando $T = 24\\text{h}/\\sin(\\varphi)$, quanto vale approssimativamente il periodo di rotazione apparente del piano di oscillazione?", options: ["A) $\\approx 24\\text{ h}$", "B) $\\approx 31,8\\text{ h}$", "C) $\\approx 48\\text{ h}$", "D) $\\approx 12\\text{ h}$"], correct: "B", expl: "$\\sin(49°) \\approx 0,755 \\Rightarrow T \\approx 24/0,755 \\approx 31,8\\text{ h}$.", esperimento: EXP.foucault },
   { id: "giroscopio1", materia: "Meccanica", ambito: "filosofico", title: "Perché il giroscopio resiste", text: "Perché un giroscopio in rotazione resiste a cambiare l'orientamento del proprio asse quando gli si applica una forza laterale?", options: ["A) Per attrito interno", "B) Per conservazione del momento angolare", "C) Per la forza di Coriolis", "D) Per inerzia termica"], correct: "B", expl: "$L = I\\omega$ si conserva in assenza di momenti torcenti esterni sufficienti: il sistema resiste al cambiamento di orientamento dell'asse di rotazione.", esperimento: EXP.giroscopio },
-
-  // --- Nuovo esercizio: ambito elettromagnetismo/acustica ---
   { id: "arganetto1", materia: "Elettrostatica", ambito: "elettro", title: "L'arganetto elettrico", text: "Perché l'arganetto elettrico carico si mette in rotazione senza alcun contatto meccanico esterno?", options: ["A) Per attrito con l'aria", "B) Per la spinta di reazione degli ioni espulsi dalle punte cariche", "C) Per il vento reale nella stanza", "D) Per il campo magnetico terrestre"], correct: "B", expl: "Il campo elettrico si concentra enormemente sulle punte ($E=kq/r^2$), ionizzando l'aria; gli ioni espulsi generano, per reazione ($F=dp/dt$), la spinta che fa ruotare l'arganetto.", esperimento: EXP.arganetto },
-  { id: "sonometro1", materia: "Acustica", ambito: "elettro", title: "Il sonometro", text: "Raddoppiando la tensione $T$ di una corda del sonometro (a parità di lunghezza $L$ e massa lineare $\\mu$), la frequenza fondamentale $f=(1/2L)\\sqrt{T/\\mu}$:", options: ["A) Raddoppia", "B) Aumenta di un fattore $\\sqrt{2}$", "C) Resta uguale", "D) Dimezza"], correct: "B", expl: "$f \\propto \\sqrt{T}$: raddoppiando $T$, $f$ aumenta di un fattore $\\sqrt{2} \\approx 1,41$.", esperimento: EXP.sonometro }
+  { id: "sonometro1", materia: "Acustica", ambito: "elettro", title: "Il sonometro", text: "Raddoppiando la tensione $T$ di una corda del sonometro (a parità di lunghezza $L$ e massa lineare $\\mu$), la frequenza fondamentale $f=(1/2L)\\sqrt{T/\\mu}$:", options: ["A) Raddoppia", "B) Aumenta di un fattore $\\sqrt{2}$", "C) Resta uguale", "D) Dimezza"], correct: "B", expl: "$f \\propto \\sqrt{T}$: raddoppiando $T$, $f$ aumenta di un fattore $\\sqrt{2} \\approx 1,41$.", esperimento: EXP.sonometro },
+
+  // --- Nuovi Esercizi (Estratti dagli screenshot del Test) ---
+  {
+    id: "tb_dim_forza",
+    materia: "Meccanica",
+    ambito: "ingegneristico",
+    title: "Analisi dimensionale della Forza",
+    text: "Indicando con $[M]$ una quantità che ha le dimensioni di una massa, con $[L]$ una quantità che ha le dimensioni di una lunghezza e con $[T]$ una quantità che ha le dimensioni di un tempo, che dimensioni ha una forza?",
+    options: ["A) [M][L][T]⁻¹", "B) [M][L][T]", "C) [M][L][T]⁻²", "D) [L][T]⁻²", "E) [M][L]²[T]⁻²"],
+    correct: "C",
+    expl: "La forza è data dalla seconda legge della dinamica $F = m \\cdot a = m \\cdot (v/t) = m \\cdot (l/t^2)$. Di conseguenza si esprime la forza come $[M][L][T]^{-2}$.",
+    esperimento: EXP.meccanicaA
+  },
+  {
+    id: "tb_carnot",
+    materia: "Termodinamica",
+    ambito: "ingegneristico",
+    title: "Rendimento del ciclo di Carnot",
+    text: "Dette rispettivamente $T_1$ e $T_2$ la temperatura della sorgente fredda e della sorgente calda, in un ciclo di Carnot il rendimento:",
+    options: ["A) vale $1 - \\frac{T_1}{T_2}$, con le temperature espresse in K", "B) vale $1 - \\frac{T_2}{T_1}$, con le temperature espresse in K", "C) vale $1 - \\frac{T_1}{T_2}$, con $T_1$ e $T_2$ espresse in gradi centigradi", "D) è un numero negativo", "E) è maggiore di 1"],
+    correct: "A",
+    expl: "Il rendimento della macchina di Carnot si calcola con la formula $1 - \\frac{T_1}{T_2}$, dove $T_1$ e $T_2$ sono le temperature assolute espresse in Kelvin ($K$). Le temperature non vanno mai espresse in °C ed il valore del rendimento è compreso tra 0 e 1.",
+    esperimento: EXP.boyle
+  },
+  {
+    id: "tb_teoria_cinetica",
+    materia: "Termodinamica",
+    ambito: "medico",
+    title: "Teoria Cinetica dei Gas: Temperatura ed Energia Cinetica",
+    text: "Secondo la teoria cinetica dei gas, se la temperatura delle molecole di un gas triplica allora:",
+    options: ["A) L'energia cinetica media delle molecole raddoppia", "B) L'energia cinetica media delle molecole triplica", "C) Non è possibile rispondere se non si conosce la temperatura iniziale del gas", "D) L'energia cinetica media delle molecole diventa 9 volte maggiore di quella iniziale", "E) Non è possibile rispondere se non si conosce le pressioni iniziale e finale del gas"],
+    correct: "B",
+    expl: "L'energia cinetica media delle molecole di un gas è $K = \\frac{3}{2} k_b T$. Se la temperatura delle molecole triplica, anche l'energia cinetica media triplica poiché sono direttamente proporzionali.",
+    esperimento: EXP.boyle
+  },
+  {
+    id: "tb_onde_em",
+    materia: "Fisica Moderna",
+    ambito: "elettro",
+    title: "Velocità di propagazione delle onde elettromagnetiche",
+    text: "La velocità di propagazione delle onde e.m.:",
+    options: ["A) dipende dalla frequenza dell'onda", "B) è costante", "C) dipende dall'indice di rifrazione del mezzo in cui viaggiano", "D) nessuna delle risposte precedenti è corretta", "E) $350.209\\text{ km/s}$"],
+    correct: "C",
+    expl: "La velocità di propagazione $v$ di un'onda elettromagnetica in un mezzo materiale è espressa da $v = c / n$, dove $n$ è l'indice di rifrazione del mezzo attraversato.",
+    esperimento: EXP.rontgen
+  },
+  {
+    id: "tb_ddp_conduttore",
+    materia: "Elettrostatica",
+    ambito: "medico",
+    title: "Potenziale elettrico di un conduttore",
+    text: "Qual è la differenza di potenziale (o il potenziale generato) tra due punti all'interno di un conduttore isolato caricato con carica di $10\\text{ nC}$ e capacità di $5\\text{ nF}$?",
+    options: ["A) $0\\text{ V}$", "B) $10\\text{ mV}$", "C) $2\\text{ V}$", "D) $2\\text{ mV}$", "E) $50\\text{ mV}$"],
+    correct: "C",
+    expl: "La capacità di un conduttore è legata alla carica e al potenziale dalla formula $C = Q / V$. Di conseguenza $V = Q / C = 10\\text{ nC} / 5\\text{ nF} = 2\\text{ V}$.",
+    esperimento: EXP.emisferi
+  },
+  {
+    id: "tb_fluido_incompressibile",
+    materia: "Meccanica dei Fluidi",
+    ambito: "medico",
+    title: "Definizione di fluido incompressibile",
+    text: "Un fluido si definisce incompressibile:",
+    options: ["A) Quando al suo interno, a parità di altezza, la pressione non dipende dalla posizione", "B) Quando per esso vale il principio di conservazione dell'energia cinetica", "C) Quando la sua densità rimane costante anche se sottoposto a variazioni di pressione", "D) Quando la sua densità non dipende dalla temperatura", "E) Quando il suo coefficiente di viscosità è trascurabile"],
+    correct: "C",
+    expl: "Si definisce incompressibile (o inopprimibile) un fluido che, se sottoposto a variazioni di pressione, non modifica la propria densità $\\rho$ né il suo volume (come l'acqua in prima approssimazione).",
+    esperimento: EXP.pascal
+  },
+  {
+    id: "tb_moto_circolare",
+    materia: "Meccanica",
+    ambito: "ingegneristico",
+    title: "Caratteristiche del Moto Circolare Uniforme",
+    text: "Il moto di un punto materiale in cui sono costanti la curvatura della traiettoria e la velocità scalare è un moto:",
+    options: ["A) uniformemente accelerato", "B) elicoidale", "C) quesito senza soluzione univoca o corretta", "D) armonico", "E) circolare uniforme"],
+    correct: "E",
+    expl: "Una curvatura costante indica che la traiettoria è una circonferenza di raggio $R$; se anche la velocità scalare è costante, il moto è per definizione circolare uniforme.",
+    esperimento: EXP.regolatoreWatt
+  },
+  {
+    id: "tb_indice_rifrazione",
+    materia: "Ottica",
+    ambito: "elettro",
+    title: "Indice di rifrazione, costante dielettrica e permeabilità",
+    text: "L'indice di rifrazione di un mezzo dipende dalla sua costante dielettrica $\\epsilon$ e dalla sua permeabilità magnetica $\\mu$, secondo la legge:",
+    options: ["A) $n = 1/\\sqrt{\\epsilon \\mu}$", "B) $n = 1/\\epsilon \\mu$", "C) $n = \\sqrt{\\epsilon \\mu}$", "D) $n = \\epsilon / \\mu$", "E) $n = \\epsilon \\mu$"],
+    correct: "C",
+    expl: "L'indice di rifrazione relativo di un mezzo trasparente è dato dalle equazioni di Maxwell come $n = \\sqrt{\\epsilon_r \\mu_r}$ (proporzionale alla radice del prodotto della costante dielettrica e della permeabilità magnetica relative).",
+    esperimento: EXP.emisferi
+  },
+  {
+    id: "tb_molla_k",
+    materia: "Meccanica",
+    ambito: "ingegneristico",
+    title: "Costante elastica dell'oscillatore massa-molla",
+    text: "A una molla orizzontale (di massa trascurabile) è attaccato un cubetto di legno di massa $m = 7\\text{ kg}$ che oscilla con un periodo di $T = \\frac{\\pi}{3}\\text{ secondi}$. Quanto vale il coefficiente $k$ della molla in unità SI?",
+    options: ["A) $252\\pi$", "B) $4$", "C) $28$", "D) $126$", "E) $252$"],
+    correct: "E",
+    expl: "Il periodo di un oscillatore armonico è $T = 2\\pi \\sqrt{\\frac{m}{k}}$. Invertendo la formula otteniamo $k = \\frac{m}{(T/2\\pi)^2}$. Sostituendo $m = 7\\text{ kg}$ e $T = \\frac{\\pi}{3}\\text{ s}$ si ottiene $k = 7 / \\left(\\frac{\\pi/3}{2\\pi}\\right)^2 = 7 / \\left(\\frac{1}{6}\\right)^2 = 7 \\cdot 36 = 252\\text{ N/m}$.",
+    esperimento: EXP.meccanicaA
+  },
+  {
+    id: "tb_multipli_sottomultipli",
+    materia: "Meccanica",
+    ambito: "medico",
+    title: "Conversione di unità di misura e sottomultipli",
+    text: "Facendo uso dei multipli e dei sottomultipli, si può affermare che:",
+    options: ["A) $10^{-9}\\text{ km} = 1\\text{ dm}$", "B) $10^{-9}\\text{ km} = 1\\text{ }\\mu\\text{m}$", "C) $10^{-9}\\text{ km} = 1\\text{ nm}$", "D) $10^{-9}\\text{ km} = 1\\text{ mm}$", "E) $10^{-9}\\text{ km} = 1\\text{ cm}$"],
+    correct: "B",
+    expl: "Poiché $1\\text{ km} = 10^3\\text{ m}$, risulta $10^{-9}\\text{ km} = 10^{-9} \\times 10^3\\text{ m} = 10^{-6}\\text{ m}$. $1\\text{ micrometro } (\\mu\\text{m})$ equivale a $10^{-6}\\text{ m}$, quindi $10^{-9}\\text{ km} = 1\\text{ }\\mu\\text{m}$.",
+    esperimento: EXP.meccanicaA
+  },
+  {
+    id: "tb_onda_massa",
+    materia: "Acustica",
+    ambito: "elettro",
+    title: "Propagazione delle onde acustiche",
+    text: "Quale di queste quantità fisiche NON viene trasportata da un'onda acustica che si propaga in un mezzo materiale?",
+    options: ["A) Energia", "B) Quantità di moto", "C) Potenza", "D) Informazione", "E) Massa"],
+    correct: "E",
+    expl: "Le onde acustiche non trasportano massa. Sebbene le particelle del mezzo vibrino attorno alla posizione di equilibrio durante la propagazione dell'onda, esse non subiscono un movimento di traslazione permanente.",
+    esperimento: EXP.sonometro
+  },
+  {
+    id: "tb_poiseuille_r_l",
+    materia: "Meccanica dei Fluidi",
+    ambito: "medico",
+    title: "Legge di Poiseuille in un condotto",
+    text: "Un condotto cilindrico orizzontale di raggio $R$ e lunghezza $L$ è percorso da un fluido viscoso con portata $Q$. In queste condizioni si misura una caduta di pressione $\\Delta P$. Se, a parità delle altre condizioni, vengono raddoppiati sia il raggio che la lunghezza del condotto, la nuova $\\Delta P$:",
+    options: ["A) Diventa un quarto", "B) Resta invariata", "C) Diventa un ottavo", "D) Diventa il doppio", "E) Diventa il quadruplo"],
+    correct: "C",
+    expl: "Dalla legge di Poiseuille $\\Delta P = \\frac{8 \\mu L Q}{\\pi R^4}$, la caduta di pressione è direttamente proporzionale a $L$ e inversamente proporzionale a $R^4$. Raddoppiando sia $L$ che $R$: $\\Delta P' = \\frac{2 \\cdot L}{(2R)^4} \\Delta P = \\frac{2}{16} \\Delta P = \\frac{1}{8} \\Delta P$.",
+    esperimento: EXP.vasiComunicanti
+  },
+  {
+    id: "tb_potenza_elettrodomestici",
+    materia: "Elettromagnetismo",
+    ambito: "ingegneristico",
+    title: "Assorbimento di corrente negli elettrodomestici",
+    text: "Le potenze di alcuni elettrodomestici sono: ferro da stiro ($1\\text{ kW}$), televisore ($150\\text{ W}$), lavatrice ($2,5\\text{ kW}$), forno elettrico ($1500\\text{ W}$). Se collegati alla rete domestica ($220\\text{ V}$), quale è attraversato dalla corrente di intensità maggiore?",
+    options: ["A) Il televisore", "B) Il forno elettrico", "C) Tutti dalla stessa corrente", "D) Il ferro da stiro", "E) La lavatrice"],
+    correct: "E",
+    expl: "La corrente assorbita è data dalla prima legge della potenza elettrica $I = P / V$. A parità di tensione di rete ($220\\text{ V}$), l'elettrodomestico con la potenza più elevata ($P = 2,5\\text{ kW} = 2500\\text{ W}$) assorbe la corrente maggiore ($I \\approx 11,36\\text{ A}$).",
+    esperimento: EXP.arganetto
+  },
+  {
+    id: "tb_pendolo_smorzato",
+    materia: "Meccanica",
+    ambito: "filosofico",
+    title: "Smorzamento delle oscillazioni del pendolo",
+    text: "Quando un pendolo viene sollecitato comincia ad oscillare, ma le sue oscillazioni si smorzano rapidamente al cessare della sollecitazione. Ciò avviene perché sul pendolo agiscono forze di tipo:",
+    options: ["A) conservativo", "B) resistivo / dissipativo", "C) apparente", "D) elettrostatico"],
+    correct: "B",
+    expl: "Le oscillazioni si smorzano a causa delle forze resistive (come l'attrito con l'aria e nel perno) che dissipano l'energia meccanica convertendola in calore.",
+    esperimento: EXP.foucault
+  },
+  {
+    id: "tb_campo_em_ortogonale",
+    materia: "Elettromagnetismo",
+    ambito: "elettro",
+    title: "Vettori del campo elettromagnetico",
+    text: "Una carica elettrica in movimento genera un campo elettromagnetico in cui i vettori campo elettrico e campo magnetico sono sempre:",
+    options: ["A) paralleli", "B) ortogonali (perpendicolari)", "C) opposti in verso", "D) indipendenti"],
+    correct: "B",
+    expl: "Per le equazioni di Maxwell e la natura delle onde elettromagnetiche trasversali, il vettore campo elettrico $\\vec{E}$ e il vettore campo magnetico $\\vec{B}$ sono sempre ortogonali tra loro e alla direzione di propagazione.",
+    esperimento: EXP.emisferi
+  },
+  {
+    id: "tb_isocora_calore",
+    materia: "Termodinamica",
+    ambito: "ingegneristico",
+    title: "Variazione di energia interna in una trasformazione Isocora",
+    text: "In una trasformazione isocora di un gas perfetto, la variazione di energia interna $\\Delta U$ coincide con:",
+    options: ["A) il lavoro meccanico compiuto", "B) il calore scambiato $Q$", "C) la variazione di volume $\\Delta V$", "D) la pressione del gas"],
+    correct: "B",
+    expl: "In una trasformazione isocora il volume è costante ($\Delta V = 0$), quindi il lavoro $W = P \\Delta V = 0$. Per il primo principio della termodinamica ($\Delta U = Q - W$), la variazione di energia interna coincide integralmente col calore scambiato: $\\Delta U = Q$.",
+    esperimento: EXP.boyle
+  },
+  {
+    id: "tb_lente_convergente",
+    materia: "Ottica",
+    ambito: "medico",
+    title: "Formazione dell'immagine in una lente convergente",
+    text: "Se un oggetto è posto tra il centro e il fuoco di una lente convergente, l'immagine ottenuta sarà:",
+    options: ["A) reale, capovolta e ingrandita", "B) virtuale, diritta e ingrandita", "C) reale, diritta e rimpicciolita", "D) virtuale, capovolta e rimpicciolita"],
+    correct: "A",
+    expl: "Posizionando un oggetto tra il fuoco $F$ e il doppio della distanza focale (centro $2F$) di una lente sottile convergente, i raggi rifratti convergono sul lato opposto formando un'immagine reale, capovolta e ingrandita.",
+    esperimento: EXP.stereoscopio
+  },
+  {
+    id: "tb_legge_ohm_resistenza",
+    materia: "Elettromagnetismo",
+    ambito: "elettro",
+    title: "Prima legge di Ohm",
+    text: "La legge che stabilisce che la tensione $V$ è direttamente proporzionale alla corrente $I$ attraverso un conduttore, con costante di proporionalità definita da:",
+    options: ["A) capacità", "B) induttanza", "C) resistenza", "D) frequenza"],
+    correct: "C",
+    expl: "La prima legge di Ohm è espressa dalla relazione $V = R \\cdot I$, dove la costante di proporzionalità $R$ prende il nome di resistenza elettrica del conduttore.",
+    esperimento: EXP.arganetto
+  },
+  {
+    id: "tb_urto_anelastico_sferette",
+    materia: "Meccanica",
+    ambito: "ingegneristico",
+    title: "Conservazione della quantità di moto in un urto anelastico",
+    text: "Una sferetta di cera di massa $20\\text{ g}$ corre su un piano privo d'attrito alla velocità di $2\\text{ m/s}$ e urta, rimanendovi attaccata, una sfera di acciaio ferma di massa $40\\text{ g}$. Dopo l'urto le due sfere procedono insieme alla velocità di:",
+    options: ["A) $0,667\\text{ m/s}$", "B) $1,333\\text{ m/s}$", "C) $2,000\\text{ m/s}$", "D) $0,333\\text{ m/s}$"],
+    correct: "A",
+    expl: "Per la conservazione della quantità di moto in un urto totalmente anelastico: $m_1 v_1 + m_2 v_2 = (m_1 + m_2) v_f \\Rightarrow (0,02 \\cdot 2) + 0 = (0,02 + 0,04) v_f \\Rightarrow v_f = 0,04 / 0,06 = 2/3 \\approx 0,667\\text{ m/s}$.",
+    esperimento: EXP.meccanicaA
+  },
+  {
+    id: "tb_pressione_stevino_5m",
+    materia: "Meccanica dei Fluidi",
+    ambito: "medico",
+    title: "Pressione manometrica in profondità",
+    text: "Per un fluido con densità $\\rho = 1000\\text{ kg/m}^3$ e $g = 9,81\\text{ m/s}^2$ a una profondità di $5\\text{ m}$, la pressione manometrica sul fondo vale:",
+    options: ["A) $49050\\text{ Pa}$", "B) $9810\\text{ Pa}$", "C) $100000\\text{ Pa}$", "D) $24525\\text{ Pa}$"],
+    correct: "A",
+    expl: "La pressione manometrica tiene conto unicamente del peso della colonna di liquido e si calcola con la legge di Stevino: $P = \\rho g h = 1000 \\cdot 9,81 \\cdot 5 = 49050\\text{ Pa}$.",
+    esperimento: EXP.vasiComunicanti
+  },
+  {
+    id: "tb_fotone_frequenza",
+    materia: "Fisica Moderna",
+    ambito: "medico",
+    title: "Energia di un fotone e Legge di Planck",
+    text: "L'energia di un fotone è direttamente proporzionale alla sua:",
+    options: ["A) lunghezza d'onda", "B) frequenza", "C) carica elettrica", "D) ampiezza"],
+    correct: "B",
+    expl: "Secondo la legge di Planck $E = h \\cdot f$, l'energia trasportata da un quanto di luce (fotone) è direttamente proporzionale alla frequenza $f$ della radiazione.",
+    esperimento: EXP.rontgen
+  },
+  {
+    id: "tb_lunghezza_d_onda",
+    materia: "Acustica",
+    ambito: "elettro",
+    title: "Relazione tra velocità, frequenza e lunghezza d'onda",
+    text: "Un'onda sonora di frequenza $f$ si propaga in un mezzo con velocità $v$. La sua lunghezza d'onda $\\lambda$ vale:",
+    options: ["A) $v \\cdot f$", "B) $v / f$", "C) $f / v$", "D) $1 / (v \\cdot f)$"],
+    correct: "B",
+    expl: "Poiché la velocità dell'onda è data dal prodotto tra lunghezza d'onda e frequenza ($v = \\lambda \\cdot f$), esplicitando la lunghezza d'onda si ottiene $\\lambda = v / f$.",
+    esperimento: EXP.sonometro
+  },
+  {
+    id: "tb_lorentz_circolare",
+    materia: "Elettromagnetismo",
+    ambito: "elettro",
+    title: "Moto di una carica in un campo magnetico ortogonale",
+    text: "Una carica elettrica entra in un campo magnetico uniforme con velocità ortogonale alle linee di campo. La traiettoria descritta dalla carica sarà:",
+    options: ["A) rettilinea", "B) circolare", "C) parabolica", "D) ellittica"],
+    correct: "B",
+    expl: "La forza di Lorentz $F = q (v \\times B)$ è costantemente perpendicolare alla velocità del corpo, agendo da forza centripeta priva di lavoro. Il moto risultante è quindi un moto circolare uniforme.",
+    esperimento: EXP.fisicaModerna
+  },
+  {
+    id: "tb_bernoulli_delta_p",
+    materia: "Meccanica dei Fluidi",
+    ambito: "medico",
+    title: "Differenza di pressione in un condotto a sezione variabile",
+    text: "In un condotto orizzontale scorre un fluido di densità $\\rho = 10^3\\text{ kg/m}^3$ con portata $Q = 100\\text{ cm}^3/\\text{s}$. Nel punto 1 la sezione è $S_1 = 1\\text{ cm}^2$, nel punto 2 è $S_2 = 2\\text{ cm}^2$. Quanto vale la differenza di pressione $P_2 - P_1$?",
+    options: ["A) $375\\text{ N/m}^2$", "B) $-375\\text{ N/m}^2$", "C) $750\\text{ N/m}^2$", "D) $0\\text{ N/m}^2$"],
+    correct: "A",
+    expl: "Convertendo in SI: $Q = 10^{-4}\\text{ m}^3/\\text{s}$, $S_1 = 10^{-4}\\text{ m}^2 \\Rightarrow v_1 = 1\\text{ m/s}$; $S_2 = 2 \\cdot 10^{-4}\\text{ m}^2 \\Rightarrow v_2 = 0,5\\text{ m/s}$. Applicando il teorema di Bernoulli: $P_2 - P_1 = \\frac{1}{2}\\rho (v_1^2 - v_2^2) = \\frac{1}{2} \\cdot 1000 \\cdot (1 - 0,25) = 375\\text{ N/m}^2$.",
+    esperimento: EXP.vasiComunicanti
+  },
+  {
+    id: "tb_frequenza_periodo",
+    materia: "Acustica",
+    ambito: "elettro",
+    title: "Relazione tra frequenza e periodo",
+    text: "In fisica ondulatoria, la frequenza $f$ è calcolata come l'inverso del:",
+    options: ["A) ampiezza", "B) periodo $T$", "C) raggio di curvatura", "D) lavoro"],
+    correct: "B",
+    expl: "Il periodo $T$ è il tempo occorrente per completare un'oscillazione intera, mentre la frequenza $f = 1 / T$ esprime il numero di cicli per secondo (Hertz).",
+    esperimento: EXP.sonometro
+  },
+  {
+    id: "tb_circuiti_misti",
+    materia: "Elettromagnetismo",
+    ambito: "ingegneristico",
+    title: "Resistenza equivalente di un circuito misto",
+    text: "Due conduttori uguali di resistenza $1000\\ \\Omega$ sono posti in parallelo ed il loro parallelo è connesso in serie con un conduttore di resistenza $500\\ \\Omega$. La resistenza totale è:",
+    options: ["A) $1000\\ \\Omega$", "B) $1500\\ \\Omega$", "C) $2500\\ \\Omega$", "D) $500\\ \\Omega$"],
+    correct: "A",
+    expl: "La resistenza equivalente di due resistori identici da $1000\\ \\Omega$ in parallelo è $R_p = 1000 / 2 = 500\\ \\Omega$. Sommandovi la resistenza in serie da $500\\ \\Omega$ si ottiene $R_{tot} = 500 + 500 = 1000\\ \\Omega$.",
+    esperimento: EXP.arganetto
+  },
+  {
+    id: "tb_pascal_nanopascal",
+    materia: "Meccanica dei Fluidi",
+    ambito: "medico",
+    title: "Conversione da Pascal a nanoPascal",
+    text: "Per convertire una pressione espressa in Pascal (Pa) in nanoPascal (nPa), si moltiplica il valore per 10 elevato alla potenza di:",
+    options: ["A) 6", "B) 9", "C) -9", "D) 12"],
+    correct: "B",
+    expl: "Poiché il prefisso nano- indica $10^{-9}$ ($1\\text{ nPa} = 10^{-9}\\text{ Pa}$), per convertire da Pascal a nanoPascal occorre moltiplicare per $10^9$.",
+    esperimento: EXP.manometro
+  },
+  {
+    id: "tb_lavoro_prodotto_scalare",
+    materia: "Meccanica",
+    ambito: "ingegneristico",
+    title: "Definizione del lavoro meccanico",
+    text: "Il lavoro meccanico $L$ compiuto da una forza costante è definito come il prodotto ________ tra il vettore forza e il vettore spostamento.",
+    options: ["A) vettoriale", "B) scalare", "C) tensoriale", "D) vettoriale triplo"],
+    correct: "B",
+    expl: "Il lavoro $L = \\vec{F} \\cdot \\vec{s} = F s \\cos(\\theta)$ è il prodotto scalare tra il vettore forza e il vettore spostamento, ed è quindi una grandezza fisica scalare espressa in Joule.",
+    esperimento: EXP.meccanicaA
+  }
 ];
 
-// ============ RENDER ============
 const ambitoLabels = { medico: "Medico", ingegneristico: "Ingegneristico", filosofico: "Filosofico-naturale", elettro: "Elettromagnetismo e Acustica" };
 const ambitoColors = { medico: "bg-teal-100 text-teal-800", ingegneristico: "bg-orange-100 text-orange-800", filosofico: "bg-indigo-100 text-indigo-800", elettro: "bg-rose-100 text-rose-800" };
 
@@ -160,10 +457,12 @@ function populateFilters(){
   const materie = [...new Set(questionsData.map(q => q.materia))].sort();
   const ambiti = [...new Set(questionsData.map(q => q.ambito).filter(Boolean))];
   const mSel = document.getElementById('filterMateria');
+  mSel.innerHTML = '<option value="">Tutte le materie</option>';
   materie.forEach(m => {
     const o = document.createElement('option'); o.value = m; o.textContent = m; mSel.appendChild(o);
   });
   const aSel = document.getElementById('filterAmbito');
+  aSel.innerHTML = '<option value="">Tutti gli ambiti</option>';
   ambiti.forEach(a => {
     const o = document.createElement('option'); o.value = a; o.textContent = ambitoLabels[a] || a; aSel.appendChild(o);
   });
@@ -182,7 +481,7 @@ function renderCards(){
   document.getElementById('resultCount').textContent = filtered.length + ' esercizi su ' + questionsData.length;
 
   const container = document.getElementById('cards');
-  container.innerHTML = filtered.map((q, idx) => {
+  container.innerHTML = filtered.map((q) => {
     const ambitoBadge = q.ambito
       ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold ${ambitoColors[q.ambito]}">${ambitoLabels[q.ambito]}</span>`
       : '';
