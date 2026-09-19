@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Interattiva: Elettroforo di Volta</title>
+    <!-- Tailwind CSS per layout reattivo e stilizzazione avanzata -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per le icone della UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Inter per una tipografia moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1120;
+            color: #f8fafc;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        canvas {
+            touch-action: none;
+            user-select: none;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Custom scrollbar per il pannello dei controlli */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Custom range slider */
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+
+        @keyframes pulse-light {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.98); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-light 2.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white bg-slate-950">
+
+    <!-- HEADER APP -->
+    <header class="bg-slate-900/90 border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-3 py-2.5 sm:px-6 lg:px-8 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30 flex items-center justify-center">
+                    <i class="fa-solid fa-bolt text-lg sm:text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-xl font-bold text-white tracking-tight flex items-center gap-1.5">
+                        Elettroforo di Volta
+                        <span class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">1775</span>
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-slate-400 hidden xs:block">Laboratorio Elettrostatico Interattivo Mobile-Ready</p>
+                </div>
+            </div>
+
+            <!-- Toolbar di Controllo Rapido -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <button id="btn-mode-toggle" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-graduation-cap text-blue-400 text-xs"></i>
+                    <span id="mode-label" class="hidden sm:inline">Tutorial Guidato</span>
+                </button>
+                <button id="btn-sound-toggle" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center justify-center" title="Attiva/Disattiva Audio">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-xs sm:text-sm"></i>
+                </button>
+                <button id="btn-theory-open" class="p-2 sm:px-3 sm:py-1.5 rounded-lg bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 border border-blue-700/50 text-xs font-medium transition flex items-center gap-1">
+                    <i class="fa-solid fa-book-open text-xs"></i>
+                    <span class="hidden md:inline">Teoria</span>
+                </button>
+                <button id="btn-reset" class="px-2.5 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-medium transition flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span class="hidden sm:inline">Reset</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT GRID -->
+    <main class="max-w-7xl mx-auto w-full px-2 sm:px-6 lg:px-8 py-3 sm:py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+
+        <!-- AREA CANVAS E VISUALIZZAZIONE PRINCIPALE -->
+        <section class="lg:col-span-8 flex flex-col gap-3 sm:gap-4">
+            
+            <!-- Box Canvas Principale -->
+            <div class="relative bg-slate-900/90 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+                
+                <!-- Status Bar Top Canvas -->
+                <div class="bg-slate-950/70 backdrop-blur px-3 py-2 border-b border-slate-800 flex justify-between items-center text-[11px] sm:text-xs text-slate-300 flex-wrap gap-2">
+                    <div class="flex items-center gap-3.5">
+                        <span class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block shadow-sm"></span>
+                            <span>Cariche Negative <span class="font-mono font-semibold text-blue-400">\( q^- \)</span></span>
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block shadow-sm"></span>
+                            <span>Cariche Positive <span class="font-mono font-semibold text-red-400">\( q^+ \)</span></span>
+                        </span>
+                    </div>
+                    <div id="status-indicator" class="font-semibold text-amber-400 flex items-center gap-1 sm:gap-1.5 text-xs truncate max-w-[220px] sm:max-w-none">
+                        <i class="fa-solid fa-circle-info text-xs"></i>
+                        <span id="status-text">Passaggio 1: Strofina la base isolante</span>
+                    </div>
+                </div>
+
+                <!-- Canvas Viewport -->
+                <div class="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-slate-950 flex items-center justify-center overflow-hidden touch-none">
+                    <canvas id="physics-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+
+                    <!-- Overlay guida gesti mobile -->
+                    <div id="canvas-overlay-msg" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-700/80 text-slate-200 text-[11px] sm:text-xs px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-xl backdrop-blur flex items-center gap-2 pointer-events-none transition-opacity duration-300 text-center max-w-[90%]">
+                        <i class="fa-solid fa-hand-pointer text-blue-400 animate-bounce text-xs"></i>
+                        <span id="overlay-text">Trascina il disco metallico con il dito o usa i pulsanti.</span>
+                    </div>
+                </div>
+
+                <!-- Telemetria e Indicatori di Misura -->
+                <div class="bg-slate-950/90 p-2.5 sm:p-4 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center text-xs">
+                    <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-xl border border-slate-800/80">
+                        <span class="text-slate-400 block text-[10px] sm:text-xs mb-0.5">Carica Base ($Q_{base}$)</span>
+                        <span id="val-q-base" class="text-sm sm:text-lg font-bold text-blue-400 mono">0.0 nC</span>
+                    </div>
+                    <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-xl border border-slate-800/80">
+                        <span class="text-slate-400 block text-[10px] sm:text-xs mb-0.5">Carica Disco ($Q_{disco}$)</span>
+                        <span id="val-q-plate" class="text-sm sm:text-lg font-bold text-red-400 mono">0.0 nC</span>
+                    </div>
+                    <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-xl border border-slate-800/80">
+                        <span class="text-slate-400 block text-[10px] sm:text-xs mb-0.5">Tensione ($V_{disco}$)</span>
+                        <span id="val-voltage" class="text-sm sm:text-lg font-bold text-amber-400 mono">0.0 kV</span>
+                    </div>
+                    <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-xl border border-slate-800/80">
+                        <span class="text-slate-400 block text-[10px] sm:text-xs mb-0.5">Scosse / Scariche</span>
+                        <span id="val-sparks" class="text-sm sm:text-lg font-bold text-emerald-400 mono">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scheda Tutorial / Guida Step-by-Step -->
+            <div id="tutorial-card" class="bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-950/30 to-slate-900 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
+                <div class="space-y-1 w-full sm:w-auto">
+                    <div class="flex items-center gap-2">
+                        <span id="step-badge" class="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-blue-600 text-white shadow-sm">FASE 1 DI 5</span>
+                        <h2 id="step-title" class="font-bold text-white text-xs sm:text-base">Elettrizzazione della Base Isolante</h2>
+                    </div>
+                    <p id="step-description" class="text-xs text-slate-300 leading-relaxed">
+                        Strofina la base di resina/ebonite con un panno di lana. Per effetto triboelettrico, la base accumula cariche negative stabili.
+                    </p>
+                </div>
+                <button id="btn-next-step" class="w-full sm:w-auto px-4 py-2.5 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2 shrink-0">
+                    <span id="btn-step-text">Strofina la Base</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </div>
+
+        </section>
+
+        <!-- PANNELLO CONTROLLI LATERALE -->
+        <aside class="lg:col-span-4 space-y-4">
+            
+            <!-- Azioni Sperimentali Dirette -->
+            <div class="bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-slate-800/80 space-y-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-400"></i> Azioni Sperimentali
+                    </span>
+                    <span class="text-[10px] text-slate-500">Touch Friendly</span>
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+                    <button id="btn-action-rub" class="w-full p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-100 text-xs font-medium border border-slate-700/80 transition flex items-center justify-between group">
+                        <span class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-hand-sparkles text-amber-400 text-sm group-hover:scale-110 transition-transform"></i>
+                            <span>1. Strofina la Base (Tribo)</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-slate-500 text-[10px]"></i>
+                    </button>
+
+                    <button id="btn-action-place" class="w-full p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-100 text-xs font-medium border border-slate-700/80 transition flex items-center justify-between group">
+                        <span class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-arrows-down-to-line text-blue-400 text-sm group-hover:scale-110 transition-transform"></i>
+                            <span>2. Appoggia Disco Metallico</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-slate-500 text-[10px]"></i>
+                    </button>
+
+                    <button id="btn-action-ground" class="w-full p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-100 text-xs font-medium border border-slate-700/80 transition flex items-center justify-between group">
+                        <span class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-hand-pointer text-emerald-400 text-sm group-hover:scale-110 transition-transform"></i>
+                            <span>3. Tocca Disco (Messa a Terra)</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-slate-500 text-[10px]"></i>
+                    </button>
+
+                    <button id="btn-action-lift" class="w-full p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-100 text-xs font-medium border border-slate-700/80 transition flex items-center justify-between group">
+                        <span class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-arrows-up-to-line text-purple-400 text-sm group-hover:scale-110 transition-transform"></i>
+                            <span>4. Solleva il Disco Metallico</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-slate-500 text-[10px]"></i>
+                    </button>
+
+                    <button id="btn-action-spark" class="w-full p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-100 text-xs font-medium border border-slate-700/80 transition flex items-center justify-between group">
+                        <span class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-bolt-lightning text-yellow-400 text-sm group-hover:scale-110 transition-transform"></i>
+                            <span>5. Avvicina per la Scarica</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-slate-500 text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottiglia di Leida (Accumulatore) -->
+            <div class="bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-slate-800/80 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-flask text-amber-400"></i> Bottiglia di Leida
+                    </h2>
+                    <span id="leyden-status" class="text-[10px] font-semibold text-slate-400">0% Carica</span>
+                </div>
+
+                <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                    <div class="space-y-1">
+                        <p class="text-xs font-semibold text-slate-200">Accumulatore Energetico</p>
+                        <p class="text-[11px] text-slate-400">Trasferisci la carica del disco alla bottiglia per accumulare energia elettrostatica.</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span id="val-leyden-q" class="text-sm font-bold text-amber-400 mono">0.0 nC</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-store-leyden" class="p-2.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-medium transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> Carica Bottiglia
+                    </button>
+                    <button id="btn-discharge-leyden" class="p-2.5 rounded-xl bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300 border border-yellow-500/30 text-xs font-medium transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-yellow-400"></i> Scarica Mega-Arco
+                    </button>
+                </div>
+            </div>
+
+            <!-- Impostazioni Fisiche e Clima -->
+            <div class="bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-slate-800/80 space-y-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-sun text-cyan-400"></i> Parametri Ambientali
+                </h2>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-300">Umidità Relativa dell'Aria</span>
+                        <span id="val-humidity" class="mono text-cyan-400 font-semibold">20%</span>
+                    </div>
+                    <input type="range" id="slider-humidity" min="0" max="90" value="20" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                    <p class="text-[10px] text-slate-500 mt-1">L'alta umidità causa la dispersione della carica superficiale nell'aria.</p>
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <!-- MODALE SPIEGAZIONE TEORICA E STORICA -->
+    <div id="theory-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 opacity-0 pointer-events-none transition-opacity duration-300 p-3 sm:p-6 overflow-y-auto">
+        <div class="glass-card max-w-2xl w-full max-h-[90vh] rounded-2xl p-5 sm:p-7 overflow-y-auto border border-slate-700 shadow-2xl relative my-auto">
+            <button id="btn-theory-close" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                    <i class="fa-solid fa-book-open text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-white">L'Elettroforo Perpetuo di Alessandro Volta</h2>
+                    <p class="text-xs text-slate-400">Principi Fisici dell'Induzione Elettrostatica (1775)</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-slate-300 text-xs sm:text-sm leading-relaxed">
+                <p>
+                    L'<strong>Elettroforo di Volta</strong> è un generatore elettrostatico a induzione inventato da Alessandro Volta nel 1775. Permette di ottenere un numero illimitato di scariche elettriche senza dover ristrofinare l'isolante.
+                </p>
+
+                <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <h3 class="font-semibold text-blue-400 text-sm flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> 1. Elettrizzazione per Strofinio (Triboelettricità)
+                    </h3>
+                    <p class="text-xs text-slate-400">
+                        La "torta" di resina (o ebonite/plastica) viene strofinata con un panno. Per effetto triboelettrico, essa acquisisce una carica elettrica negativa stabile ($Q_{base} < 0$).
+                    </p>
+                </div>
+
+                <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <h3 class="font-semibold text-purple-400 text-sm flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-purple-500 inline-block"></span> 2. Induzione Elettrostatica
+                    </h3>
+                    <p class="text-xs text-slate-400">
+                        Appoggiando il disco metallico sulla base, le cariche negative della base respingono gli elettroni del metallo verso la faccia superiore, lasciando la faccia inferiore carica positivamente. La carica totale del disco rimane nulla ($Q=0$).
+                    </p>
+                </div>
+
+                <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <h3 class="font-semibold text-emerald-400 text-sm flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> 3. Messa a Terra e Sollevamento
+                    </h3>
+                    <p class="text-xs text-slate-400">
+                        Toccando la faccia superiore con un dito, gli elettroni respinti fluiscono a terra. Rimuovendo il dito e sollevando il disco dal manico isolante, si compie lavoro contro le forze elettrostatiche: il disco rimane carico positivamente ($Q_{disco} > 0$) ad altissimo potenziale!
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                <button id="btn-theory-close-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-2 rounded-xl text-xs sm:text-sm transition-all shadow-lg">
+                    Ritorna al Laboratorio
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT SIMULATION ENGINE -->
+    <script>
+    /* Audio Synthesizer per effetti sonori tramite Web Audio API */
+    class VoltaAudioEngine {
+        constructor() {
+            this.ctx = null;
+            this.muted = false;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    this.ctx = new AudioContextClass();
+                }
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        playSpark(intensity = 1.0) {
+            if (this.muted) return;
+            this.init();
+            if (!this.ctx) return;
+
+            try {
+                const now = this.ctx.currentTime;
+                
+                // Rumore bianco filtrato per la scarica elettrica
+                const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.15));
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 1500;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.7 * intensity, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start(now);
+
+                // Tono d'urto per la scintilla
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(240, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+
+                oscGain.gain.setValueAtTime(0.4 * intensity, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+                osc.connect(oscGain);
+                oscGain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.06);
+            } catch (e) {
+                console.error("Audio spark error:", e);
+            }
+        }
+
+        playRubbing() {
+            if (this.muted) return;
+            this.init();
+            if (!this.ctx) return;
+
+            try {
+                const now = this.ctx.currentTime;
+                const bufferSize = Math.floor(this.ctx.sampleRate * 0.15);
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * 0.2;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+                filter.Q.value = 3.0;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start(now);
+            } catch (e) {
+                console.error("Audio rub error:", e);
+            }
+        }
+    }
+
+    class VoltaSimulation {
+        constructor() {
+            this.canvas = document.getElementById('physics-canvas');
+            this.ctx = this.canvas.getContext('2d');
+            this.audio = new VoltaAudioEngine();
+
+            // Parametri Fisici dell'Elettroforo
+            this.qBase = 0.0;     // Carica base di resina (-nC)
+            this.qDiscTop = 0.0;  // Carica faccia superiore disco metallico
+            this.qDiscBot = 0.0;  // Carica faccia inferiore disco metallico
+            this.leydenCharge = 0.0; // Carica nella bottiglia di Leida (nC)
+            this.humidity = 0.20; // 20% umidità aria
+            this.sparkCount = 0;  // Numero scariche eseguite
+
+            // Stato Posizionale Geometria (in pixel normalizzati)
+            this.discY = 0; // Altezza offset dal contatto con la base (0 = appoggiato)
+            this.targetDiscY = 180; // Posizione obiettivo
+            this.isGrounded = false; // Se il dito tocca il disco
+            this.isRubbing = false;  // Se la base viene strofinata col panno
+            this.isHandTouching = false; // Animazione dito
+
+            // Interattività Drag Mobile/Desktop
+            this.isDragging = false;
+            this.dragStartY = 0;
+            this.initialDiscY = 0;
+
+            // Tutorial Step Management
+            this.currentStep = 1; // 1 to 5
+            this.tutorialSteps = [
+                {
+                    title: "1. Elettrizzazione della Base Isolante",
+                    desc: "Strofina la base di resina/ebonite con un panno di lana per accumulare carica negativa per effetto triboelettrico.",
+                    btnText: "Strofina la Base",
+                    action: () => this.rubBase()
+                },
+                {
+                    title: "2. Appoggio del Disco Metallico",
+                    desc: "Posiziona il disco metallico conduttore sopra la base carica. Le cariche si separano per induzione.",
+                    btnText: "Appoggia il Disco",
+                    action: () => this.placeDisc()
+                },
+                {
+                    title: "3. Messa a Terra (Tocco col Dito)",
+                    desc: "Tocca il disco con un dito: gli elettroni respinti fuggono a terra, lasciando il disco con carica positiva netta.",
+                    btnText: "Tocca con il Dito",
+                    action: () => this.groundDisc()
+                },
+                {
+                    title: "4. Sollevamento dal Manico Isolante",
+                    desc: "Solleva il disco dal manico di vetro/ebonite: la carica positiva resta intrappolata e il potenziale elettrico sale a kV!",
+                    btnText: "Solleva il Disco",
+                    action: () => this.liftDisc()
+                },
+                {
+                    title: "5. Scarica Elettrica (Scintilla)",
+                    desc: "Avvicina un conduttore a terra o il dito per far scoccare una vivace scintilla elettrostatica!",
+                    btnText: "Produci Scintilla",
+                    action: () => this.triggerSpark()
+                }
+            ];
+
+            // Effetti Visivi Animazioni
+            this.sparks = [];
+            this.rubClothAnim = 0;
+
+            this.initListeners();
+            this.resize();
+            this.updateUI();
+
+            // Render loop
+            this.lastTime = performance.now();
+            requestAnimationFrame((t) => this.loop(t));
+        }
+
+        initListeners() {
+            window.addEventListener('resize', () => this.resize());
+
+            // UI Button Handlers
+            document.getElementById('btn-action-rub').addEventListener('click', () => this.rubBase());
+            document.getElementById('btn-action-place').addEventListener('click', () => this.placeDisc());
+            document.getElementById('btn-action-ground').addEventListener('click', () => this.groundDisc());
+            document.getElementById('btn-action-lift').addEventListener('click', () => this.liftDisc());
+            document.getElementById('btn-action-spark').addEventListener('click', () => this.triggerSpark());
+
+            document.getElementById('btn-next-step').addEventListener('click', () => {
+                this.tutorialSteps[this.currentStep - 1].action();
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => this.resetSimulation());
+
+            // Audio Toggle
+            document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+                this.audio.muted = !this.audio.muted;
+                const icon = document.getElementById('sound-icon');
+                if (this.audio.muted) {
+                    icon.className = 'fa-solid fa-volume-xmark text-slate-500 text-xs sm:text-sm';
+                } else {
+                    icon.className = 'fa-solid fa-volume-high text-xs sm:text-sm';
+                }
+            });
+
+            // Leyden Jar Handlers
+            document.getElementById('btn-store-leyden').addEventListener('click', () => this.storeInLeyden());
+            document.getElementById('btn-discharge-leyden').addEventListener('click', () => this.dischargeLeyden());
+
+            // Humidity Slider
+            document.getElementById('slider-humidity').addEventListener('input', (e) => {
+                this.humidity = parseInt(e.target.value) / 100.0;
+                document.getElementById('val-humidity').innerText = `${e.target.value}%`;
+            });
+
+            // Modal Theory Handlers
+            const modal = document.getElementById('theory-modal');
+            const openModal = () => {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+            };
+            const closeModal = () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+            };
+
+            document.getElementById('btn-theory-open').addEventListener('click', openModal);
+            document.getElementById('btn-theory-close').addEventListener('click', closeModal);
+            document.getElementById('btn-theory-close-btn').addEventListener('click', closeModal);
+
+            // Touch / Mouse Dragging per Mobile & Desktop
+            const getCanvasPos = (evt) => {
+                const rect = this.canvas.getBoundingClientRect();
+                const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+                const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            };
+
+            const startDrag = (evt) => {
+                this.audio.init();
+                const pos = getCanvasPos(evt);
+                // Controlla se il tocco è vicino al disco o al manico
+                const discCanvasY = this.baseY - this.discY - 30;
+                if (Math.abs(pos.x - this.centerX) < this.discWidth / 2 + 20 &&
+                    Math.abs(pos.y - discCanvasY) < 120) {
+                    this.isDragging = true;
+                    this.dragStartY = pos.y;
+                    this.initialDiscY = this.discY;
+                    document.getElementById('canvas-overlay-msg').classList.add('opacity-0');
+                }
+            };
+
+            const moveDrag = (evt) => {
+                if (!this.isDragging) return;
+                const pos = getCanvasPos(evt);
+                const deltaY = this.dragStartY - pos.y;
+                this.discY = Math.max(0, Math.min(220, this.initialDiscY + deltaY));
+                this.targetDiscY = this.discY;
+            };
+
+            const endDrag = () => {
+                this.isDragging = false;
+            };
+
+            this.canvas.addEventListener('mousedown', startDrag);
+            this.canvas.addEventListener('mousemove', moveDrag);
+            window.addEventListener('mouseup', endDrag);
+
+            this.canvas.addEventListener('touchstart', startDrag, { passive: true });
+            this.canvas.addEventListener('touchmove', moveDrag, { passive: true });
+            window.addEventListener('touchend', endDrag);
+        }
+
+        resize() {
+            const container = this.canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            
+            // Supporto High DPI Retina Displays per nitidezza
+            const dpr = window.devicePixelRatio || 1;
+            this.canvas.width = rect.width * dpr;
+            this.canvas.height = rect.height * dpr;
+            this.ctx.scale(dpr, dpr);
+
+            this.width = rect.width;
+            this.height = rect.height;
+
+            // Dimensionamento scalabile per schermi mobile piccoli
+            this.centerX = this.width * 0.48;
+            this.baseY = this.height * 0.72;
+            this.discWidth = Math.min(260, this.width * 0.55);
+            this.discHeight = 18;
+            this.handleHeight = Math.min(140, this.height * 0.28);
+        }
+
+        rubBase() {
+            this.audio.playRubbing();
+            this.qBase = Math.max(-50.0, this.qBase - 12.0);
+            this.rubClothAnim = 1.0;
+            this.setStep(2);
+            this.updatePhysics();
+        }
+
+        placeDisc() {
+            this.targetDiscY = 0; // Appoggia sulla base
+            if (this.currentStep === 2) this.setStep(3);
+        }
+
+        groundDisc() {
+            this.audio.init();
+            this.isHandTouching = true;
+
+            setTimeout(() => {
+                if (this.discY < 15 && this.qBase < -1.0) {
+                    // Induzione: Gli elettroni della faccia superiore fuggono a terra
+                    // Rimane la carica positiva attratta dalla base
+                    this.qDiscBot = Math.abs(this.qBase) * 0.85;
+                    this.qDiscTop = 0.0;
+                    this.audio.playSpark(0.5);
+                    if (this.currentStep === 3) this.setStep(4);
+                }
+                this.isHandTouching = false;
+                this.updatePhysics();
+            }, 300);
+        }
+
+        liftDisc() {
+            this.targetDiscY = 170; // Solleva in alto
+            if (this.currentStep === 4) this.setStep(5);
+        }
+
+        triggerSpark() {
+            const netQ = this.qDiscTop + this.qDiscBot;
+            if (this.discY > 60 && netQ > 2.0) {
+                // Genera scintilla elettrica
+                this.sparkCount++;
+                this.audio.playSpark(1.0);
+                
+                // Disegna arco elettrico verso la mano
+                const sparkX = this.centerX + this.discWidth * 0.35;
+                const sparkY = this.baseY - this.discY - 20;
+
+                this.createSparkEffect(sparkX, sparkY, sparkX + 45, sparkY - 30);
+
+                // Scarica il disco
+                this.qDiscTop = 0.0;
+                this.qDiscBot = 0.0;
+
+                if (this.currentStep === 5) this.setStep(2); // Ciclo perpetuo!
+            }
+            this.updatePhysics();
+        }
+
+        storeInLeyden() {
+            const netQ = this.qDiscTop + this.qDiscBot;
+            if (this.discY > 50 && netQ > 1.0) {
+                this.leydenCharge += netQ;
+                this.qDiscTop = 0;
+                this.qDiscBot = 0;
+                this.audio.playSpark(0.4);
+                this.updatePhysics();
+            }
+        }
+
+        dischargeLeyden() {
+            if (this.leydenCharge > 1.0) {
+                this.sparkCount += 2;
+                this.audio.playSpark(1.5);
+                
+                // Effetto scintilla gigante
+                const lx = this.width * 0.88;
+                const ly = this.baseY - 90;
+                this.createSparkEffect(lx, ly, lx - 40, ly + 60, true);
+
+                this.leydenCharge = 0;
+                this.updatePhysics();
+            }
+        }
+
+        createSparkEffect(x1, y1, x2, y2, isBig = false) {
+            const numSegments = isBig ? 16 : 10;
+            const points = [{ x: x1, y: y1 }];
+
+            for (let i = 1; i < numSegments; i++) {
+                const t = i / numSegments;
+                const jitter = (isBig ? 28 : 14);
+                const rx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * jitter;
+                const ry = y1 + (y2 - y1) * t + (Math.random() - 0.5) * jitter;
+                points.push({ x: rx, y: ry });
+            }
+            points.push({ x: x2, y: y2 });
+
+            this.sparks.push({
+                points: points,
+                life: 1.0,
+                big: isBig
+            });
+        }
+
+        setStep(stepNum) {
+            this.currentStep = stepNum;
+            this.updateUI();
+        }
+
+        resetSimulation() {
+            this.qBase = 0.0;
+            this.qDiscTop = 0.0;
+            this.qDiscBot = 0.0;
+            this.leydenCharge = 0.0;
+            this.sparkCount = 0;
+            this.discY = 170;
+            this.targetDiscY = 170;
+            this.setStep(1);
+            this.updatePhysics();
+        }
+
+        updatePhysics() {
+            // Movimento fluido del disco
+            if (!this.isDragging) {
+                this.discY += (this.targetDiscY - this.discY) * 0.18;
+            }
+
+            // Induzione quando il disco è vicino alla base
+            if (this.discY < 15) {
+                if (this.qDiscTop + this.qDiscBot === 0.0) {
+                    // Disco neutro vicino alla base: Separazione di carica indotta
+                    const induced = Math.abs(this.qBase) * 0.8;
+                    this.qDiscBot = induced;   // Positiva sotto
+                    this.qDiscTop = -induced;  // Negativa sopra
+                }
+            } else if (this.discY > 60 && (this.qDiscTop < 0)) {
+                // Se sollevato senza messa a terra, le cariche indotte si ricombinano a 0
+                if (Math.abs(this.qDiscTop + this.qDiscBot) < 0.1) {
+                    this.qDiscTop = 0.0;
+                    this.qDiscBot = 0.0;
+                }
+            }
+
+            // Dispersione carica da umidità dell'aria
+            const leak = this.humidity * 0.02;
+            this.qBase *= (1.0 - leak * 0.01);
+            
+            // Calcolo Tensione (kV): Potenziale V = Q / C
+            // La capacità C crolla quando il disco viene allontanato dalla base!
+            const totalNetQ = this.qDiscTop + this.qDiscBot;
+            const capacitance = Math.max(0.02, 0.5 / (1.0 + this.discY * 0.15));
+            const voltageKv = Math.min(60.0, totalNetQ / capacitance);
+
+            // Aggiornamento telemetria DOM
+            document.getElementById('val-q-base').innerText = `${this.qBase.toFixed(1)} nC`;
+            document.getElementById('val-q-plate').innerText = `${totalNetQ.toFixed(1)} nC`;
+            document.getElementById('val-voltage').innerText = `${voltageKv.toFixed(1)} kV`;
+            document.getElementById('val-sparks').innerText = `${this.sparkCount}`;
+
+            const leydenPercent = Math.min(100, Math.round((this.leydenCharge / 80.0) * 100));
+            document.getElementById('leyden-status').innerText = `${leydenPercent}% Carica`;
+            document.getElementById('val-leyden-q').innerText = `${this.leydenCharge.toFixed(1)} nC`;
+        }
+
+        updateUI() {
+            const info = this.tutorialSteps[this.currentStep - 1];
+            document.getElementById('step-badge').innerText = `FASE ${this.currentStep} DI 5`;
+            document.getElementById('step-title').innerText = info.title;
+            document.getElementById('step-description').innerText = info.desc;
+            document.getElementById('btn-step-text').innerText = info.btnText;
+            document.getElementById('status-text').innerText = info.title;
+        }
+
+        draw() {
+            const ctx = this.ctx;
+            const w = this.width;
+            const h = this.height;
+
+            // Pulizia Sfondo con gradiente tecnologico
+            const bgGradient = ctx.createRadialGradient(w * 0.5, h * 0.5, 30, w * 0.5, h * 0.5, w * 0.8);
+            bgGradient.addColorStop(0, '#0f172a');
+            bgGradient.addColorStop(1, '#020617');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, w, h);
+
+            // Griglia di laboratorio discreta
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+            const grid = 30;
+            for (let x = 0; x < w; x += grid) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+
+            // 1. Disegna Tavolo / Basamento
+            const tableY = this.baseY + 30;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(w * 0.08, tableY, w * 0.84, 12);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(w * 0.1, tableY + 12, w * 0.8, 8);
+
+            // 2. Disegna Bottiglia di Leida (a destra)
+            this.drawLeydenJar(w * 0.88, tableY);
+
+            // 3. Disegna Base Isolante di Resina/Ebonite ("Torta")
+            const bx = this.centerX - this.discWidth / 2 - 12;
+            const bw = this.discWidth + 24;
+            const bh = 26;
+
+            // Ombra base
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.ellipse(this.centerX, tableY, bw / 2, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Blocco Resina Amber/Ebonite
+            const resinGrad = ctx.createLinearGradient(bx, this.baseY, bx, this.baseY + bh);
+            resinGrad.addColorStop(0, '#d97706'); // Ambra lucido
+            resinGrad.addColorStop(0.5, '#92400e');
+            resinGrad.addColorStop(1, '#451a03');
+
+            ctx.fillStyle = resinGrad;
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1.5;
+            
+            // Corpo sagomato della base
+            ctx.beginPath();
+            ctx.roundRect(bx, this.baseY, bw, bh, [6, 6, 12, 12]);
+            ctx.fill();
+            ctx.stroke();
+
+            // Cariche Negative sulla Base Isolante
+            if (this.qBase < -0.5) {
+                ctx.fillStyle = '#60a5fa';
+                ctx.font = 'bold 12px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const count = Math.min(12, Math.abs(Math.round(this.qBase / 3)));
+                const stepX = bw / (count + 1);
+                for (let i = 1; i <= count; i++) {
+                    ctx.fillText('-', bx + i * stepX, this.baseY + 13);
+                }
+            }
+
+            // 4. Disegna Disco Metallico Conduttore con Manico Isolante
+            const currentDiscCanvasY = this.baseY - this.discY;
+            const dx = this.centerX - this.discWidth / 2;
+
+            // Manico Isolante in Vetro/Plexiglass (Verticale)
+            const handleGrad = ctx.createLinearGradient(this.centerX - 8, currentDiscCanvasY - this.handleHeight, this.centerX + 8, currentDiscCanvasY);
+            handleGrad.addColorStop(0, 'rgba(224, 242, 254, 0.9)');
+            handleGrad.addColorStop(0.5, 'rgba(186, 230, 253, 0.4)');
+            handleGrad.addColorStop(1, 'rgba(125, 211, 252, 0.8)');
+
+            ctx.fillStyle = handleGrad;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(this.centerX - 7, currentDiscCanvasY - this.handleHeight, 14, this.handleHeight, [8, 8, 2, 2]);
+            ctx.fill();
+            ctx.stroke();
+
+            // Pomello impugnatura superiore manico
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(this.centerX, currentDiscCanvasY - this.handleHeight - 6, 11, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Disco Metallico (Ottone / Alluminio)
+            const discGrad = ctx.createLinearGradient(dx, currentDiscCanvasY - this.discHeight, dx, currentDiscCanvasY);
+            discGrad.addColorStop(0, '#fef08a');
+            discGrad.addColorStop(0.5, '#eab308');
+            discGrad.addColorStop(1, '#854d0e');
+
+            ctx.fillStyle = discGrad;
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(dx, currentDiscCanvasY - this.discHeight, this.discWidth, this.discHeight, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            // Simboli Cariche Elettriche sul Disco Metallico (Sopra e Sotto)
+            ctx.font = 'bold 11px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Cariche Faccia Superiore
+            if (Math.abs(this.qDiscTop) > 0.3) {
+                ctx.fillStyle = this.qDiscTop > 0 ? '#ef4444' : '#3b82f6';
+                const sign = this.qDiscTop > 0 ? '+' : '-';
+                const count = Math.min(10, Math.abs(Math.round(this.qDiscTop / 2)));
+                const stepX = this.discWidth / (count + 1);
+                for (let i = 1; i <= count; i++) {
+                    ctx.fillText(sign, dx + i * stepX, currentDiscCanvasY - this.discHeight + 5);
+                }
+            }
+
+            // Cariche Faccia Inferiore
+            if (Math.abs(this.qDiscBot) > 0.3) {
+                ctx.fillStyle = this.qDiscBot > 0 ? '#ef4444' : '#3b82f6';
+                const sign = this.qDiscBot > 0 ? '+' : '-';
+                const count = Math.min(10, Math.abs(Math.round(this.qDiscBot / 2)));
+                const stepX = this.discWidth / (count + 1);
+                for (let i = 1; i <= count; i++) {
+                    ctx.fillText(sign, dx + i * stepX, currentDiscCanvasY - 5);
+                }
+            }
+
+            // 5. Animazione Dito / Mano per Messa a Terra o Scarica
+            if (this.isHandTouching) {
+                this.drawFinger(this.centerX + this.discWidth * 0.3, currentDiscCanvasY - this.discHeight - 2);
+            }
+
+            // Animazione Panno per Strofino Base
+            if (this.rubClothAnim > 0.01) {
+                this.drawCloth(this.centerX + Math.sin(performance.now() * 0.02) * 60, this.baseY - 10);
+                this.rubClothAnim *= 0.9;
+            }
+
+            // 6. Rendering Effetti Scintille
+            this.drawSparks();
+        }
+
+        drawLeydenJar(lx, ly) {
+            const ctx = this.ctx;
+            const w = 44;
+            const h = 75;
+
+            // Corpo Vetro
+            ctx.fillStyle = 'rgba(186, 230, 253, 0.2)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(lx - w / 2, ly - h, w, h, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            // Stagnola di rivestimento
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+            ctx.fillRect(lx - w / 2 + 3, ly - h * 0.5, w - 6, h * 0.5 - 2);
+
+            // Asta e Sfera
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(lx, ly - h);
+            ctx.lineTo(lx, ly - h - 20);
+            ctx.stroke();
+
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.arc(lx, ly - h - 20, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Etichetta
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('B. Leida', lx, ly + 18);
+        }
+
+        drawFinger(fx, fy) {
+            const ctx = this.ctx;
+            ctx.save();
+            ctx.strokeStyle = '#fca5a5';
+            ctx.fillStyle = '#f87171';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(fx + 30, fy - 35);
+            ctx.lineTo(fx, fy);
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        drawCloth(cx, cy) {
+            const ctx = this.ctx;
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fda4af';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        drawSparks() {
+            const ctx = this.ctx;
+            for (let i = this.sparks.length - 1; i >= 0; i--) {
+                const sp = this.sparks[i];
+                const pts = sp.points;
+
+                ctx.save();
+                ctx.strokeStyle = `rgba(186, 230, 253, ${sp.life})`;
+                ctx.lineWidth = sp.big ? 5 : 3;
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 12;
+
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let k = 1; k < pts.length; k++) {
+                    ctx.lineTo(pts[k].x, pts[k].y);
+                }
+                ctx.stroke();
+
+                // Core Bianco
+                ctx.strokeStyle = `rgba(255, 255, 255, ${sp.life})`;
+                ctx.lineWidth = sp.big ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let k = 1; k < pts.length; k++) {
+                    ctx.lineTo(pts[k].x, pts[k].y);
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                sp.life -= 0.12;
+                if (sp.life <= 0) {
+                    this.sparks.splice(i, 1);
+                }
+            }
+        }
+
+        loop(timestamp) {
+            const dt = Math.min(0.05, (timestamp - this.lastTime) / 1000.0);
+            this.lastTime = timestamp;
+
+            this.updatePhysics();
+            this.draw();
+
+            requestAnimationFrame((t) => this.loop(t));
+        }
+    }
+
+    window.onload = () => {
+        new VoltaSimulation();
+    };
+    </script>
+</body>
+</html>
