@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Tubo di Crookes Storico</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0e0a07;
+            color: #e5dccb;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+        }
+        .historical-title {
+            font-family: 'Playfair Display', serif;
+        }
+        .wood-base {
+            background: linear-gradient(135deg, #2b170e 0%, #170d07 50%, #0d0603 100%);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.08), 0 10px 25px rgba(0,0,0,0.8);
+        }
+        .brass-accent {
+            background: linear-gradient(135deg, #c59b27 0%, #946815 50%, #634305 100%);
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .brass-text {
+            color: #d4af37;
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #120c08;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #8b6214;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-[100dvh] w-screen flex flex-col overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="flex-none bg-[#140d08] border-b border-[#302013] px-4 py-2.5 flex items-center justify-between shadow-md z-20">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-full brass-accent flex items-center justify-center text-[#140d08] font-bold shadow">
+                <i class="fa-solid fa-atom text-sm"></i>
+            </div>
+            <div>
+                <h1 class="historical-title text-base font-bold brass-text tracking-wide leading-tight">Tubo di Crookes Storico</h1>
+                <p class="text-[10px] text-amber-200/60 uppercase tracking-widest">Modello a 4 Elettrodi &bull; Inv. 2301</p>
+            </div>
+        </div>
+        <button id="info-btn" class="w-9 h-9 rounded-full bg-[#24170e] border border-[#4d331e] brass-text flex items-center justify-center hover:bg-[#332014] transition active:scale-95 shadow">
+            <i class="fa-solid fa-book-open text-sm"></i>
+        </button>
+    </header>
+
+    <!-- Canvas Area -->
+    <main class="flex-1 relative w-full flex items-center justify-center bg-gradient-to-b from-[#120d0a] via-[#090604] to-[#0e0a07] overflow-hidden">
+        <div class="absolute inset-0 pointer-events-none opacity-15 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-700/20 via-transparent to-black"></div>
+        <canvas id="crookesCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+        <!-- HUD Overlay -->
+        <div class="absolute top-3 left-3 bg-[#120d08cc] backdrop-blur-md border border-[#3b2515] rounded-lg px-3 py-1.5 text-[11px] flex flex-col gap-0.5 shadow-xl pointer-events-none">
+            <div class="flex items-center justify-between gap-4">
+                <span class="text-amber-200/70">Scarica:</span>
+                <span id="hud-status" class="font-semibold text-rose-400">SPENTO</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <span class="text-amber-200/70">Pressione:</span>
+                <span id="hud-vacuum" class="font-semibold text-amber-300">0.05 Pa</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <span class="text-amber-200/70">Tensione:</span>
+                <span id="hud-voltage" class="font-semibold text-amber-300">20.0 kV</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Control Panel -->
+    <footer class="flex-none bg-[#140d08] border-t border-[#302013] p-3 pb-safe shadow-2xl z-20 flex flex-col gap-2.5">
+        <div class="flex items-center justify-between gap-2">
+            <button id="power-btn" class="flex-1 py-2 px-3 rounded-lg bg-gradient-to-r from-rose-950 to-rose-900 border border-rose-700/60 text-rose-200 font-semibold text-xs flex items-center justify-center gap-2 shadow transition active:scale-95">
+                <i class="fa-solid fa-power-off text-rose-400" id="power-icon"></i>
+                <span id="power-text">Alimentazione: OFF</span>
+            </button>
+            <button id="polarity-btn" class="py-2 px-3 rounded-lg bg-[#24170e] border border-[#4d331e] text-amber-200/90 font-medium text-xs flex items-center justify-center gap-1.5 hover:bg-[#332014] transition active:scale-95 shadow">
+                <i class="fa-solid fa-right-left text-amber-400"></i>
+                <span>Inverti Polarità</span>
+            </button>
+        </div>
+
+        <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center text-[10px] uppercase tracking-wider text-amber-200/60 px-0.5">
+                <span>Distribuzione Elettrodi</span>
+                <span id="active-anode-label" class="text-amber-400 font-bold">Tutti e 4 gli Elettrodi (Contemporaneo)</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5">
+                <button data-anode="all" class="anode-btn py-1.5 px-1 rounded bg-[#332014] border border-amber-500 text-amber-200 font-medium text-[11px] flex items-center justify-center transition shadow active:scale-95 ring-1 ring-amber-500/50">Tutti (4)</button>
+                <button data-anode="1" class="anode-btn py-1.5 px-1 rounded bg-[#24170e] border border-[#4d331e] text-amber-200/60 font-medium text-[11px] flex items-center justify-center transition shadow active:scale-95">Solo Sup (A1)</button>
+                <button data-anode="2" class="anode-btn py-1.5 px-1 rounded bg-[#24170e] border border-[#4d331e] text-amber-200/60 font-medium text-[11px] flex items-center justify-center transition shadow active:scale-95">Solo Sx (A2)</button>
+                <button data-anode="3" class="anode-btn py-1.5 px-1 rounded bg-[#24170e] border border-[#4d331e] text-amber-200/60 font-medium text-[11px] flex items-center justify-center transition shadow active:scale-95">Solo Dx (A3)</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-0.5">
+            <div class="flex flex-col gap-1 bg-[#0f0a06] p-2 rounded-lg border border-[#26190e]">
+                <div class="flex justify-between text-[11px]">
+                    <span class="text-amber-200/80 font-medium">Voltaggio</span>
+                    <span id="voltage-val" class="font-bold text-amber-400">20.0 kV</span>
+                </div>
+                <input id="voltage-slider" type="range" min="5" max="30" step="0.5" value="20" class="w-full accent-amber-600 cursor-pointer h-1.5 bg-[#21160c] rounded-lg">
+            </div>
+            <div class="flex flex-col gap-1 bg-[#0f0a06] p-2 rounded-lg border border-[#26190e]">
+                <div class="flex justify-between text-[11px]">
+                    <span class="text-amber-200/80 font-medium">Rarefazione</span>
+                    <span id="vacuum-val" class="font-bold text-amber-400">0.05 Pa</span>
+                </div>
+                <input id="vacuum-slider" type="range" min="0.001" max="1.5" step="0.005" value="0.05" class="w-full accent-amber-600 cursor-pointer h-1.5 bg-[#21160c] rounded-lg">
+            </div>
+        </div>
+    </footer>
+
+    <!-- Educational Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#140d08] border border-[#4d331e] w-full max-w-md max-h-[85vh] rounded-xl flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
+            <div class="p-4 border-b border-[#302013] flex items-center justify-between bg-[#1f130a]">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-7 h-7 rounded-full brass-accent flex items-center justify-center text-[#140d08] font-bold text-xs">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <h2 class="historical-title font-bold text-base brass-text">Guida Storica e Fisica</h2>
+                </div>
+                <button id="close-modal" class="w-8 h-8 rounded-full bg-[#291b10] text-amber-200 flex items-center justify-center hover:bg-[#332014] transition">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-4 text-xs text-amber-100/90 leading-relaxed">
+                <div class="space-y-1.5">
+                    <h3 class="font-bold text-amber-400 text-sm historical-title flex items-center gap-1.5">
+                        <i class="fa-solid fa-flask text-amber-500"></i> Percorsi Multipli di Scarica (N. 2301)
+                    </h3>
+                    <p>
+                        In questo storico tubo di Crookes ad alta rarefazione, l'anodo non è unico: la scarica elettrica proveniente dal catodo piano (situato nel collo inferiore) si dirama e fluisce contemporaneamente attraverso <strong>tutti e quattro i terminali e percorsi disponibili</strong> (verso l'anodo superiore A1, i due anodi laterali A2 e A3, e il circuito di base). I nastri luminosi dimostrano come i raggi catodici si propagano lungo le linee di forza del campo elettrico.
+                    </p>
+                </div>
+                <div class="space-y-1.5 bg-[#0f0a06] p-3 rounded-lg border border-[#26190e]">
+                    <h3 class="font-bold text-amber-400 text-sm historical-title">Relazione Energetica</h3>
+                    <div class="bg-[#0f0a06] p-2.5 rounded border border-[#302013] text-center font-mono text-amber-300 text-[11px] shadow-inner">
+                        E_k = e &times; V = &frac12; &times; m &times; v^2
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 border-t border-[#302013] bg-[#1f130a] text-right">
+                <button id="modal-ok-btn" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs transition shadow">
+                    Chiudi Guida
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            powerOn: false,
+            voltage: 20.0,
+            vacuum: 0.05,
+            activeAnode: 'all',
+            polarityInverted: false,
+            time: 0
+        };
+
+        const canvas = document.getElementById('crookesCanvas');
+        const ctx = canvas.getContext('2d');
+        const powerBtn = document.getElementById('power-btn');
+        const powerIcon = document.getElementById('power-icon');
+        const powerText = document.getElementById('power-text');
+        const polarityBtn = document.getElementById('polarity-btn');
+        const voltageSlider = document.getElementById('voltage-slider');
+        const vacuumSlider = document.getElementById('vacuum-slider');
+        const voltageVal = document.getElementById('voltage-val');
+        const vacuumVal = document.getElementById('vacuum-val');
+        const hudStatus = document.getElementById('hud-status');
+        const hudVacuum = document.getElementById('hud-vacuum');
+        const hudVoltage = document.getElementById('hud-voltage');
+        const activeAnodeLabel = document.getElementById('active-anode-label');
+        const anodeButtons = document.querySelectorAll('.anode-btn');
+        const infoBtn = document.getElementById('info-btn');
+        const infoModal = document.getElementById('info-modal');
+        const closeModal = document.getElementById('close-modal');
+        const modalOkBtn = document.getElementById('modal-ok-btn');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        powerBtn.addEventListener('click', () => {
+            state.powerOn = !state.powerOn;
+            if (state.powerOn) {
+                powerBtn.className = "flex-1 py-2 px-3 rounded-lg bg-gradient-to-r from-emerald-950 to-emerald-900 border border-emerald-600/60 text-emerald-200 font-semibold text-xs flex items-center justify-center gap-2 shadow transition active:scale-95";
+                powerIcon.className = "fa-solid fa-power-off text-emerald-400";
+                powerText.textContent = "Alimentazione: ON";
+                hudStatus.textContent = "ATTIVO";
+                hudStatus.className = "font-semibold text-emerald-400";
+            } else {
+                powerBtn.className = "flex-1 py-2 px-3 rounded-lg bg-gradient-to-r from-rose-950 to-rose-900 border border-rose-700/60 text-rose-200 font-semibold text-xs flex items-center justify-center gap-2 shadow transition active:scale-95";
+                powerIcon.className = "fa-solid fa-power-off text-rose-400";
+                powerText.textContent = "Alimentazione: OFF";
+                hudStatus.textContent = "SPENTO";
+                hudStatus.className = "font-semibold text-rose-400";
+            }
+        });
+
+        polarityBtn.addEventListener('click', () => {
+            state.polarityInverted = !state.polarityInverted;
+            polarityBtn.classList.toggle('border-amber-400', state.polarityInverted);
+        });
+
+        voltageSlider.addEventListener('input', (e) => {
+            state.voltage = parseFloat(e.target.value);
+            voltageVal.textContent = state.voltage.toFixed(1) + " kV";
+            hudVoltage.textContent = state.voltage.toFixed(1) + " kV";
+        });
+
+        vacuumSlider.addEventListener('input', (e) => {
+            state.vacuum = parseFloat(e.target.value);
+            vacuumVal.textContent = state.vacuum.toFixed(3) + " Pa";
+            hudVacuum.textContent = state.vacuum.toFixed(3) + " Pa";
+        });
+
+        anodeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const anodeVal = btn.getAttribute('data-anode');
+                state.activeAnode = anodeVal;
+                anodeButtons.forEach(b => {
+                    b.className = "anode-btn py-1.5 px-1 rounded bg-[#24170e] border border-[#4d331e] text-amber-200/60 font-medium text-[11px] flex items-center justify-center transition shadow active:scale-95";
+                });
+                btn.className = "anode-btn py-1.5 px-1 rounded bg-[#332014] border border-amber-500 text-amber-200 font-medium text-[11px] flex items-center justify-center transition shadow active:scale-95 ring-1 ring-amber-500/50";
+                const labels = { 'all': 'Tutti e 4 gli Elettrodi (Contemporaneo)', '1': 'Solo Superiore (A1)', '2': 'Solo Laterale Sinistra (A2)', '3': 'Solo Laterale Destra (A3)' };
+                activeAnodeLabel.textContent = labels[anodeVal];
+            });
+        });
+
+        infoBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+        closeModal.addEventListener('click', () => infoModal.classList.add('hidden'));
+        modalOkBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+
+        const particles = [];
+        for (let i = 0; i < 90; i++) {
+            particles.push({ progress: Math.random(), speed: 0.012 + Math.random() * 0.02, anodeTarget: ['1', '2', '3'][Math.floor(Math.random() * 3)] });
+        }
+
+        function updateParticles() {
+            if (!state.powerOn) return;
+            particles.forEach(p => {
+                p.progress += p.speed * (state.voltage / 12);
+                if (p.progress > 1) {
+                    p.progress = 0;
+                    if (state.activeAnode === 'all') {
+                        p.anodeTarget = ['1', '2', '3'][Math.floor(Math.random() * 3)];
+                    } else {
+                        p.anodeTarget = state.activeAnode;
+                    }
+                }
+            });
+        }
+
+        function drawApparatus() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            ctx.clearRect(0, 0, width, height);
+
+            const cx = width / 2;
+            const cy = height / 2 - 25;
+            const bulbRadius = Math.min(width, height) * 0.27;
+
+            // 1. Turned Wooden Base with Historical Label "TUBO DI CROOKES AD ALTA RAREFAZIONE" and "2301"
+            const standY = cy + bulbRadius + 115;
+            const woodGradient = ctx.createLinearGradient(cx - 160, standY, cx + 160, standY + 55);
+            woodGradient.addColorStop(0, '#2b170e');
+            woodGradient.addColorStop(0.5, '#3d2214');
+            woodGradient.addColorStop(1, '#170d07');
+
+            ctx.save();
+            ctx.fillStyle = woodGradient;
+            ctx.beginPath();
+            ctx.roundRect(cx - 180, standY, 360, 52, [10]);
+            ctx.fill();
+            ctx.strokeStyle = '#0f0703';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Turned wooden tiers
+            ctx.fillStyle = '#1c0f08';
+            ctx.beginPath();
+            ctx.roundRect(cx - 140, standY - 14, 280, 16, [6]);
+            ctx.fill();
+            ctx.stroke();
+
+            // Museum Tag on Wooden Base
+            ctx.fillStyle = '#f5f2e8';
+            ctx.strokeStyle = '#332211';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(cx - 65, standY + 12, 130, 28, [3]);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#110a05';
+            ctx.font = '700 8.5px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('TUBO DI CROOKES', cx, standY + 22);
+            ctx.fillText('AD ALTA RAREFAZIONE', cx, standY + 31);
+            ctx.font = '700 9px Inter, sans-serif';
+            ctx.fillText('2301', cx, standY + 38);
+            ctx.textAlign = 'left';
+
+            // Vertical metal support pillar on base
+            const stemGrad = ctx.createLinearGradient(cx - 10, standY - 28, cx + 10, standY - 28);
+            stemGrad.addColorStop(0, '#99711c');
+            stemGrad.addColorStop(0.5, '#d4af37');
+            stemGrad.addColorStop(1, '#664a0f');
+            ctx.fillStyle = stemGrad;
+            ctx.fillRect(cx - 8, cy + bulbRadius + 38, 16, (standY - 28) - (cy + bulbRadius + 38));
+            ctx.strokeRect(cx - 8, cy + bulbRadius + 38, 16, (standY - 28) - (cy + bulbRadius + 38));
+            ctx.restore();
+
+            // 2. Exact Glass Geometry: Bottom curved swan-neck evacuation tubulation (4th electrode / path)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(210, 230, 250, 0.65)';
+            ctx.lineWidth = 3;
+            ctx.fillStyle = 'rgba(200, 220, 240, 0.12)';
+            
+            ctx.beginPath();
+            ctx.moveTo(cx - 12, cy + bulbRadius);
+            ctx.lineTo(cx - 12, cy + bulbRadius + 22);
+            ctx.bezierCurveTo(cx - 12, cy + bulbRadius + 45, cx + 45, cy + bulbRadius + 40, cx + 25, cy + bulbRadius + 65);
+            ctx.bezierCurveTo(cx + 10, cy + bulbRadius + 85, cx - 8, cy + bulbRadius + 75, cx - 8, cy + bulbRadius + 38);
+            ctx.lineTo(cx + 8, cy + bulbRadius + 38);
+            ctx.bezierCurveTo(cx + 8, cy + bulbRadius + 70, cx + 22, cy + bulbRadius + 80, cx + 18, cy + bulbRadius + 60);
+            ctx.bezierCurveTo(cx + 25, cy + bulbRadius + 38, cx + 12, cy + bulbRadius + 35, cx + 12, cy + bulbRadius + 22);
+            ctx.lineTo(cx + 12, cy + bulbRadius);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // 3. Electrode coordinates (All 4 electrodes active)
+            const cathodeX = cx;
+            const cathodeY = cy + bulbRadius * 0.45;
+
+            const anode1 = { x: cx, y: cy - bulbRadius * 1.15, name: '1' }; // Top
+            const anode2 = { x: cx - bulbRadius * 0.95, y: cy + bulbRadius * 0.05, name: '2' }; // Left
+            const anode3 = { x: cx + bulbRadius * 0.95, y: cy + bulbRadius * 0.05, name: '3' }; // Right
+            const anode4 = { x: cx, y: cy + bulbRadius + 22, name: '4' }; // Bottom base terminal / tubulation path
+
+            // 4. Plasma discharge glow and simultaneous 4-path currents
+            if (state.powerOn) {
+                let activeTargets = [];
+                if (state.activeAnode === 'all') {
+                    activeTargets = [anode1, anode2, anode3, anode4];
+                } else {
+                    activeTargets = [
+                        state.activeAnode === '1' ? anode1 : (state.activeAnode === '2' ? anode2 : anode3),
+                        anode4 // Always include bottom path for complete 4-electrode dynamics
+                    ];
+                }
+
+                let glowColor = state.vacuum < 0.05 ? 'rgba(50, 255, 120, ' : 'rgba(170, 90, 255, ';
+                let intensity = Math.min(1, (state.voltage / 30) * (1 / (state.vacuum * 10 + 0.15)));
+
+                const bgGlow = ctx.createRadialGradient(cx, cy, 10, cx, cy, bulbRadius * 1.25);
+                bgGlow.addColorStop(0, glowColor + (intensity * 0.6) + ')');
+                bgGlow.addColorStop(0.7, glowColor + (intensity * 0.18) + ')');
+                bgGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = bgGlow;
+                ctx.beginPath();
+                ctx.arc(cx, cy, bulbRadius * 1.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                activeTargets.forEach(target => {
+                    ctx.save();
+                    ctx.strokeStyle = glowColor + (intensity * 0.85) + ')';
+                    ctx.lineWidth = 3.0 + (state.voltage / 7);
+                    ctx.shadowColor = state.vacuum < 0.05 ? '#32ff78' : '#aa5aff';
+                    ctx.shadowBlur = 18;
+
+                    ctx.beginPath();
+                    ctx.moveTo(cathodeX, cathodeY);
+                    let cpx = (cathodeX + target.x) / 2 + (target.y - cathodeY) * 0.2;
+                    let cpy = (cathodeY + target.y) / 2 - (target.x - cathodeX) * 0.2;
+                    ctx.quadraticCurveTo(cpx, cpy, target.x, target.y);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+                    ctx.restore();
+
+                    particles.forEach(p => {
+                        if (state.activeAnode === 'all' || p.anodeTarget === state.activeAnode) {
+                            let t = p.progress;
+                            if (state.polarityInverted) t = 1 - t;
+                            let px = (1 - t) * (1 - t) * cathodeX + 2 * (1 - t) * t * cpx + t * t * target.x;
+                            let py = (1 - t) * (1 - t) * cathodeY + 2 * (1 - t) * t * cpy + t * t * target.y;
+
+                            ctx.save();
+                            ctx.fillStyle = '#ffffff';
+                            ctx.shadowColor = state.vacuum < 0.05 ? '#32ff78' : '#aa5aff';
+                            ctx.shadowBlur = 10;
+                            ctx.beginPath();
+                            ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.restore();
+                        }
+                    });
+                });
+            }
+
+            ctx.save();
+            const glassGrad = ctx.createRadialGradient(cx - bulbRadius * 0.3, cy - bulbRadius * 0.3, 10, cx, cy, bulbRadius * 1.35);
+            glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+            glassGrad.addColorStop(0.7, 'rgba(200, 220, 240, 0.09)');
+            glassGrad.addColorStop(0.95, 'rgba(150, 200, 220, 0.28)');
+            glassGrad.addColorStop(1, 'rgba(220, 240, 255, 0.45)');
+
+            ctx.fillStyle = glassGrad;
+            ctx.strokeStyle = 'rgba(210, 230, 250, 0.65)';
+            ctx.lineWidth = 3;
+
+            // Main Spherical Bulb
+            ctx.beginPath();
+            ctx.arc(cx, cy, bulbRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Top Glass Neck & Extension
+            ctx.beginPath();
+            ctx.rect(cx - bulbRadius * 0.18, cy - bulbRadius - bulbRadius * 0.35, bulbRadius * 0.36, bulbRadius * 0.35);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy - bulbRadius - bulbRadius * 0.35, bulbRadius * 0.22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Left Lateral Extension
+            ctx.beginPath();
+            ctx.moveTo(cx - bulbRadius * 0.7, cy - bulbRadius * 0.12);
+            ctx.lineTo(cx - bulbRadius * 1.15, cy - bulbRadius * 0.05);
+            ctx.lineTo(cx - bulbRadius * 1.15, cy + bulbRadius * 0.15);
+            ctx.lineTo(cx - bulbRadius * 0.7, cy + bulbRadius * 0.12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Right Lateral Extension
+            ctx.beginPath();
+            ctx.moveTo(cx + bulbRadius * 0.7, cy - bulbRadius * 0.12);
+            ctx.lineTo(cx + bulbRadius * 1.15, cy - bulbRadius * 0.05);
+            ctx.lineTo(cx + bulbRadius * 1.15, cy + bulbRadius * 0.15);
+            ctx.lineTo(cx + bulbRadius * 0.7, cy + bulbRadius * 0.12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Glass Reflection
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, bulbRadius - 6, Math.PI * 1.1, Math.PI * 1.6);
+            ctx.stroke();
+            ctx.restore();
+
+            function drawBrassTerminal(bx, by, orientation = 'top') {
+                ctx.save();
+                ctx.fillStyle = '#c59b27';
+                ctx.strokeStyle = '#634305';
+                ctx.lineWidth = 1.5;
+                if (orientation === 'top') {
+                    ctx.fillRect(bx - 5, by - 14, 10, 14);
+                    ctx.strokeRect(bx - 5, by - 14, 10, 14);
+                    ctx.beginPath();
+                    ctx.arc(bx, by - 19, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (orientation === 'left') {
+                    ctx.fillRect(bx - 12, by - 5, 12, 10);
+                    ctx.strokeRect(bx - 12, by - 5, 12, 10);
+                    ctx.beginPath();
+                    ctx.arc(bx - 17, by, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (orientation === 'right') {
+                    ctx.fillRect(bx, by - 5, 12, 10);
+                    ctx.strokeRect(bx, by - 5, 12, 10);
+                    ctx.beginPath();
+                    ctx.arc(bx + 17, by, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (orientation === 'bottom') {
+                    ctx.fillRect(bx - 5, by, 10, 12);
+                    ctx.strokeRect(bx - 5, by, 10, 12);
+                    ctx.beginPath();
+                    ctx.arc(bx, by + 16, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            drawBrassTerminal(cx, cy - bulbRadius - bulbRadius * 0.57, 'top');
+            drawBrassTerminal(cx - bulbRadius * 1.15, cy + bulbRadius * 0.05, 'left');
+            drawBrassTerminal(cx + bulbRadius * 1.15, cy + bulbRadius * 0.05, 'right');
+            drawBrassTerminal(cx, cy + bulbRadius + 22, 'bottom');
+
+            // Internal Rods & Electrodes
+            ctx.save();
+            ctx.strokeStyle = '#c59b27';
+            ctx.lineWidth = 2.5;
+
+            // Top Anode (A1)
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - bulbRadius - bulbRadius * 0.35);
+            ctx.lineTo(anode1.x, anode1.y);
+            ctx.stroke();
+            ctx.fillStyle = state.powerOn ? '#ffffff' : '#c59b27';
+            ctx.beginPath();
+            ctx.arc(anode1.x, anode1.y, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Left Anode (A2)
+            ctx.beginPath();
+            ctx.moveTo(cx - bulbRadius * 0.8, cy + bulbRadius * 0.05);
+            ctx.lineTo(anode2.x, anode2.y);
+            ctx.stroke();
+            ctx.fillStyle = state.powerOn ? '#ffffff' : '#c59b27';
+            ctx.beginPath();
+            ctx.arc(anode2.x, anode2.y, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Right Anode (A3)
+            ctx.beginPath();
+            ctx.moveTo(cx + bulbRadius * 0.8, cy + bulbRadius * 0.05);
+            ctx.lineTo(anode3.x, anode3.y);
+            ctx.stroke();
+            ctx.fillStyle = state.powerOn ? '#ffffff' : '#c59b27';
+            ctx.beginPath();
+            ctx.arc(anode3.x, anode3.y, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bottom Cathode and Flat Disc
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + bulbRadius);
+            ctx.lineTo(cathodeX, cathodeY);
+            ctx.stroke();
+            ctx.fillStyle = '#b8860b';
+            ctx.fillRect(cathodeX - 14, cathodeY - 3, 28, 6);
+            ctx.strokeRect(cathodeX - 14, cathodeY - 3, 28, 6);
+            ctx.restore();
+
+            // Labels
+            ctx.save();
+            ctx.fillStyle = '#e5dccb';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.fillText('A1', cx + 8, anode1.y + 4);
+            ctx.fillText('A2', anode2.x - 22, anode2.y - 8);
+            ctx.fillText('A3', anode3.x + 10, anode3.y - 8);
+            ctx.fillText('C', cathodeX + 16, cathodeY + 4);
+            ctx.restore();
+        }
+
+        function mainLoop() {
+            updateParticles();
+            drawApparatus();
+            state.time += 0.016;
+            requestAnimationFrame(mainLoop);
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            mainLoop();
+        };
+    </script>
+</body>
+</html>
