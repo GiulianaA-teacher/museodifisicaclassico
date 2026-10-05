@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Interattiva: Il Pendolo di Waltenhofen</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        },
+                        amberGlow: '#f59e0b',
+                        cyanGlow: '#06b6d4',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom styling for canvas and crisp rendering */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f1f5f9;
+        }
+        canvas {
+            touch-action: none;
+        }
+        .glow-box-amber {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+        }
+        .glow-box-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.25);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-sky-500/10 border border-sky-500/30 rounded-xl text-sky-400">
+                    <i data-lucide="zap" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-400 bg-clip-text text-transparent">
+                        Il Pendolo di Waltenhofen
+                    </h1>
+                    <p class="text-xs text-slate-400">Frenamento Elettromagnetico & Correnti di Foucault</p>
+                </div>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-400 hidden sm:inline">Esperimenti Rapidi:</span>
+                <button id="preset-solid" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-sky-600/30 hover:border-sky-500 border border-slate-700 rounded-lg transition">
+                    <i data-lucide="shield" class="w-3.5 h-3.5 inline mr-1 text-sky-400"></i> Piastra Piena (Freno)
+                </button>
+                <button id="preset-comb" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-amber-600/30 hover:border-amber-500 border border-slate-700 rounded-lg transition">
+                    <i data-lucide="combine" class="w-3.5 h-3.5 inline mr-1 text-amber-400"></i> Piastra Pettine (No Freno)
+                </button>
+                <button id="preset-compare" class="px-3 py-1.5 text-xs font-medium bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition shadow-lg shadow-sky-600/20">
+                    <i data-lucide="play-circle" class="w-3.5 h-3.5 inline mr-1"></i> Demo Automatica
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Canvas & Direct Simulation Controls (7 cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-4">
+            
+            <!-- Simulation Canvas Card -->
+            <div class="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                <!-- Canvas Bar Header -->
+                <div class="px-4 py-2.5 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="font-medium text-slate-200">Laboratorio Virtuale</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span>Trascina il pendolo con il mouse per iniziare!</span>
+                    </div>
+                </div>
+
+                <!-- Interactive Canvas -->
+                <div class="relative w-full aspect-[4/3] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+                    <canvas id="simCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+
+                    <!-- Overlay Vector Info -->
+                    <div class="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-lg p-2.5 text-xs flex flex-col gap-1.5 shadow-lg">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-1 bg-amber-400 rounded-full inline-block"></span>
+                            <span class="text-slate-300">Forza Frenante $F_{mag}$</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-1 bg-cyan-400 rounded-full inline-block"></span>
+                            <span class="text-slate-300">Velocità Tangenziale $\vec{v}$</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-1 bg-emerald-400 rounded-full inline-block"></span>
+                            <span class="text-slate-300">Correnti di Foucault (Anelli)</span>
+                        </div>
+                    </div>
+
+                    <!-- Magnet Status Badge -->
+                    <div id="magnet-badge" class="absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                        <i data-lucide="magnet" class="w-4 h-4"></i> Campo Magnetico Attivo
+                    </div>
+                </div>
+
+                <!-- Playback Control Toolbar -->
+                <div class="p-4 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <button id="btn-play" class="p-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl transition shadow-lg shadow-sky-600/30 flex items-center justify-center">
+                            <i data-lucide="play" id="icon-play" class="w-5 h-5"></i>
+                        </button>
+                        <button id="btn-reset" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition" title="Ripristina Posizione">
+                            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                        </button>
+                        <button id="btn-slowmo" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 rounded-xl border border-slate-700 transition flex items-center gap-1.5">
+                            <i data-lucide="clock" class="w-4 h-4"></i> Slow-Motion
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <button id="btn-toggle-magnet" class="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-semibold transition flex items-center gap-2">
+                            <i data-lucide="power" class="w-4 h-4"></i> Switch Magnete (ON)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Energy & Physical Metrics Bar -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col">
+                    <span class="text-xs text-slate-400">Angolo ($\theta$)</span>
+                    <span id="metric-angle" class="text-lg font-bold text-sky-400 font-mono">0.0°</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col">
+                    <span class="text-xs text-slate-400">Velocità ($\omega$)</span>
+                    <span id="metric-omega" class="text-lg font-bold text-cyan-400 font-mono">0.00 rad/s</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col">
+                    <span class="text-xs text-slate-400">Forza Freno ($F_{mag}$)</span>
+                    <span id="metric-force" class="text-lg font-bold text-amber-400 font-mono">0.00 N</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col">
+                    <span class="text-xs text-slate-400">Energia Dissipata</span>
+                    <span id="metric-heat" class="text-lg font-bold text-rose-400 font-mono">0.00 J</span>
+                </div>
+            </div>
+
+            <!-- Dynamic Graph Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="line-chart" class="w-4 h-4 text-sky-400"></i>
+                        Grafici Dinamici in Tempo Reale
+                    </h3>
+                    <div class="flex gap-2">
+                        <button id="tab-graph-angle" class="px-2.5 py-1 text-xs rounded-lg font-medium bg-sky-600 text-white">Angolo / Tempo</button>
+                        <button id="tab-graph-energy" class="px-2.5 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-400 hover:text-slate-200">Energia</button>
+                    </div>
+                </div>
+                <div class="relative w-full h-48">
+                    <canvas id="chartCanvas"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Interactive Parameter Settings & Theory (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Controls Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-5 shadow-xl">
+                <h2 class="text-base font-bold text-slate-100 border-b border-slate-800 pb-3 flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-5 h-5 text-amber-400"></i>
+                    Parametri Fisici ed Esperimento
+                </h2>
+
+                <!-- Plate Geometry Selector -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex justify-between">
+                        <span>Geometria della Piastra</span>
+                        <span id="label-geometry" class="text-sky-400">Piena (Monolitica)</span>
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button data-plate="solid" class="btn-plate p-2.5 text-xs font-medium rounded-xl border bg-sky-600/20 border-sky-500 text-sky-300 flex flex-col items-center gap-1.5 transition">
+                            <i data-lucide="square" class="w-5 h-5"></i>
+                            <span>Piena</span>
+                        </button>
+                        <button data-plate="few-slots" class="btn-plate p-2.5 text-xs font-medium rounded-xl border bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 flex flex-col items-center gap-1.5 transition">
+                            <i data-lucide="columns-2" class="w-5 h-5"></i>
+                            <span>3 Fenditure</span>
+                        </button>
+                        <button data-plate="comb" class="btn-plate p-2.5 text-xs font-medium rounded-xl border bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 flex flex-col items-center gap-1.5 transition">
+                            <i data-lucide="align-justify" class="w-5 h-5 rotate-90"></i>
+                            <span>Pettine Fitto</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Material Selector -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex justify-between">
+                        <span>Materiale Conduttore</span>
+                        <span id="label-material" class="text-amber-400">Rame ($\sigma \approx 5.96 \times 10^7$ S/m)</span>
+                    </label>
+                    <select id="select-material" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500 transition">
+                        <option value="copper">Rame (Alta conducibilità)</option>
+                        <option value="aluminum">Alluminio (Media conducibilità)</option>
+                        <option value="brass">Ottone (Bassa conducibilità)</option>
+                        <option value="plastic">Plastica / Isolante ($\sigma = 0$)</option>
+                    </select>
+                </div>
+
+                <!-- Magnetic Field Slider B -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="font-semibold text-slate-300 uppercase tracking-wider">Campo Magnetico ($B$)</label>
+                        <span id="val-bfield" class="font-mono text-amber-400 font-bold">1.00 Tesla</span>
+                    </div>
+                    <input type="range" id="slider-bfield" min="0" max="2" step="0.05" value="1.0" class="w-full accent-amber-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Initial Angle Release Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="font-semibold text-slate-300 uppercase tracking-wider">Angolo di Rilascio ($\theta_0$)</label>
+                        <span id="val-angle" class="font-mono text-sky-400 font-bold">45°</span>
+                    </div>
+                    <input type="range" id="slider-angle" min="5" max="75" step="1" value="45" class="w-full accent-sky-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Pendulum Length -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="font-semibold text-slate-300 uppercase tracking-wider">Lunghezza Asta ($L$)</label>
+                        <span id="val-length" class="font-mono text-slate-300 font-bold">0.80 m</span>
+                    </div>
+                    <input type="range" id="slider-length" min="0.4" max="1.2" step="0.05" value="0.8" class="w-full accent-emerald-500 bg-slate-950 h-2 rounded-lg cursor-pointer">
+                </div>
+
+            </div>
+
+            <!-- Theory and Physics Accordion / Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-3 shadow-xl">
+                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-4 h-4 text-sky-400"></i>
+                    Come Funziona il Pendolo di Waltenhofen?
+                </h3>
+                
+                <div class="text-xs text-slate-300 space-y-2.5 leading-relaxed">
+                    <p>
+                        Il **Pendolo di Waltenhofen** è un dispositivo ideato dal fisico austriaco Adalbert von Waltenhofen per dimostrare l'effetto delle <strong class="text-amber-400">correnti parassite (o correnti di Foucault)</strong>.
+                    </p>
+                    <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-1.5">
+                        <div class="font-semibold text-sky-300">1. Legge di Faraday-Lenz:</div>
+                        <p class="text-slate-400">
+                            Quando la piastra conduttrice attraversa le espanzioni polari dell'elettromagnete, il flusso magnetico concatenato cambia rapidamente ($\Delta \Phi / \Delta t$). Questo induce correnti elettriche circolari all'interno del metallo.
+                        </p>
+                    </div>
+
+                    <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-1.5">
+                        <div class="font-semibold text-amber-300">2. Forza di Lorentz e Frenamento:</div>
+                        <p class="text-slate-400">
+                            Per la **Legge di Lenz**, queste correnti indotte generano a loro volta un campo magnetico che si oppone alla causa che le ha generate (il movimento della piastra). Ne risulta una forza di attrito magnetico $\vec{F} \propto \sigma B^2 v$ che arresta quasi istantaneamente la piastra piena.
+                        </p>
+                    </div>
+
+                    <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-1.5">
+                        <div class="font-semibold text-emerald-300">3. Perché il Pettine Non si Arresta?</div>
+                        <p class="text-slate-400">
+                            Introdurre **fenditure verticali** (struttura a pettine) interrompe fisicamente i grandi percorsi ad anello delle correnti. Le correnti parassite sono ristrette a piccolissimi vortici ad alta resistenza elettrica: la forza frenante diminuisce drasticamente ed il pendolo oscilla liberamente!
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- JavaScript Physics Engine & UI Controller -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Global Simulation State
+        const state = {
+            // Physics variables
+            theta: (45 * Math.PI) / 180, // Angle in radians
+            omega: 0.0,                  // Angular velocity (rad/s)
+            alpha: 0.0,                  // Angular acceleration (rad/s^2)
+            length: 0.8,                 // Pendulum length (m)
+            g: 9.81,                     // Gravity (m/s^2)
+            mass: 0.25,                  // Bob mass (kg)
+            
+            // Electromagnet parameters
+            bField: 1.0,                 // Magnetic field B (Tesla)
+            magnetOn: true,              // Magnet switch
+            magnetRegionWidth: 0.22,     // Angular span of magnetic region (rad)
+            
+            // Material & Geometry
+            material: 'copper',          // 'copper', 'aluminum', 'brass', 'plastic'
+            plateType: 'solid',          // 'solid', 'few-slots', 'comb'
+            
+            // Simulation Controls
+            isPaused: false,
+            slowMo: false,
+            isDragging: false,
+            time: 0,
+            dissipativeEnergy: 0,        // Total Joule heat dissipated (J)
+            initialEnergy: 0,
+            
+            // Plot Data History
+            historyTime: [],
+            historyAngle: [],
+            historyOmega: [],
+            historyEkin: [],
+            historyEpot: [],
+            historyEdiss: [],
+            maxHistoryLength: 300
+        };
+
+        // Material Conductivity Factors (\sigma relative to copper)
+        const materials = {
+            copper: { name: 'Rame', conductivity: 1.0, color: '#f97316' },
+            aluminum: { name: 'Alluminio', conductivity: 0.63, color: '#94a3b8' },
+            brass: { name: 'Ottone', conductivity: 0.28, color: '#eab308' },
+            plastic: { name: 'Plastica / Isolante', conductivity: 0.0, color: '#a855f7' }
+        };
+
+        // Geometry Resistance Reduction Factor (Damping Factor)
+        // Solid plate allows huge loops (1.0).
+        // Slotted reduces loop area -> ~0.18
+        // Comb cuts loops into tiny fragments -> ~0.02
+        const geometryDampingFactor = {
+            'solid': 1.0,
+            'few-slots': 0.18,
+            'comb': 0.02
+        };
+
+        // Canvas Elements
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let chart = null;
+
+        // UI Metric Displays
+        const metricAngle = document.getElementById('metric-angle');
+        const metricOmega = document.getElementById('metric-omega');
+        const metricForce = document.getElementById('metric-force');
+        const metricHeat = document.getElementById('metric-heat');
+
+        // Buttons & Sliders
+        const btnPlay = document.getElementById('btn-play');
+        const iconPlay = document.getElementById('icon-play');
+        const btnReset = document.getElementById('btn-reset');
+        const btnSlowmo = document.getElementById('btn-slowmo');
+        const btnToggleMagnet = document.getElementById('btn-toggle-magnet');
+        const magnetBadge = document.getElementById('magnet-badge');
+
+        const sliderBField = document.getElementById('slider-bfield');
+        const valBField = document.getElementById('val-bfield');
+        const sliderAngle = document.getElementById('slider-angle');
+        const valAngle = document.getElementById('val-angle');
+        const sliderLength = document.getElementById('slider-length');
+        const valLength = document.getElementById('val-length');
+        const selectMaterial = document.getElementById('select-material');
+        const labelMaterial = document.getElementById('label-material');
+        const labelGeometry = document.getElementById('label-geometry');
+
+        const tabGraphAngle = document.getElementById('tab-graph-angle');
+        const tabGraphEnergy = document.getElementById('tab-graph-energy');
+        let currentGraphTab = 'angle';
+
+        function initChart() {
+            const chartCtx = document.getElementById('chartCanvas').getContext('2d');
+            chart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Angolo θ (°)',
+                            data: [],
+                            borderColor: '#38bdf8',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            grid: { color: '#1e293b' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function calculatePhysics(dt) {
+            if (state.isDragging || state.isPaused) return;
+
+            // Effective damping constant calculation
+            const cond = materials[state.material].conductivity;
+            const geomFactor = geometryDampingFactor[state.plateType];
+            
+            // Magnetic field activation check
+            const B = state.magnetOn ? state.bField : 0;
+
+            // Check if pendulum bob is in magnetic field zone [-magnetRegionWidth, +magnetRegionWidth]
+            const inMagnetZone = Math.abs(state.theta) <= state.magnetRegionWidth;
+
+            // Magnetic damping coefficient C_mag
+            // F_mag = - C_mag * omega
+            // C_mag is proportional to conductivity * B^2 * geomFactor
+            const cMagBase = 12.5; // Tuning constant for visible realistic effect
+            const cMag = inMagnetZone ? cMagBase * cond * geomFactor * (B * B) : 0;
+
+            // Mechanical air friction
+            const cAir = 0.08;
+
+            // Pendulum torque equations
+            // Torque = - m * g * L * sin(theta) - (cMag + cAir) * omega * L^2
+            const gravityTorque = - state.mass * state.g * state.length * Math.sin(state.theta);
+            const dampingTorque = - (cMag + cAir * Math.abs(state.omega)) * state.omega * (state.length * state.length);
+
+            const momentOfInertia = state.mass * state.length * state.length;
+            state.alpha = (gravityTorque + dampingTorque) / momentOfInertia;
+
+            // Verlet / Euler integration
+            state.omega += state.alpha * dt;
+            state.theta += state.omega * dt;
+
+            // Joule heat energy dissipation tracking
+            const magForce = (cMag * Math.abs(state.omega) * state.length);
+            const powerDissipated = magForce * (Math.abs(state.omega) * state.length);
+            state.dissipativeEnergy += powerDissipated * dt;
+
+            state.time += dt;
+
+            // Record history for charts
+            updateHistory(magForce);
+        }
+
+        function updateHistory(currentMagForce) {
+            const angleDeg = (state.theta * 180 / Math.PI);
+            
+            // Energies
+            const h = state.length * (1 - Math.cos(state.theta));
+            const Epot = state.mass * state.g * h;
+            const Ekin = 0.5 * state.mass * Math.pow(state.length * state.omega, 2);
+            const Ediss = state.dissipativeEnergy;
+
+            state.historyTime.push(state.time.toFixed(2));
+            state.historyAngle.push(angleDeg);
+            state.historyOmega.push(state.omega);
+            state.historyEkin.push(Ekin);
+            state.historyEpot.push(Epot);
+            state.historyEdiss.push(Ediss);
+
+            if (state.historyTime.length > state.maxHistoryLength) {
+                state.historyTime.shift();
+                state.historyAngle.shift();
+                state.historyOmega.shift();
+                state.historyEkin.shift();
+                state.historyEpot.shift();
+                state.historyEdiss.shift();
+            }
+
+            // Update UI Labels
+            metricAngle.innerText = `${angleDeg.toFixed(1)}°`;
+            metricOmega.innerText = `${state.omega.toFixed(2)} rad/s`;
+            metricForce.innerText = `${currentMagForce.toFixed(2)} N`;
+            metricHeat.innerText = `${state.dissipativeEnergy.toFixed(3)} J`;
+
+            // Update Chart datasets periodically
+            if (Math.floor(state.time * 60) % 3 === 0) {
+                refreshChartData();
+            }
+        }
+
+        function refreshChartData() {
+            if (!chart) return;
+
+            chart.data.labels = state.historyTime;
+
+            if (currentGraphTab === 'angle') {
+                chart.data.datasets = [
+                    {
+                        label: 'Angolo θ (°)',
+                        data: state.historyAngle,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 0
+                    }
+                ];
+            } else {
+                chart.data.datasets = [
+                    {
+                        label: 'Energia Cinetica (J)',
+                        data: state.historyEkin,
+                        borderColor: '#06b6d4',
+                        borderWidth: 1.5,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Energia Potenziale (J)',
+                        data: state.historyEpot,
+                        borderColor: '#10b981',
+                        borderWidth: 1.5,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Calore Dissipato (J)',
+                        data: state.historyEdiss,
+                        borderColor: '#f43f5e',
+                        borderWidth: 1.5,
+                        pointRadius: 0
+                    }
+                ];
+            }
+            chart.update('none');
+        }
+
+        function drawSimulation() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Pivot point coordinates (top center)
+            const pivotX = width / 2;
+            const pivotY = height * 0.18;
+            
+            // Visual scale mapping (meters to pixels)
+            const meterToPixel = height * 0.55;
+            const pendLenPx = state.length * meterToPixel;
+
+            // Pendulum Bob center position
+            const bobX = pivotX + pendLenPx * Math.sin(state.theta);
+            const bobY = pivotY + pendLenPx * Math.cos(state.theta);
+
+            // 1. Draw Stand & Pivot Support Frame
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(pivotX - 60, pivotY - 20);
+            ctx.lineTo(pivotX + 60, pivotY - 20);
+            ctx.moveTo(pivotX, pivotY - 20);
+            ctx.lineTo(pivotX, pivotY);
+            ctx.stroke();
+
+            // 2. Draw Electromagnet Poles at Bottom Arc
+            const magY = pivotY + pendLenPx;
+            const magGap = 36;
+            const poleWidth = 50;
+            const poleHeight = 70;
+
+            // Magnetic Pole Left (NORTH)
+            const northGrad = ctx.createLinearGradient(pivotX - magGap/2 - poleWidth, magY, pivotX - magGap/2, magY);
+            northGrad.addColorStop(0, '#7f1d1d');
+            northGrad.addColorStop(1, '#ef4444');
+            ctx.fillStyle = northGrad;
+            ctx.beginPath();
+            ctx.roundRect(pivotX - magGap/2 - poleWidth, magY - poleHeight/2, poleWidth, poleHeight, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#f87171';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // North Label
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('N', pivotX - magGap/2 - poleWidth/2, magY + 6);
+
+            // Magnetic Pole Right (SOUTH)
+            const southGrad = ctx.createLinearGradient(pivotX + magGap/2, magY, pivotX + magGap/2 + poleWidth, magY);
+            southGrad.addColorStop(0, '#3b82f6');
+            southGrad.addColorStop(1, '#1e3a8a');
+            ctx.fillStyle = southGrad;
+            ctx.beginPath();
+            ctx.roundRect(pivotX + magGap/2, magY - poleHeight/2, poleWidth, poleHeight, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#60a5fa';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // South Label
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('S', pivotX + magGap/2 + poleWidth/2, magY + 6);
+
+            // Magnetic Flux Field Lines (if Magnet ON and B > 0)
+            if (state.magnetOn && state.bField > 0) {
+                const linesCount = Math.floor(state.bField * 6) + 2;
+                ctx.strokeStyle = `rgba(245, 158, 11, ${0.25 + state.bField * 0.3})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+
+                for (let i = 0; i < linesCount; i++) {
+                    const yOffset = -poleHeight/2 + 10 + (i * (poleHeight - 20) / (linesCount - 1));
+                    ctx.beginPath();
+                    ctx.moveTo(pivotX - magGap/2, magY + yOffset);
+                    ctx.lineTo(pivotX + magGap/2, magY + yOffset);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            // 3. Draw Pendulum Rod
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(pivotX, pivotY);
+            ctx.lineTo(bobX, bobY);
+            ctx.stroke();
+
+            // Pivot Bearing Dot
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.arc(pivotX, pivotY, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. Draw Metal Bob / Plate
+            ctx.save();
+            ctx.translate(bobX, bobY);
+            ctx.rotate(state.theta); // Align with swinging rod angle
+
+            const plateW = 70;
+            const plateH = 75;
+            const matColor = materials[state.material].color;
+
+            // Plate gradient fill
+            const plateGrad = ctx.createLinearGradient(-plateW/2, -plateH/2, plateW/2, plateH/2);
+            plateGrad.addColorStop(0, matColor);
+            plateGrad.addColorStop(1, '#1e293b');
+
+            ctx.fillStyle = plateGrad;
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.5;
+
+            if (state.plateType === 'solid') {
+                // Solid Plate
+                ctx.beginPath();
+                ctx.roundRect(-plateW/2, -10, plateW, plateH, 6);
+                ctx.fill();
+                ctx.stroke();
+
+            } else if (state.plateType === 'few-slots') {
+                // 3 Vertical Slots
+                const numSlots = 3;
+                const slotW = 8;
+                const slotH = plateH - 20;
+                
+                ctx.beginPath();
+                ctx.roundRect(-plateW/2, -10, plateW, plateH, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Cutout Slots
+                ctx.fillStyle = '#090d16'; // background clear
+                for (let s = 0; s < numSlots; s++) {
+                    const sx = -plateW/2 + 12 + s * (slotW + 10);
+                    ctx.fillRect(sx, 0, slotW, slotH);
+                    ctx.strokeRect(sx, 0, slotW, slotH);
+                }
+
+            } else if (state.plateType === 'comb') {
+                // Comb Plate (Many fine vertical teeth)
+                const teethCount = 7;
+                const toothW = 4;
+                const gapW = 5;
+                const totalW = teethCount * toothW + (teethCount - 1) * gapW;
+
+                // Top Spine
+                ctx.beginPath();
+                ctx.roundRect(-plateW/2, -10, plateW, 16, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Teeth
+                for (let t = 0; t < teethCount; t++) {
+                    const tx = -totalW/2 + t * (toothW + gapW);
+                    ctx.beginPath();
+                    ctx.roundRect(tx, 6, toothW, plateH - 16, 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+
+            // 5. Visualize Eddy Currents (Correnti di Foucault) when inside magnet
+            const inMagnetZone = Math.abs(state.theta) <= state.magnetRegionWidth;
+            if (state.magnetOn && state.bField > 0 && inMagnetZone && Math.abs(state.omega) > 0.05 && state.material !== 'plastic') {
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+
+                const speedFactor = Math.min(Math.abs(state.omega) * 1.5, 3);
+                const animOffset = (state.time * 20) % 10;
+
+                if (state.plateType === 'solid') {
+                    // Two large circulating vortices (Lenz's Law loops)
+                    // Left loop
+                    ctx.beginPath();
+                    ctx.ellipse(-18, 25, 14, 22, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Right loop
+                    ctx.beginPath();
+                    ctx.ellipse(18, 25, 14, 22, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Arrow indicators
+                    ctx.fillStyle = '#34d399';
+                    ctx.font = 'bold 10px Inter';
+                    ctx.fillText('⚡ I_indotto', 0, 30);
+
+                } else {
+                    // Small constrained loops inside fingers
+                    ctx.strokeStyle = '#059669';
+                    ctx.lineWidth = 1;
+                    const loops = state.plateType === 'few-slots' ? 3 : 5;
+                    for (let l = 0; l < loops; l++) {
+                        const lx = -22 + l * (44 / (loops - 1));
+                        ctx.beginPath();
+                        ctx.ellipse(lx, 25, 3, 10, 0, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ctx.restore(); // Restore transform from Bob rotation
+
+            // 6. Draw Vector Overlay Arrows (Velocity & Braking Force)
+            if (Math.abs(state.omega) > 0.05) {
+                const velTangential = state.omega * state.length;
+                const vLenPx = velTangential * 30;
+
+                // Velocity vector (Cyan)
+                const vAngle = state.theta + (state.omega > 0 ? Math.PI/2 : -Math.PI/2);
+                const vx = bobX + vLenPx * Math.cos(vAngle);
+                const vy = bobY + vLenPx * Math.sin(vAngle);
+
+                drawArrow(ctx, bobX, bobY, vx, vy, '#06b6d4', 3);
+
+                // Magnetic Braking Force Vector (Amber) - Opposite to velocity
+                if (state.magnetOn && inMagnetZone && state.material !== 'plastic') {
+                    const cond = materials[state.material].conductivity;
+                    const geom = geometryDampingFactor[state.plateType];
+                    const magForceMag = 40 * cond * geom * state.bField * Math.abs(state.omega);
+
+                    if (magForceMag > 2) {
+                        const fAngle = state.theta + (state.omega > 0 ? -Math.PI/2 : Math.PI/2);
+                        const fx = bobX + Math.min(magForceMag, 60) * Math.cos(fAngle);
+                        const fy = bobY + Math.min(magForceMag, 60) * Math.sin(fAngle);
+
+                        drawArrow(ctx, bobX, bobY, fx, fy, '#f59e0b', 3);
+                    }
+                }
+            }
+        }
+
+        // Helper function for drawing directional vector arrows
+        function drawArrow(context, fromx, fromy, tox, toy, color, width) {
+            const headlen = 8;
+            const dx = tox - fromx;
+            const dy = toy - fromy;
+            const angle = Math.atan2(dy, dx);
+            
+            context.save();
+            context.strokeStyle = color;
+            context.fillStyle = color;
+            context.lineWidth = width;
+
+            context.beginPath();
+            context.moveTo(fromx, fromy);
+            context.lineTo(tox, toy);
+            context.stroke();
+
+            context.beginPath();
+            context.moveTo(tox, toy);
+            context.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+            context.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+            context.closePath();
+            context.fill();
+            context.restore();
+        }
+
+        function getCanvasMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left),
+                y: (clientY - rect.top)
+            };
+        }
+
+        function handleStartDrag(e) {
+            const pos = getCanvasMousePos(e);
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            const pivotX = width / 2;
+            const pivotY = height * 0.18;
+
+            const dx = pos.x - pivotX;
+            const dy = pos.y - pivotY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Check if clicking near bob
+            const meterToPixel = height * 0.55;
+            const pendLenPx = state.length * meterToPixel;
+
+            if (Math.abs(dist - pendLenPx) < 50) {
+                state.isDragging = true;
+                state.omega = 0;
+                state.alpha = 0;
+                updateDragAngle(pos, pivotX, pivotY);
+            }
+        }
+
+        function handleMoveDrag(e) {
+            if (!state.isDragging) return;
+            const pos = getCanvasMousePos(e);
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            updateDragAngle(pos, width / 2, height * 0.18);
+        }
+
+        function handleEndDrag() {
+            if (state.isDragging) {
+                state.isDragging = false;
+                state.dissipativeEnergy = 0; // Reset heat on release
+            }
+        }
+
+        function updateDragAngle(pos, pivotX, pivotY) {
+            const dx = pos.x - pivotX;
+            const dy = pos.y - pivotY;
+            let newAngle = Math.atan2(dx, dy); // Angle from vertical down
+            
+            // Limit max release angle to +- 75 degrees
+            const maxRad = (75 * Math.PI) / 180;
+            newAngle = Math.max(-maxRad, Math.min(maxRad, newAngle));
+
+            state.theta = newAngle;
+            sliderAngle.value = Math.abs(Math.round(newAngle * 180 / Math.PI));
+            valAngle.innerText = `${sliderAngle.value}°`;
+        }
+
+        canvas.addEventListener('mousedown', handleStartDrag);
+        canvas.addEventListener('mousemove', handleMoveDrag);
+        window.addEventListener('mouseup', handleEndDrag);
+
+        canvas.addEventListener('touchstart', handleStartDrag, { passive: true });
+        canvas.addEventListener('touchmove', handleMoveDrag, { passive: true });
+        window.addEventListener('touchend', handleEndDrag);
+
+        // Play / Pause Toggle
+        btnPlay.addEventListener('click', () => {
+            state.isPaused = !state.isPaused;
+            iconPlay.setAttribute('data-lucide', state.isPaused ? 'play' : 'pause');
+            lucide.createIcons();
+        });
+
+        // Reset
+        btnReset.addEventListener('click', () => {
+            state.theta = (parseInt(sliderAngle.value) * Math.PI) / 180;
+            state.omega = 0;
+            state.alpha = 0;
+            state.dissipativeEnergy = 0;
+            state.time = 0;
+            state.historyTime = [];
+            state.historyAngle = [];
+            state.historyOmega = [];
+            state.historyEkin = [];
+            state.historyEpot = [];
+            state.historyEdiss = [];
+            refreshChartData();
+        });
+
+        // Slow motion
+        btnSlowmo.addEventListener('click', () => {
+            state.slowMo = !state.slowMo;
+            btnSlowmo.classList.toggle('bg-sky-600', state.slowMo);
+            btnSlowmo.classList.toggle('text-white', state.slowMo);
+        });
+
+        // Magnet ON/OFF Toggle
+        btnToggleMagnet.addEventListener('click', () => {
+            state.magnetOn = !state.magnetOn;
+            updateMagnetBadge();
+        });
+
+        function updateMagnetBadge() {
+            if (state.magnetOn) {
+                magnetBadge.className = 'absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5';
+                magnetBadge.innerHTML = '<i data-lucide="magnet" class="w-4 h-4"></i> Campo Magnetico Attivo';
+                btnToggleMagnet.innerHTML = '<i data-lucide="power" class="w-4 h-4"></i> Switch Magnete (ON)';
+            } else {
+                magnetBadge.className = 'absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5';
+                magnetBadge.innerHTML = '<i data-lucide="power-off" class="w-4 h-4"></i> Campo Magnetico Spento';
+                btnToggleMagnet.innerHTML = '<i data-lucide="power" class="w-4 h-4"></i> Switch Magnete (OFF)';
+            }
+            lucide.createIcons();
+        }
+
+        // Plate Geometry Selector Buttons
+        document.querySelectorAll('.btn-plate').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.btn-plate').forEach(b => {
+                    b.className = 'btn-plate p-2.5 text-xs font-medium rounded-xl border bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 flex flex-col items-center gap-1.5 transition';
+                });
+
+                const target = e.currentTarget;
+                target.className = 'btn-plate p-2.5 text-xs font-medium rounded-xl border bg-sky-600/20 border-sky-500 text-sky-300 flex flex-col items-center gap-1.5 transition';
+
+                state.plateType = target.getAttribute('data-plate');
+                
+                const names = {
+                    'solid': 'Piena (Monolitica)',
+                    'few-slots': '3 Fenditure Verticali',
+                    'comb': 'Pettine Fitto'
+                };
+                labelGeometry.innerText = names[state.plateType];
+            });
+        });
+
+        // Material Selector
+        selectMaterial.addEventListener('change', (e) => {
+            state.material = e.target.value;
+            const mat = materials[state.material];
+            labelMaterial.innerText = `${mat.name} (${mat.conductivity > 0 ? 'Conduttore' : 'Isolante'})`;
+        });
+
+        // Sliders
+        sliderBField.addEventListener('input', (e) => {
+            state.bField = parseFloat(e.target.value);
+            valBField.innerText = `${state.bField.toFixed(2)} Tesla`;
+        });
+
+        sliderAngle.addEventListener('input', (e) => {
+            const angleDeg = parseInt(e.target.value);
+            valAngle.innerText = `${angleDeg}°`;
+            if (state.isPaused || Math.abs(state.omega) < 0.01) {
+                state.theta = (angleDeg * Math.PI) / 180;
+            }
+        });
+
+        sliderLength.addEventListener('input', (e) => {
+            state.length = parseFloat(e.target.value);
+            valLength.innerText = `${state.length.toFixed(2)} m`;
+        });
+
+        // Graph Tabs
+        tabGraphAngle.addEventListener('click', () => {
+            currentGraphTab = 'angle';
+            tabGraphAngle.className = 'px-2.5 py-1 text-xs rounded-lg font-medium bg-sky-600 text-white';
+            tabGraphEnergy.className = 'px-2.5 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-400 hover:text-slate-200';
+            refreshChartData();
+        });
+
+        tabGraphEnergy.addEventListener('click', () => {
+            currentGraphTab = 'energy';
+            tabGraphEnergy.className = 'px-2.5 py-1 text-xs rounded-lg font-medium bg-sky-600 text-white';
+            tabGraphAngle.className = 'px-2.5 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-400 hover:text-slate-200';
+            refreshChartData();
+        });
+
+        // Quick Presets
+        document.getElementById('preset-solid').addEventListener('click', () => {
+            setPreset('solid', 'copper', 1.2, true);
+        });
+
+        document.getElementById('preset-comb').addEventListener('click', () => {
+            setPreset('comb', 'copper', 1.2, true);
+        });
+
+        document.getElementById('preset-compare').addEventListener('click', () => {
+            // Auto demo sequence
+            setPreset('solid', 'copper', 1.2, true);
+            setTimeout(() => {
+                setPreset('comb', 'copper', 1.2, true);
+            }, 3500);
+        });
+
+        function setPreset(plate, material, bfield, magnetOn) {
+            state.plateType = plate;
+            state.material = material;
+            state.bField = bfield;
+            state.magnetOn = magnetOn;
+
+            // UI updates
+            sliderBField.value = bfield;
+            valBField.innerText = `${bfield.toFixed(2)} Tesla`;
+            selectMaterial.value = material;
+
+            document.querySelectorAll('.btn-plate').forEach(b => {
+                const isMatch = b.getAttribute('data-plate') === plate;
+                b.className = isMatch ? 
+                    'btn-plate p-2.5 text-xs font-medium rounded-xl border bg-sky-600/20 border-sky-500 text-sky-300 flex flex-col items-center gap-1.5 transition' :
+                    'btn-plate p-2.5 text-xs font-medium rounded-xl border bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 flex flex-col items-center gap-1.5 transition';
+            });
+
+            const names = {
+                'solid': 'Piena (Monolitica)',
+                'few-slots': '3 Fenditure Verticali',
+                'comb': 'Pettine Fitto'
+            };
+            labelGeometry.innerText = names[plate];
+            updateMagnetBadge();
+
+            // Trigger reset swing
+            btnReset.click();
+        }
+
+        let lastTimestamp = 0;
+
+        function animationLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            let dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            // Cap dt to prevent instability on lag frames
+            dt = Math.min(dt, 0.033);
+
+            if (state.slowMo) dt *= 0.3;
+
+            // Perform multiple small sub-steps for smooth simulation
+            const subSteps = 4;
+            const subDt = dt / subSteps;
+            for (let i = 0; i < subSteps; i++) {
+                calculatePhysics(subDt);
+            }
+
+            drawSimulation();
+            requestAnimationFrame(animationLoop);
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            initChart();
+            requestAnimationFrame(animationLoop);
+        };
+    </script>
+</body>
+</html>
