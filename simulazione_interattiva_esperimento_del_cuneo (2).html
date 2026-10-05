@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Interattiva: Esperimento del Cuneo</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for crisp LaTeX math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#131f37',
+                            900: '#0f172a',
+                            950: '#080d1a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080d1a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        canvas {
+            touch-action: none;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <!-- Application Header -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-4 py-3 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl shadow-lg shadow-sky-500/20 text-white font-bold text-xl">
+                    📐
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold bg-gradient-to-r from-sky-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
+                        Esperimento & Teoria del Cuneo
+                    </h1>
+                    <p class="text-xs text-slate-400">Dimostrazione della Macchina Semplice, Dinamica e Cuneo d'Aria Ottico</p>
+                </div>
+            </div>
+
+            <!-- Mode Selector Tabs -->
+            <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+                <button id="tab-mechanics" class="tab-btn px-3 py-1.5 rounded-lg text-white bg-sky-600 shadow-sm flex items-center gap-2 transition-all cursor-pointer">
+                    ⚙️ Macchina Semplice
+                </button>
+                <button id="tab-dynamic" class="tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 flex items-center gap-2 transition-all cursor-pointer">
+                    ⚖️ Dinamica del Cuneo
+                </button>
+                <button id="tab-optics" class="tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 flex items-center gap-2 transition-all cursor-pointer">
+                    🌈 Cuneo d'Aria (Ottica)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl w-full mx-auto p-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Left Column: Interactive Simulation Canvas (7 cols on lg) -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+            <div class="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex-1 flex flex-col min-h-[420px]">
+                
+                <!-- Canvas Top Bar -->
+                <div class="px-4 py-2.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="badge-mode-text" class="font-medium text-slate-200">Apparecchio Storico del Cuneo</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="fps-counter" class="font-mono text-slate-500">60 FPS</span>
+                    </div>
+                </div>
+
+                <!-- Canvas Wrapper -->
+                <div class="relative flex-1 bg-slate-950 w-full h-full min-h-[350px]">
+                    <canvas id="sim-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+
+                    <!-- Overlay Action Buttons on Canvas -->
+                    <div class="absolute top-3 right-3 z-10 flex gap-2">
+                        <button id="btn-push-wedge" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                            <span>🚀 Spingi Cuneo</span>
+                        </button>
+                        <button id="btn-toggle-vectors" class="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded-xl text-slate-200 text-xs font-medium transition-all shadow-md flex items-center gap-1">
+                            <span>👁️ Vettori</span>
+                        </button>
+                    </div>
+
+                    <!-- Instruction Banner -->
+                    <div class="absolute bottom-3 left-3 right-3 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl p-2.5 text-xs text-slate-300 flex items-center justify-between pointer-events-none">
+                        <span id="canvas-instruction">Regola la Potenza $P$ e l'angolo $\alpha$, poi premi 'Spingi Cuneo' o 'Avvia Movimento'.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Action Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col sm:flex-row gap-2">
+                <button id="btn-play-pause" class="flex-1 py-3 px-4 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-98">
+                    <span id="icon-play">🚀</span>
+                    <span id="text-play">Avvia Movimento / Spingi</span>
+                </button>
+                <button id="btn-step-push" class="py-2.5 px-4 bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-300 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                    <span>⚡ Spinta Singola</span>
+                </button>
+                <button id="btn-reset" class="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium border border-slate-700 transition-all cursor-pointer flex items-center justify-center gap-1">
+                    <span>🔄 Reset</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Column: Controls, Math Outputs & Theory (5 cols on lg) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Interactive Parameters Control Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-4">
+                <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
+                    <span>🎛️ Parametri della Simulazione</span>
+                </h2>
+
+                <!-- Angle Alpha Slider -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <label for="slider-angle" class="font-medium text-slate-300">Angolo del Cuneo ($\alpha$):</label>
+                        <span id="val-angle" class="font-mono font-bold text-sky-400 bg-slate-800 px-2 py-0.5 rounded text-xs">30°</span>
+                    </div>
+                    <input type="range" id="slider-angle" min="10" max="80" step="1" value="30" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500">
+                </div>
+
+                <!-- Power Force P Slider -->
+                <div id="group-force-p" class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <label for="slider-force-p" class="font-medium text-slate-300">Forza Potente ($P$):</label>
+                        <span id="val-force-p" class="font-mono font-bold text-amber-400 bg-slate-800 px-2 py-0.5 rounded text-xs">50 N</span>
+                    </div>
+                    <input type="range" id="slider-force-p" min="10" max="200" step="5" value="50" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+
+                <!-- Load Force R Slider -->
+                <div id="group-load-r" class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <label for="slider-load-r" class="font-medium text-slate-300">Resistenza ($R$):</label>
+                        <span id="val-load-r" class="font-mono font-bold text-rose-400 bg-slate-800 px-2 py-0.5 rounded text-xs">100 N</span>
+                    </div>
+                    <input type="range" id="slider-load-r" min="20" max="300" step="10" value="100" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-rose-500">
+                </div>
+
+                <!-- Friction Coefficient Mu Slider -->
+                <div id="group-friction" class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <label for="slider-friction" class="font-medium text-slate-300">Coefficiente di Attrito ($\mu$):</label>
+                        <span id="val-friction" class="font-mono font-bold text-emerald-400 bg-slate-800 px-2 py-0.5 rounded text-xs">0.10</span>
+                    </div>
+                    <input type="range" id="slider-friction" min="0.00" max="0.50" step="0.01" value="0.10" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <!-- Wavelength Lambda Slider (For Optics Mode) -->
+                <div id="group-optics-lambda" class="flex flex-col gap-1.5 hidden">
+                    <div class="flex justify-between items-center text-xs">
+                        <label for="slider-lambda" class="font-medium text-slate-300">Lunghezza d'Onda ($\lambda$):</label>
+                        <span id="val-lambda" class="font-mono font-bold text-cyan-400 bg-slate-800 px-2 py-0.5 rounded text-xs">550 nm</span>
+                    </div>
+                    <input type="range" id="slider-lambda" min="400" max="700" step="5" value="550" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                </div>
+            </div>
+
+            <!-- Real-Time Physics Output Cards -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
+                    <span class="text-[11px] text-slate-400 font-medium">Vantaggio Ideale ($IMA$)</span>
+                    <span id="out-ima" class="text-lg font-bold font-mono text-sky-400">1.93</span>
+                    <span class="text-[10px] text-slate-500">$IMA = \frac{1}{2 \sin(\alpha/2)}$</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
+                    <span class="text-[11px] text-slate-400 font-medium">Vantaggio Reale ($AMA$)</span>
+                    <span id="out-ama" class="text-lg font-bold font-mono text-amber-400">1.38</span>
+                    <span class="text-[10px] text-slate-500">Con attrito $\mu$</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
+                    <span class="text-[11px] text-slate-400 font-medium">Forza Minima ($P_{min}$)</span>
+                    <span id="out-p-req" class="text-lg font-bold font-mono text-emerald-400">72.4 N</span>
+                    <span class="text-[10px] text-slate-500">Soglia di avanzamento</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
+                    <span class="text-[11px] text-slate-400 font-medium">Stato di Equilibrio</span>
+                    <span id="out-status" class="text-xs font-bold text-emerald-400 py-1">In Movimento 🚀</span>
+                    <span id="out-status-sub" class="text-[10px] text-slate-500">Potenza sufficiente</span>
+                </div>
+            </div>
+
+            <!-- Mathematical & Theoretical Explanation Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+                <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📚 Fondamenti Teorici & Formule</span>
+                </h3>
+
+                <div id="theory-content-mechanics" class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                    <p>
+                        Il **cuneo** è una macchina semplice derivata dal piano inclinato. Trasforma una forza applicata in direzione verticale ($P$) in due enormi forze di separazione laterale ($R$).
+                    </p>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-center text-slate-200">
+                        $$\frac{R}{P} = \frac{l}{t} = \frac{1}{2 \sin(\alpha/2)}$$
+                    </div>
+                    <p class="text-[11px] text-slate-400">
+                        Dove $l$ è la lunghezza del lato del cuneo, $t$ è lo spessore della base e $\alpha$ è l'angolo al vertice. Con attrito, la forza minima richiesta è:
+                    </p>
+                    <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-center text-amber-300 text-[11px]">
+                        $$P_{min} = R \cdot \tan\left(\frac{\alpha}{2} + \phi\right) \quad \text{con } \tan\phi = \mu$$
+                    </div>
+                </div>
+
+                <div id="theory-content-optics" class="text-xs text-slate-300 space-y-2 leading-relaxed hidden">
+                    <p>
+                        Un **cuneo d'aria** è formato da due lastre di vetro inclinate di un piccolissimo angolo $\theta$. La luce incidente genera frange d'interferenza per riflessione.
+                    </p>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-center text-cyan-300">
+                        $$\Delta x = \frac{\lambda}{2 \theta}$$
+                    </div>
+                    <p class="text-[11px] text-slate-400">
+                        $\Delta x$ è la distanza tra due frange scure successive, $\lambda$ è la lunghezza d'onda e $\theta$ è l'angolo d'inclinazione in radianti.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-3 px-4 text-center text-xs text-slate-500">
+        Simulazione Fisica Interattiva &bull; Dimostrazione dell'Esperimento del Cuneo &bull; KaTeX & Canvas2D
+    </footer>
+
+    <script>
+        // Simulation Core State
+        const state = {
+            mode: 'mechanics', // 'mechanics', 'dynamic', 'optics'
+            angleDeg: 30,
+            forceP: 50,
+            loadR: 100,
+            frictionMu: 0.10,
+            lambdaNm: 550,
+            
+            // Animation values
+            isPlaying: false,
+            showVectors: true,
+            wedgeY: 0,
+            animTime: 0,
+            lastFpsTime: performance.now(),
+            frameCount: 0,
+            fps: 60
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const tabMechanics = document.getElementById('tab-mechanics');
+        const tabDynamic = document.getElementById('tab-dynamic');
+        const tabOptics = document.getElementById('tab-optics');
+
+        const sliderAngle = document.getElementById('slider-angle');
+        const sliderForceP = document.getElementById('slider-force-p');
+        const sliderLoadR = document.getElementById('slider-load-r');
+        const sliderFriction = document.getElementById('slider-friction');
+        const sliderLambda = document.getElementById('slider-lambda');
+
+        const valAngle = document.getElementById('val-angle');
+        const valForceP = document.getElementById('val-force-p');
+        const valLoadR = document.getElementById('val-load-r');
+        const valFriction = document.getElementById('val-friction');
+        const valLambda = document.getElementById('val-lambda');
+
+        const groupForceP = document.getElementById('group-force-p');
+        const groupLoadR = document.getElementById('group-load-r');
+        const groupFriction = document.getElementById('group-friction');
+        groupOpticsLambda = document.getElementById('group-optics-lambda');
+
+        const outIma = document.getElementById('out-ima');
+        const outAma = document.getElementById('out-ama');
+        const outPReq = document.getElementById('out-p-req');
+        const outStatus = document.getElementById('out-status');
+        const outStatusSub = document.getElementById('out-status-sub');
+
+        const badgeModeText = document.getElementById('badge-mode-text');
+        const canvasInstruction = document.getElementById('canvas-instruction');
+        const fpsCounter = document.getElementById('fps-counter');
+
+        const theoryContentMechanics = document.getElementById('theory-content-mechanics');
+        const theoryContentOptics = document.getElementById('theory-content-optics');
+
+        const btnPlayPause = document.getElementById('btn-play-pause');
+        const textPlay = document.getElementById('text-play');
+        const iconPlay = document.getElementById('icon-play');
+        const btnReset = document.getElementById('btn-reset');
+        const btnToggleVectors = document.getElementById('btn-toggle-vectors');
+        const btnPushWedge = document.getElementById('btn-push-wedge');
+        const btnStepPush = document.getElementById('btn-step-push');
+
+        // Safe KaTeX renderer
+        function renderMath() {
+            if (window.renderMathInElement) {
+                try {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                } catch (e) {
+                    console.warn("KaTeX loading error:", e);
+                }
+            }
+        }
+
+        // Physics Engine Math
+        function calculatePhysics() {
+            const alphaRad = (state.angleDeg * Math.PI) / 180;
+            const halfAlpha = alphaRad / 2;
+            
+            // Ideal Mechanical Advantage IMA
+            const ima = 1 / (2 * Math.sin(halfAlpha));
+            
+            // Friction angle phi
+            const phi = Math.atan(state.frictionMu);
+            
+            // Required force P considering friction
+            const requiredP = state.loadR * Math.tan(halfAlpha + phi);
+            
+            // Actual Mechanical Advantage AMA
+            const ama = state.loadR / Math.max(0.001, requiredP);
+            
+            // Self-locking condition
+            const isSelfLocking = state.frictionMu >= Math.tan(halfAlpha);
+            
+            return {
+                alphaRad,
+                halfAlpha,
+                ima,
+                ama,
+                requiredP,
+                isSelfLocking
+            };
+        }
+
+        // Draw Helper: Vector Arrows
+        function drawArrow(ctx, fromX, fromY, toX, toY, color, label) {
+            const headLen = 10;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2.5;
+
+            // Line
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Arrow Head
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+
+            // Text Label
+            if (label) {
+                ctx.font = 'bold 12px "JetBrains Mono", monospace';
+                ctx.fillText(label, toX + 8 * Math.cos(angle), toY + 8 * Math.sin(angle));
+            }
+            ctx.restore();
+        }
+
+        function drawMechanicsMode(dpr) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const centerX = w / 2;
+            const centerY = h / 2 - 20 * dpr;
+
+            const phys = calculatePhysics();
+            const alphaRad = phys.alphaRad;
+            const halfAlpha = phys.halfAlpha;
+
+            // Dimensions
+            const wedgeHeight = 180 * dpr;
+            const wedgeWidth = 2 * wedgeHeight * Math.tan(halfAlpha);
+            const rollerRadius = 22 * dpr;
+
+            // Current vertical motion displacement
+            const currentWedgeY = centerY - 30 * dpr + state.wedgeY * dpr;
+
+            // Draw Base Support Structure
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(centerX - 170 * dpr, centerY + 140 * dpr, 340 * dpr, 14 * dpr);
+
+            // Side Guide Pillars
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(centerX - 160 * dpr, centerY - 60 * dpr, 16 * dpr, 200 * dpr);
+            ctx.fillRect(centerX + 144 * dpr, centerY - 60 * dpr, 16 * dpr, 200 * dpr);
+
+            // Dynamic Roller position based on wedge penetration
+            const rollerY = centerY + 30 * dpr;
+            const penetrationDepth = Math.max(10 * dpr, Math.min(wedgeHeight, rollerY - (currentWedgeY - wedgeHeight / 2)));
+            const wedgeWidthAtRollers = 2 * penetrationDepth * Math.tan(halfAlpha);
+
+            const rollerLeftX = centerX - wedgeWidthAtRollers / 2 - rollerRadius;
+            const rollerRightX = centerX + wedgeWidthAtRollers / 2 + rollerRadius;
+
+            // Draw Guided Rollers
+            [rollerLeftX, rollerRightX].forEach((rx, idx) => {
+                const grad = ctx.createRadialGradient(rx - 5, rollerY - 5, 2, rx, rollerY, rollerRadius);
+                grad.addColorStop(0, '#94a3b8');
+                grad.addColorStop(1, '#475569');
+
+                ctx.beginPath();
+                ctx.arc(rx, rollerY, rollerRadius, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2 * dpr;
+                ctx.stroke();
+
+                // Inner Bearing
+                ctx.beginPath();
+                ctx.arc(rx, rollerY, 6 * dpr, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+            });
+
+            // Draw Wedge Triangle
+            const topVertexX = centerX;
+            const topVertexY = currentWedgeY - wedgeHeight / 2;
+            const bottomLeftX = centerX - wedgeWidth / 2;
+            const bottomRightX = centerX + wedgeWidth / 2;
+            const bottomY = currentWedgeY + wedgeHeight / 2;
+
+            const wedgeGrad = ctx.createLinearGradient(centerX, topVertexY, centerX, bottomY);
+            wedgeGrad.addColorStop(0, '#38bdf8');
+            wedgeGrad.addColorStop(1, '#0284c7');
+
+            ctx.beginPath();
+            ctx.moveTo(topVertexX, topVertexY);
+            ctx.lineTo(bottomRightX, bottomY);
+            ctx.lineTo(bottomLeftX, bottomY);
+            ctx.closePath();
+
+            ctx.fillStyle = wedgeGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#7dd3fc';
+            ctx.lineWidth = 3 * dpr;
+            ctx.stroke();
+
+            // Draw Angle Alpha Arc
+            ctx.beginPath();
+            ctx.arc(topVertexX, topVertexY, 40 * dpr, Math.PI / 2 - halfAlpha, Math.PI / 2 + halfAlpha);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2 * dpr;
+            ctx.stroke();
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = `bold ${12 * dpr}px sans-serif`;
+            ctx.fillText(`α = ${state.angleDeg}°`, topVertexX - 18 * dpr, topVertexY + 55 * dpr);
+
+            // Draw Forces Vectors if Enabled
+            if (state.showVectors) {
+                // Applied Power Force P (Downward)
+                drawArrow(ctx, centerX, topVertexY - 50 * dpr, centerX, topVertexY - 5 * dpr, '#f59e0b', `P = ${state.forceP}N`);
+
+                // Lateral Resistance Forces R
+                drawArrow(ctx, rollerLeftX - 45 * dpr, rollerY, rollerLeftX - 5 * dpr, rollerY, '#f43f5e', `R/2`);
+                drawArrow(ctx, rollerRightX + 45 * dpr, rollerY, rollerRightX + 5 * dpr, rollerY, '#f43f5e', `R/2`);
+
+                // Normal Reactions on Wedge Faces
+                const normAngleLeft = Math.PI / 2 + halfAlpha;
+                const normAngleRight = Math.PI / 2 - halfAlpha;
+
+                const contactLeftX = centerX - wedgeWidthAtRollers / 2;
+                const contactRightX = centerX + wedgeWidthAtRollers / 2;
+
+                drawArrow(ctx, contactLeftX, rollerY, contactLeftX + 40 * dpr * Math.cos(normAngleLeft), rollerY - 40 * dpr * Math.sin(normAngleLeft), '#10b981', 'N');
+                drawArrow(ctx, contactRightX, rollerY, contactRightX + 40 * dpr * Math.cos(normAngleRight), rollerY - 40 * dpr * Math.sin(normAngleRight), '#10b981', 'N');
+            }
+        }
+
+        function drawDynamicMode(dpr) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const centerX = w / 2;
+            const centerY = h / 2 + 20 * dpr;
+
+            const halfAlpha = (state.angleDeg / 2) * (Math.PI / 180);
+            const rampLength = 260 * dpr;
+
+            // Inclined plane slope
+            const startX = centerX - 140 * dpr;
+            const startY = centerY + 80 * dpr;
+            const endX = startX + rampLength * Math.cos(halfAlpha);
+            const endY = startY - rampLength * Math.sin(halfAlpha);
+
+            // Draw Inclined Wedge Face
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.lineTo(endX, startY);
+            ctx.closePath();
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3 * dpr;
+            ctx.stroke();
+
+            // Block on Incline
+            const blockX = startX + (rampLength * 0.5) * Math.cos(halfAlpha);
+            const blockY = startY - (rampLength * 0.5) * Math.sin(halfAlpha);
+            const bw = 50 * dpr;
+            const bh = 30 * dpr;
+
+            ctx.save();
+            ctx.translate(blockX, blockY);
+            ctx.rotate(-halfAlpha);
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(-bw / 2, -bh, bw, bh);
+            ctx.strokeStyle = '#fde047';
+            ctx.lineWidth = 2 * dpr;
+            ctx.strokeRect(-bw / 2, -bh, bw, bh);
+
+            ctx.restore();
+
+            // Vector Decomposition on Block
+            if (state.showVectors) {
+                // Gravity / Normal
+                drawArrow(ctx, blockX, blockY - bh / 2, blockX, blockY + 50 * dpr, '#f43f5e', 'Fg');
+                // Parallel Normal Reaction
+                drawArrow(ctx, blockX, blockY - bh / 2, blockX - 40 * dpr * Math.sin(halfAlpha), blockY - bh / 2 - 40 * dpr * Math.cos(halfAlpha), '#10b981', 'N');
+            }
+        }
+
+        function drawOpticsMode(dpr) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const centerX = w / 2;
+            const centerY = h / 2 - 40 * dpr;
+
+            // Two glass plates
+            const plateLen = 320 * dpr;
+            const theta = (state.angleDeg / 30) * 0.05; // Small angle representation
+
+            const p1x = centerX - plateLen / 2;
+            const p1y = centerY;
+            const p2x = centerX + plateLen / 2;
+
+            // Bottom Plate
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+            ctx.fillRect(p1x, p1y, plateLen, 15 * dpr);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.strokeRect(p1x, p1y, plateLen, 15 * dpr);
+
+            // Top Inclined Plate
+            ctx.save();
+            ctx.translate(p1x, p1y);
+            ctx.rotate(-theta);
+            ctx.fillRect(0, -15 * dpr, plateLen, 15 * dpr);
+            ctx.strokeRect(0, -15 * dpr, plateLen, 15 * dpr);
+            ctx.restore();
+
+            // Draw Monochromatic Light Incident Rays
+            const lambda = state.lambdaNm;
+            let rayColor = '#22c55e'; // default green
+            if (lambda < 480) rayColor = '#818cf8'; // blue
+            else if (lambda < 560) rayColor = '#22c55e'; // green
+            else if (lambda < 620) rayColor = '#f59e0b'; // yellow
+            else rayColor = '#ef4444'; // red
+
+            for (let x = p1x + 20 * dpr; x < p2x; x += 30 * dpr) {
+                drawArrow(ctx, x, p1y - 80 * dpr, x, p1y - 20 * dpr, rayColor, '');
+            }
+
+            // Interference Fringe Pattern Display Box
+            const fringeY = centerY + 80 * dpr;
+            const fringeH = 45 * dpr;
+
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(p1x, fringeY, plateLen, fringeH);
+            ctx.strokeStyle = '#475569';
+            ctx.strokeRect(p1x, fringeY, plateLen, fringeH);
+
+            // Calculate Fringe Spacing
+            const fringeWidth = Math.max(4 * dpr, 30000 * dpr / (state.angleDeg * (750 - lambda)));
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(p1x, fringeY, plateLen, fringeH);
+            ctx.clip();
+
+            for (let x = p1x; x < p2x; x += fringeWidth) {
+                ctx.fillStyle = rayColor;
+                ctx.fillRect(x, fringeY, fringeWidth / 2, fringeH);
+            }
+            ctx.restore();
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = `bold ${11 * dpr}px "JetBrains Mono", monospace`;
+            ctx.fillText(`Frange d'Interferenza (λ = ${state.lambdaNm}nm, Passo Δx = ${(fringeWidth / dpr).toFixed(1)}px)`, p1x, fringeY - 8 * dpr);
+        }
+
+        function updateUI() {
+            // Update labels
+            valAngle.textContent = `${state.angleDeg}°`;
+            valForceP.textContent = `${state.forceP} N`;
+            valLoadR.textContent = `${state.loadR} N`;
+            valFriction.textContent = state.frictionMu.toFixed(2);
+            valLambda.textContent = `${state.lambdaNm} nm`;
+
+            // Calculate Physics
+            const phys = calculatePhysics();
+
+            outIma.textContent = phys.ima.toFixed(2);
+            outAma.textContent = phys.ama.toFixed(2);
+            outPReq.textContent = `${phys.requiredP.toFixed(1)} N`;
+
+            if (state.forceP >= phys.requiredP) {
+                outStatus.textContent = "Avanzamento 🚀";
+                outStatus.className = "text-xs font-bold text-emerald-400 py-1";
+                outStatusSub.textContent = "Potenza P sufficiente a vincere l'attrito";
+            } else if (phys.isSelfLocking) {
+                outStatus.textContent = "Autobloccato 🔒";
+                outStatus.className = "text-xs font-bold text-amber-400 py-1";
+                outStatusSub.textContent = "Condizione μ ≥ tan(α/2) verificata";
+            } else {
+                outStatus.textContent = "In Equilibrio Statico ⏸";
+                outStatus.className = "text-xs font-bold text-sky-400 py-1";
+                outStatusSub.textContent = "Aumenta la Forza P per muovere";
+            }
+        }
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+        }
+
+        function render(timestamp) {
+            // FPS Counter calculation
+            state.frameCount++;
+            if (timestamp - state.lastFpsTime >= 1000) {
+                state.fps = state.frameCount;
+                state.frameCount = 0;
+                state.lastFpsTime = timestamp;
+                fpsCounter.textContent = `${state.fps} FPS`;
+            }
+
+            if (state.isPlaying) {
+                state.animTime += 0.02;
+                const phys = calculatePhysics();
+                if (state.forceP >= phys.requiredP) {
+                    // Wedge moves downwards pushing rollers apart
+                    state.wedgeY = (state.wedgeY + 0.8) % 85;
+                } else {
+                    // Insufficient force, wedge slips back slightly
+                    state.wedgeY = Math.max(0, state.wedgeY - 0.3);
+                }
+            }
+
+            const dpr = window.devicePixelRatio || 1;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (state.mode === 'mechanics') {
+                drawMechanicsMode(dpr);
+            } else if (state.mode === 'dynamic') {
+                drawDynamicMode(dpr);
+            } else if (state.mode === 'optics') {
+                drawOpticsMode(dpr);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Slider Event Listeners
+        sliderAngle.addEventListener('input', (e) => {
+            state.angleDeg = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        sliderForceP.addEventListener('input', (e) => {
+            state.forceP = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        sliderLoadR.addEventListener('input', (e) => {
+            state.loadR = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        sliderFriction.addEventListener('input', (e) => {
+            state.frictionMu = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        sliderLambda.addEventListener('input', (e) => {
+            state.lambdaNm = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        // Push Buttons Logic
+        btnPushWedge.addEventListener('click', () => {
+            state.wedgeY = (state.wedgeY + 12) % 85;
+            updateUI();
+        });
+
+        btnStepPush.addEventListener('click', () => {
+            state.wedgeY = (state.wedgeY + 8) % 85;
+            updateUI();
+        });
+
+        btnPlayPause.addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                textPlay.textContent = "Pausa Movimento";
+                iconPlay.textContent = "⏸";
+                btnPlayPause.classList.replace('bg-sky-600', 'bg-amber-600');
+            } else {
+                textPlay.textContent = "Avvia Movimento / Spingi";
+                iconPlay.textContent = "🚀";
+                btnPlayPause.classList.replace('bg-amber-600', 'bg-sky-600');
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            state.wedgeY = 0;
+            state.animTime = 0;
+            state.isPlaying = false;
+            textPlay.textContent = "Avvia Movimento / Spingi";
+            iconPlay.textContent = "🚀";
+            btnPlayPause.classList.replace('bg-amber-600', 'bg-sky-600');
+            updateUI();
+        });
+
+        btnToggleVectors.addEventListener('click', () => {
+            state.showVectors = !state.showVectors;
+            btnToggleVectors.classList.toggle('bg-sky-600', state.showVectors);
+        });
+
+        // Tab Switcher Logic
+        function switchTab(newMode) {
+            state.mode = newMode;
+
+            [tabMechanics, tabDynamic, tabOptics].forEach(btn => {
+                btn.className = "tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 flex items-center gap-2 transition-all cursor-pointer";
+            });
+
+            if (newMode === 'mechanics') {
+                tabMechanics.className = "tab-btn px-3 py-1.5 rounded-lg text-white bg-sky-600 shadow-sm flex items-center gap-2 transition-all cursor-pointer";
+                badgeModeText.textContent = "Apparecchio Storico del Cuneo";
+                canvasInstruction.textContent = "Regola la Potenza P e l'angolo α, poi premi 'Spingi Cuneo' o 'Avvia Movimento'.";
+
+                groupForceP.classList.remove('hidden');
+                groupLoadR.classList.remove('hidden');
+                groupFriction.classList.remove('hidden');
+                groupOpticsLambda.classList.add('hidden');
+
+                theoryContentMechanics.classList.remove('hidden');
+                theoryContentOptics.classList.add('hidden');
+            } else if (newMode === 'dynamic') {
+                tabDynamic.className = "tab-btn px-3 py-1.5 rounded-lg text-white bg-sky-600 shadow-sm flex items-center gap-2 transition-all cursor-pointer";
+                badgeModeText.textContent = "Dinamica del Blocco su Cuneo";
+                canvasInstruction.textContent = "Scomposizione delle forze sul piano inclinato del cuneo.";
+
+                groupForceP.classList.add('hidden');
+                groupLoadR.classList.add('hidden');
+                groupFriction.classList.remove('hidden');
+                groupOpticsLambda.classList.add('hidden');
+
+                theoryContentMechanics.classList.remove('hidden');
+                theoryContentOptics.classList.add('hidden');
+            } else if (newMode === 'optics') {
+                tabOptics.className = "tab-btn px-3 py-1.5 rounded-lg text-white bg-cyan-600 shadow-sm flex items-center gap-2 transition-all cursor-pointer";
+                badgeModeText.textContent = "Cuneo d'Aria (Interferenza Ottica)";
+                canvasInstruction.textContent = "Varia la lunghezza d'onda λ e l'angolo del cuneo per osservare le frange.";
+
+                groupForceP.classList.add('hidden');
+                groupLoadR.classList.add('hidden');
+                groupFriction.classList.add('hidden');
+                groupOpticsLambda.classList.remove('hidden');
+
+                theoryContentMechanics.classList.add('hidden');
+                theoryContentOptics.classList.remove('hidden');
+            }
+
+            updateUI();
+            setTimeout(renderMath, 50);
+        }
+
+        tabMechanics.addEventListener('click', () => switchTab('mechanics'));
+        tabDynamic.addEventListener('click', () => switchTab('dynamic'));
+        tabOptics.addEventListener('click', () => switchTab('optics'));
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Window Load Event
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            updateUI();
+            renderMath();
+            requestAnimationFrame(render);
+        });
+    </script>
+</body>
+</html>
