@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-900 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Baroscopio con Campana di Vetro - Simulazione Interattiva</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        glass: {
+                            light: 'rgba(255, 255, 255, 0.08)',
+                            border: 'rgba(255, 255, 255, 0.15)',
+                            cyan: 'rgba(6, 182, 212, 0.2)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- KaTeX for rendered LaTeX formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <style>
+        /* Custom UI Tweaks & Animations */
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 5px;
+            border: 1px solid #475569;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        /* Prevent scroll bounce on mobile */
+        html, body {
+            overscroll-behavior-y: none;
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col justify-between select-none">
+
+    <!-- Header App Bar -->
+    <header class="sticky top-0 z-50 glass-panel px-4 py-3 border-b border-slate-700/50 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-cyan-500/20 text-cyan-400 rounded-xl border border-cyan-500/30">
+                <i class="fa-solid me-0 fa-scale-balanced text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-slate-100 leading-tight">Il Baroscopio</h1>
+                <p class="text-xs text-slate-400">Campana di Vetro & Spinta dell'Aria</p>
+            </div>
+        </div>
+        <button id="infoToggleBtn" class="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 active:scale-95 transition">
+            <i class="fa-solid fa-circle-info text-lg"></i>
+        </button>
+    </header>
+
+    <!-- Main Content Body (Portrait Stack) -->
+    <main class="flex-1 max-w-md w-full mx-auto p-4 space-y-4 overflow-y-auto">
+
+        <!-- Canvas Container Card -->
+        <div class="glass-panel rounded-2xl p-3 shadow-2xl relative overflow-hidden flex flex-col items-center">
+            
+            <!-- Pressure Indicator Badge overlay -->
+            <div class="w-full flex justify-between items-center mb-2 px-1">
+                <div class="flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span id="pressureBadgeText" class="text-xs font-mono font-semibold text-cyan-300">P = 101.3 kPa</span>
+                </div>
+                <div id="stateBadge" class="text-xs px-2.5 py-1 rounded-lg font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Aria Atmosferica
+                </div>
+            </div>
+
+            <!-- Simulation Canvas -->
+            <div class="relative w-full aspect-[4/3] bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
+                <canvas id="simCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- Vector Legend overlay switch -->
+            <div class="w-full mt-3 flex items-center justify-between text-xs text-slate-400 bg-slate-900/50 p-2 rounded-xl border border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block mr-1"></span>Peso (F<sub>g</sub>)</span>
+                    <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block mr-1"></span>Spinta (F<sub>A</sub>)</span>
+                </div>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="toggleVectors" checked class="sr-only peer">
+                    <span class="text-slate-300 font-medium">Vettori</span>
+                    <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500 relative"></div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Controls Card -->
+        <div class="glass-panel rounded-2xl p-4 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+                <label for="pressureSlider" class="text-sm font-semibold text-slate-200 flex items-center space-x-2">
+                    <i class="fa-solid fa-gauge-high text-cyan-400"></i>
+                    <span>Pressione Interna:</span>
+                </label>
+                <span id="sliderValueText" class="text-sm font-mono font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/50">100%</span>
+            </div>
+
+            <!-- Slider -->
+            <div class="space-y-1">
+                <input type="range" id="pressureSlider" min="0" max="100" value="100" step="1" class="w-full">
+                <div class="flex justify-between text-[10px] text-slate-400 font-mono px-1">
+                    <span>0% (Vuoto)</span>
+                    <span>50%</span>
+                    <span>100% (1 atm)</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons Grid -->
+            <div class="grid grid-cols-2 gap-2.5 pt-1">
+                <button id="btnVacuo" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-lg shadow-cyan-900/30 active:scale-95 transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-wind text-sm"></i>
+                    <span>Aspira Aria (Vuoto)</span>
+                </button>
+                <button id="btnAria" class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold active:scale-95 transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
+                    <span>Immetti Aria</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Live Physics Parameters Card Grid -->
+        <div class="grid grid-cols-2 gap-3">
+            <!-- Data Card 1: Density -->
+            <div class="glass-card rounded-xl p-3 border border-slate-800">
+                <div class="text-[11px] text-slate-400 font-medium mb-1">Densità Aria (&rho;)</div>
+                <div id="airDensityVal" class="text-base font-mono font-bold text-slate-100">1.225 kg/m³</div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div id="densityBar" class="bg-cyan-400 h-full w-full transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <!-- Data Card 2: Sphere Buoyancy -->
+            <div class="glass-card rounded-xl p-3 border border-slate-800">
+                <div class="text-[11px] text-slate-400 font-medium mb-1">Spinta Sfera (F<sub>A1</sub>)</div>
+                <div id="buoyancySphereVal" class="text-base font-mono font-bold text-cyan-400">0.050 N</div>
+                <div class="text-[10px] text-slate-500 mt-1">Grande Volume (V<sub>1</sub>)</div>
+            </div>
+
+            <!-- Data Card 3: Weight Buoyancy -->
+            <div class="glass-card rounded-xl p-3 border border-slate-800">
+                <div class="text-[11px] text-slate-400 font-medium mb-1">Spinta Peso (F<sub>A2</sub>)</div>
+                <div id="buoyancyMassVal" class="text-base font-mono font-bold text-blue-400">0.002 N</div>
+                <div class="text-[10px] text-slate-500 mt-1">Piccolo Volume (V<sub>2</sub>)</div>
+            </div>
+
+            <!-- Data Card 4: Net Difference -->
+            <div class="glass-card rounded-xl p-3 border border-slate-800">
+                <div class="text-[11px] text-slate-400 font-medium mb-1">Inclinazione Bilancia</div>
+                <div id="tiltAngleVal" class="text-base font-mono font-bold text-amber-400">0.0° (Orizzontale)</div>
+                <div class="text-[10px] text-slate-500 mt-1">Squilibrio in Vuoto</div>
+            </div>
+        </div>
+
+        <!-- Physics & Explanation Accordion Panel -->
+        <div class="glass-panel rounded-2xl p-4 space-y-3">
+            <h2 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                <i class="fa-solid fa-square-root-variable text-cyan-400"></i>
+                <span>Spiegazione e Formule Fisiche</span>
+            </h2>
+
+            <!-- Intuitive Description -->
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Il <strong>baroscopio</strong> dimostra che l'aria esercita una spinta verso l'alto (Principio di Archimede) su tutti i corpi immersi in essa.
+            </p>
+
+            <!-- Rendered KaTeX Formulas (NO RAW LATEX VISIBLE) -->
+            <div class="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 text-xs text-slate-200">
+                
+                <div class="space-y-1">
+                    <span class="text-[11px] text-cyan-400 font-medium block">1. Spinta di Archimede nell'aria:</span>
+                    <div id="mathFormula1" class="py-1 overflow-x-auto"></div>
+                </div>
+
+                <hr class="border-slate-800">
+
+                <div class="space-y-1">
+                    <span class="text-[11px] text-cyan-400 font-medium block">2. Equilibrio in aria atmosferica:</span>
+                    <div id="mathFormula2" class="py-1 overflow-x-auto"></div>
+                </div>
+
+                <hr class="border-slate-800">
+
+                <div class="space-y-1">
+                    <span class="text-[11px] text-cyan-400 font-medium block">3. Nel vuoto (P = 0, &rho; = 0):</span>
+                    <div id="mathFormula3" class="py-1 overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400 leading-relaxed italic">
+                Poiché la sfera vuota ha un volume molto più grande del contrappeso in ottone (<span id="mathInlineV"></span>), la spinta ricevuta dall'aria è maggiore sulla sfera. Quando si crea il vuoto, la sfera perde questa spinta e la bilancia pende dalla sua parte!
+            </p>
+        </div>
+
+    </main>
+
+    <!-- Info Modal Popup -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-5 border border-slate-700 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                <h3 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open text-cyan-400"></i>
+                    <span>Storia del Baroscopio</span>
+                </h3>
+                <button id="closeModalBtn" class="p-1 text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    Inventato nel XVII secolo (associato agli esperimenti di Otto von Guericke e Robert Boyle), il <strong>baroscopio</strong> fu fondamentale per dimostrare che <em>l'aria ha un peso</em> e genera una spinta idrostatica esattamente come i liquidi.
+                </p>
+                <div class="p-3 bg-cyan-950/40 border border-cyan-800/40 rounded-xl">
+                    <span class="font-semibold text-cyan-300 block mb-1">Come interpretare la simulazione:</span>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li><strong>In Aria (100%):</strong> La sfera e il piombo sembrano avere lo stesso peso perché bilanciati.</li>
+                        <li><strong>In Vuoto (0%):</strong> La spinta dell'aria scompare. Rivela il vero peso della sfera che scende verso il basso!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button id="closeModalBtn2" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs transition">
+                Ho capito
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Physics and UI Engine
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            /* --- KaTeX Formula Rendering (Guarantees rendered math, no latex strings) --- */
+            try {
+                katex.render("F_A = \\rho_{\\text{aria}} \\cdot V \\cdot g", document.getElementById('mathFormula1'), { displayMode: true });
+                katex.render("m_1 g - F_{A1} = m_2 g - F_{A2}", document.getElementById('mathFormula2'), { displayMode: true });
+                katex.render("F_{A1} = F_{A2} = 0 \\implies m_1 g > m_2 g", document.getElementById('mathFormula3'), { displayMode: true });
+                katex.render("V_1 \\gg V_2", document.getElementById('mathInlineV'), { displayMode: false });
+            } catch (e) {
+                console.error("KaTeX rendering error:", e);
+            }
+
+            /* --- Canvas & High-DPI Setup --- */
+            const canvas = document.getElementById('simCanvas');
+            const ctx = canvas.getContext('2d');
+
+            function setupCanvas() {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+            }
+            setupCanvas();
+            window.addEventListener('resize', setupCanvas);
+
+            /* --- Physics Simulation State --- */
+            let pressurePct = 100; // 0 to 100%
+            let targetPressurePct = 100;
+            let currentAngle = 0; // Balance arm angle in radians
+            let targetAngle = 0;
+            let showVectors = true;
+
+            // Particles for Air Visual Effect inside Bell Jar
+            const numParticles = 120;
+            const particles = [];
+            for (let i = 0; i < numParticles; i++) {
+                particles.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    radius: Math.random() * 1.5 + 0.8
+                });
+            }
+
+            /* --- DOM Element References --- */
+            const pressureSlider = document.getElementById('pressureSlider');
+            const sliderValueText = document.getElementById('sliderValueText');
+            const pressureBadgeText = document.getElementById('pressureBadgeText');
+            const stateBadge = document.getElementById('stateBadge');
+            const btnVacuo = document.getElementById('btnVacuo');
+            const btnAria = document.getElementById('btnAria');
+            const toggleVectors = document.getElementById('toggleVectors');
+            
+            const airDensityVal = document.getElementById('airDensityVal');
+            const densityBar = document.getElementById('densityBar');
+            const buoyancySphereVal = document.getElementById('buoyancySphereVal');
+            const buoyancyMassVal = document.getElementById('buoyancyMassVal');
+            const tiltAngleVal = document.getElementById('tiltAngleVal');
+
+            const infoToggleBtn = document.getElementById('infoToggleBtn');
+            const infoModal = document.getElementById('infoModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const closeModalBtn2 = document.getElementById('closeModalBtn2');
+
+            /* --- Event Handlers --- */
+            pressureSlider.addEventListener('input', (e) => {
+                targetPressurePct = parseFloat(e.target.value);
+            });
+
+            btnVacuo.addEventListener('click', () => {
+                targetPressurePct = 0;
+                pressureSlider.value = 0;
+            });
+
+            btnAria.addEventListener('click', () => {
+                targetPressurePct = 100;
+                pressureSlider.value = 100;
+            });
+
+            toggleVectors.addEventListener('change', (e) => {
+                showVectors = e.target.checked;
+            });
+
+            // Modal logic
+            infoToggleBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+            closeModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+            closeModalBtn2.addEventListener('click', () => infoModal.classList.add('hidden'));
+
+            /* --- Main Animation & Render Loop --- */
+            function render() {
+                // Smooth interpolation for pressure slider
+                pressurePct += (targetPressurePct - pressurePct) * 0.08;
+                if (Math.abs(pressurePct - targetPressurePct) < 0.1) pressurePct = targetPressurePct;
+
+                // Sync slider value text
+                sliderValueText.textContent = `${Math.round(pressurePct)}%`;
+                
+                const currentP_kPa = (101.325 * (pressurePct / 100)).toFixed(1);
+                pressureBadgeText.textContent = `P = ${currentP_kPa} kPa`;
+
+                // Update state badge
+                if (pressurePct > 80) {
+                    stateBadge.textContent = "Aria Atmosferica";
+                    stateBadge.className = "text-xs px-2.5 py-1 rounded-lg font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                } else if (pressurePct < 15) {
+                    stateBadge.textContent = "Alto Vuoto";
+                    stateBadge.className = "text-xs px-2.5 py-1 rounded-lg font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30";
+                } else {
+                    stateBadge.textContent = "Depressione";
+                    stateBadge.className = "text-xs px-2.5 py-1 rounded-lg font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                }
+
+                // Air Density calculation (\rho = \rho_0 * P/P_0)
+                const rho0 = 1.225; // kg/m^3
+                const rho = rho0 * (pressurePct / 100);
+                airDensityVal.textContent = `${rho.toFixed(3)} kg/m³`;
+                densityBar.style.width = `${pressurePct}%`;
+
+                // Calculate Buoyant forces (N)
+                // Volume sphere = 0.004 m^3, Volume weight = 0.00015 m^3
+                const V1 = 0.00416; // Large hollow sphere volume
+                const V2 = 0.00018; // Small dense counterweight volume
+                const g = 9.81;
+
+                const FA1 = rho * V1 * g; // Sphere buoyancy
+                const FA2 = rho * V2 * g; // Mass buoyancy
+
+                buoyancySphereVal.textContent = `${FA1.toFixed(3)} N`;
+                buoyancyMassVal.textContent = `${FA2.toFixed(3)} N`;
+
+                // Target balance angle: 0 rad at 100% air, tilting downwards on sphere side as pressure drops
+                // Sphere is on the left in our visual layout. So left side goes down (positive angle clockwise or counterclockwise depending on convention)
+                const maxTilt = 0.22; // max tilt angle in radians (~12 degrees)
+                targetAngle = (1 - (pressurePct / 100)) * maxTilt;
+
+                // Smooth angle damped physics movement
+                currentAngle += (targetAngle - currentAngle) * 0.06;
+
+                const angleDeg = (currentAngle * (180 / Math.PI)).toFixed(1);
+                if (Math.abs(currentAngle) < 0.01) {
+                    tiltAngleVal.textContent = `0.0° (Orizzontale)`;
+                    tiltAngleVal.className = "text-base font-mono font-bold text-amber-400";
+                } else {
+                    tiltAngleVal.textContent = `+${angleDeg}° (Inclinata)`;
+                    tiltAngleVal.className = "text-base font-mono font-bold text-cyan-400";
+                }
+
+                // Canvas clearing
+                const w = canvas.parentElement.clientWidth;
+                const h = canvas.parentElement.clientHeight;
+
+                ctx.clearRect(0, 0, w, h);
+
+                // Dimensions & Center coordinates
+                const centerX = w / 2;
+                const baseCanvasY = h - 25;
+                const bellWidth = Math.min(w * 0.76, 260);
+                const bellHeight = h * 0.68;
+                const bellTopY = baseCanvasY - bellHeight;
+
+                // 1. Draw Wooden/Metal Vacuum Base Stand
+                ctx.save();
+                // Outer vacuum plate base
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(centerX - bellWidth/2 - 15, baseCanvasY, bellWidth + 30, 16, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                // Rubber Seal ring
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(centerX - bellWidth/2 + 2, baseCanvasY - 3, bellWidth - 4, 4);
+
+                // Vacuum Tube port below
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(centerX - 12, baseCanvasY + 16, 24, 10);
+                ctx.restore();
+
+                // 2. Draw Air Particles inside Glass Bell Jar
+                ctx.save();
+                const activeParticlesCount = Math.floor(numParticles * (pressurePct / 100));
+                ctx.fillStyle = 'rgba(186, 230, 253, 0.6)';
+                
+                for (let i = 0; i < activeParticlesCount; i++) {
+                    const p = particles[i];
+                    // update positions inside bell region bounds
+                    p.x += p.vx * 0.005;
+                    p.y += p.vy * 0.005;
+
+                    if (p.x < 0.05 || p.x > 0.95) p.vx *= -1;
+                    if (p.y < 0.05 || p.y > 0.9) p.vy *= -1;
+
+                    // Convert normalized coords to bell space
+                    const px = (centerX - bellWidth/2 + 15) + p.x * (bellWidth - 30);
+                    const py = bellTopY + 20 + p.y * (bellHeight - 35);
+
+                    ctx.beginPath();
+                    ctx.arc(px, py, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                // 3. Draw Balance Mechanism Inside Bell Jar
+                ctx.save();
+                const pivotX = centerX;
+                const pivotY = baseCanvasY - bellHeight * 0.38;
+
+                // Central Support Pillar
+                ctx.fillStyle = '#64748b';
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(pivotX - 6, baseCanvasY);
+                ctx.lineTo(pivotX - 3, pivotY + 8);
+                ctx.lineTo(pivotX + 3, pivotY + 8);
+                ctx.lineTo(pivotX + 6, baseCanvasY);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Fulcrum Triangle
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.moveTo(pivotX, pivotY);
+                ctx.lineTo(pivotX - 8, pivotY + 12);
+                ctx.lineTo(pivotX + 8, pivotY + 12);
+                ctx.closePath();
+                ctx.fill();
+
+                // Rotate Beam around Pivot
+                ctx.translate(pivotX, pivotY);
+                ctx.rotate(currentAngle); // Positive angle tilts left side down
+
+                const beamLength = bellWidth * 0.62;
+                const halfBeam = beamLength / 2;
+
+                // Beam Bar
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(-halfBeam, 0);
+                ctx.lineTo(halfBeam, 0);
+                ctx.stroke();
+
+                // Center indicator pointer needle
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -22);
+                ctx.stroke();
+
+                /* --- Left Side: Large Hollow Glass/Copper Sphere --- */
+                const sphereRadius = 24;
+                const leftX = -halfBeam;
+                const leftY = 0;
+
+                // String hanging sphere
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(leftX, leftY);
+                ctx.lineTo(leftX, leftY + 15);
+                ctx.stroke();
+
+                // Sphere Body
+                const sphereCenterY = leftY + 15 + sphereRadius;
+                const sphereGradient = ctx.createRadialGradient(
+                    leftX - 6, sphereCenterY - 6, 3,
+                    leftX, sphereCenterY, sphereRadius
+                );
+                sphereGradient.addColorStop(0, 'rgba(186, 230, 253, 0.9)');
+                sphereGradient.addColorStop(0.5, 'rgba(56, 189, 248, 0.4)');
+                sphereGradient.addColorStop(1, 'rgba(14, 116, 144, 0.7)');
+
+                ctx.fillStyle = sphereGradient;
+                ctx.strokeStyle = 'rgba(224, 242, 254, 0.8)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(leftX, sphereCenterY, sphereRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                /* --- Right Side: Small Dense Brass Counterweight --- */
+                const rightX = halfBeam;
+                const rightY = 0;
+
+                // String hanging weight
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(rightX, rightY);
+                ctx.lineTo(rightX, rightY + 28);
+                ctx.stroke();
+
+                // Brass Mass Body
+                const weightY = rightY + 28;
+                ctx.fillStyle = '#f59e0b';
+                ctx.strokeStyle = '#b45309';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(rightX - 8, weightY, 16, 20, 3);
+                ctx.fill();
+                ctx.stroke();
+
+                // Top knob of weight
+                ctx.beginPath();
+                ctx.arc(rightX, weightY - 2, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw Force Vectors if enabled
+                if (showVectors) {
+                    // Left Sphere Vectors
+                    // Gravity (Fg1) - Constant red arrow
+                    drawArrow(ctx, leftX, sphereCenterY, leftX, sphereCenterY + 45, '#ef4444', 2.5);
+                    
+                    // Buoyancy (FA1) - Dynamic cyan arrow pointing UP
+                    const fa1Length = 40 * (pressurePct / 100);
+                    if (fa1Length > 2) {
+                        drawArrow(ctx, leftX, sphereCenterY, leftX, sphereCenterY - fa1Length, '#38bdf8', 2.5);
+                    }
+
+                    // Right Mass Vectors
+                    // Gravity (Fg2) - Constant red arrow
+                    drawArrow(ctx, rightX, weightY + 10, rightX, weightY + 55, '#ef4444', 2.5);
+
+                    // Buoyancy (FA2) - Very small dynamic cyan arrow
+                    const fa2Length = 5 * (pressurePct / 100);
+                    if (fa2Length > 1) {
+                        drawArrow(ctx, rightX, weightY + 10, rightX, weightY + 10 - fa2Length, '#38bdf8', 2);
+                    }
+                }
+
+                ctx.restore(); // Restore angle rotation transform
+
+                // 4. Draw Outer Glass Bell Jar (Dome Render)
+                ctx.save();
+                
+                // Glass Body Gradient
+                const glassGrad = ctx.createLinearGradient(
+                    centerX - bellWidth/2, bellTopY,
+                    centerX + bellWidth/2, baseCanvasY
+                );
+                glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+                glassGrad.addColorStop(0.2, 'rgba(186, 230, 253, 0.08)');
+                glassGrad.addColorStop(0.8, 'rgba(56, 189, 248, 0.04)');
+                glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.15)');
+
+                ctx.fillStyle = glassGrad;
+                ctx.strokeStyle = 'rgba(224, 242, 254, 0.4)';
+                ctx.lineWidth = 2.5;
+
+                ctx.beginPath();
+                // Top handle knob
+                ctx.arc(centerX, bellTopY - 6, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Bell dome path
+                const r = bellWidth / 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX - r, baseCanvasY);
+                ctx.lineTo(centerX - r, bellTopY + r);
+                ctx.arcTo(centerX - r, bellTopY, centerX, bellTopY, r);
+                ctx.arcTo(centerX + r, bellTopY, centerX + r, bellTopY + r, r);
+                ctx.lineTo(centerX + r, baseCanvasY);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Glass Curved Reflections (Specular highlights)
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(centerX - r + 12, bellTopY + r + 10, r - 15, Math.PI * 1.1, Math.PI * 1.4);
+                ctx.stroke();
+
+                ctx.restore();
+
+                requestAnimationFrame(render);
+            }
+
+            // Helper function to draw directional vector arrows
+            function drawArrow(context, fromx, fromy, tox, toy, color, width) {
+                const headlen = 7;
+                const dx = tox - fromx;
+                const dy = toy - fromy;
+                const angle = Math.atan2(dy, dx);
+
+                context.save();
+                context.strokeStyle = color;
+                context.fillStyle = color;
+                context.lineWidth = width;
+
+                context.beginPath();
+                context.moveTo(fromx, fromy);
+                context.lineTo(tox, toy);
+                context.stroke();
+
+                context.beginPath();
+                context.moveTo(tox, toy);
+                context.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+                context.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+                context.closePath();
+                context.fill();
+                context.restore();
+            }
+
+            // Start animation loop
+            requestAnimationFrame(render);
+        });
+    </script>
+</body>
+</html>
