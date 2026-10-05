@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Bilancia Idrostatica Storica</title>
+    <!-- Tailwind CSS for responsive mobile styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for UI icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden selection:bg-blue-500 selection:text-white">
+
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 sticky top-0 z-50 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white font-bold text-lg">
+                <i class="fa-solid fa-scale-balanced"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm sm:text-base leading-tight">Bilancia Idrostatica</h1>
+                <p class="text-[11px] text-slate-400">Modello di Robert Boyle</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="openInfoModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition active:scale-95" title="Guida">
+                <i class="fa-solid fa-circle-question text-sm"></i>
+            </button>
+            <button onclick="resetSimulation()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition active:scale-95" title="Resetta">
+                <i class="fa-solid fa-rotate-right text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col max-w-md mx-auto w-full p-3 gap-3 overflow-y-auto">
+
+        <!-- Simulation Visual Canvas Section -->
+        <section class="relative bg-gradient-to-b from-slate-900 to-slate-900/90 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+            <div class="absolute top-3 left-3 right-3 z-10 flex justify-between items-center pointer-events-none">
+                <div class="bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2 text-xs shadow-sm">
+                    <span class="w-2.5 h-2.5 rounded-full transition-colors duration-300" id="status-indicator" style="background-color: #10b981;"></span>
+                    <span id="status-text" class="font-medium text-slate-200">In equilibrio perfetto</span>
+                </div>
+                <div class="bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono text-cyan-400 shadow-sm">
+                    Immersione: <span id="immersion-percent-label" class="text-white">0%</span>
+                </div>
+            </div>
+
+            <!-- Interactive Canvas Container -->
+            <div class="w-full h-72 sm:h-80 relative flex items-center justify-center pt-2">
+                <canvas id="balanceCanvas" class="w-full h-full"></canvas>
+            </div>
+
+            <!-- Immersion Control Slider -->
+            <div class="bg-slate-950/70 p-3.5 border-t border-slate-800/80 space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-medium text-slate-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-water text-cyan-400"></i>
+                        <span>Profondità Immersione nel Becher</span>
+                    </span>
+                    <span id="slider-immersion-val" class="font-mono font-bold text-cyan-400">0%</span>
+                </div>
+                <input type="range" id="slider-immersion" min="0" max="100" step="1" value="0" 
+                    class="w-full accent-cyan-500 cursor-pointer h-2 bg-slate-800 rounded-lg" 
+                    oninput="onImmersionSliderInput(this.value)">
+                <div class="flex justify-between text-[10px] text-slate-500 font-medium px-0.5">
+                    <span>In Aria (0%)</span>
+                    <span>Metà (50%)</span>
+                    <span>Sommerso (100%)</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+            <div class="grid grid-cols-3 bg-slate-950 border-b border-slate-800 text-xs font-semibold text-slate-400">
+                <button onclick="switchTab('material')" id="tab-btn-material" class="py-3 text-center border-b-2 border-blue-500 text-blue-400 bg-slate-900/50 transition">Campioni</button>
+                <button onclick="switchTab('weights')" id="tab-btn-weights" class="py-3 text-center border-b-2 border-transparent hover:text-slate-200 transition">Pesi</button>
+                <button onclick="switchTab('results')" id="tab-btn-results" class="py-3 text-center border-b-2 border-transparent hover:text-slate-200 transition">Teoria</button>
+            </div>
+
+            <!-- Tab 1: Materials & Volume settings -->
+            <div id="tab-material" class="p-4 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Seleziona Materiale Campione (Sinistra)</label>
+                    <div class="grid grid-cols-3 gap-2" id="material-grid"></div>
+                </div>
+
+                <div class="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400">Volume del Campione:</span>
+                        <span id="label-volume" class="font-mono font-bold text-slate-100">50 cm³</span>
+                    </div>
+                    <input type="range" id="slider-volume" min="15" max="120" step="5" value="50" class="w-full accent-blue-500 cursor-pointer" oninput="updateVolume(this.value)">
+                </div>
+
+                <div class="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Liquido nel Vaso (Becher)</label>
+                    <select id="select-liquid" onchange="changeLiquid(this.value)" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 transition"></select>
+                </div>
+            </div>
+
+            <!-- Tab 2: Weights & Calibration -->
+            <div id="tab-weights" class="p-4 space-y-4 hidden">
+                <div class="flex justify-between items-center bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <div>
+                        <span class="block text-xs text-slate-400">Forza Apparente (Piatto Sinistro)</span>
+                        <span id="display-p-left" class="text-lg font-bold font-mono text-cyan-400">0.00 g</span>
+                    </div>
+                    <button onclick="autoBalance()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow transition flex items-center space-x-1.5 active:scale-95">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Auto-Equilibrio</span>
+                    </button>
+                </div>
+
+                <div class="space-y-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Pesi sul Piatto Destro</label>
+                        <span id="display-added-weights" class="font-mono text-sm font-bold text-amber-400">0.00 g</span>
+                    </div>
+                    <input type="range" id="slider-weights" min="0" max="400" step="0.5" value="0" class="w-full accent-amber-500 cursor-pointer" oninput="updateWeights(this.value)">
+                </div>
+
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="adjustWeights(10)" class="bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-xs font-semibold text-slate-200 transition active:scale-95">+10g</button>
+                    <button onclick="adjustWeights(1)" class="bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-xs font-semibold text-slate-200 transition active:scale-95">+1g</button>
+                    <button onclick="adjustWeights(-1)" class="bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-xs font-semibold text-slate-200 transition active:scale-95">-1g</button>
+                    <button onclick="adjustWeights(-10)" class="bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-xs font-semibold text-slate-200 transition active:scale-95">-10g</button>
+                </div>
+            </div>
+
+            <!-- Tab 3: Calculations & Theory -->
+            <div id="tab-results" class="p-4 space-y-4 hidden">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                        <span class="block text-xs text-slate-400">Peso in Aria (P<sub>aria</sub>)</span>
+                        <span id="res-p-aria" class="text-base font-bold font-mono text-cyan-400">0.00 g</span>
+                    </div>
+                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                        <span class="block text-xs text-slate-400">Spinta di Archimede (E)</span>
+                        <span id="res-archimedes" class="text-base font-bold font-mono text-emerald-400">0.00 g</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-slate-400">Densità Sperimentale (ρ):</span>
+                        <span id="res-density" class="font-mono font-bold text-white text-base">0.00 g/cm³</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-slate-400">Densità Teorica:</span>
+                        <span id="res-density-theory" class="font-mono text-slate-300 text-sm">0.00 g/cm³</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                        <span class="text-xs text-slate-400">Errore Percentuale:</span>
+                        <span id="res-error" class="font-mono font-bold text-amber-400 text-sm">0.0%</span>
+                    </div>
+                </div>
+
+                <div class="bg-blue-950/30 border border-blue-500/30 rounded-xl p-3.5 space-y-2 text-xs">
+                    <div class="font-semibold text-blue-400 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-calculator"></i>
+                        <span>Principio di Archimede</span>
+                    </div>
+                    <div class="space-y-2 text-slate-300">
+                        <div class="bg-slate-950/80 p-2 rounded-lg font-mono text-center text-cyan-300">
+                            Spinta (E) = P<sub>aria</sub> - P<sub>apparente</sub>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">
+                            Agendo sullo slider di immersione, l'oggetto entra gradualmente nel becher. La spinta idrostatica è proporzionale al volume immerso e alleggerisce il piatto sinistro.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="info-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl relative">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-base text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-info text-blue-500"></i>
+                    <span>Guida alla Bilancia</span>
+                </h3>
+                <button onclick="closeInfoModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed max-h-64 overflow-y-auto pr-1">
+                <p>La bilancia idrostatica storica permette di determinare la spinta idrostatica e la densità dei corpi:</p>
+                <ul class="list-disc pl-4 space-y-1.5">
+                    <li><strong>Equilibrio Iniziale:</strong> All'avvio la bilancia è tarata e si trova perfettamente ferma, orizzontale e dritta.</li>
+                    <li><strong>Slider Immersione:</strong> Regola la profondità del campione nel becher d'acqua sottostante.</li>
+                    <li><strong>Sbilanciamento:</strong> Quando immergi l'oggetto, il piatto sinistro si alleggerisce. L'asta si inclina fino a quando non aggiungi pesi a destra (o premi Auto-Equilibrio).</li>
+                </ul>
+            </div>
+            <button onclick="closeInfoModal()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-xs shadow transition active:scale-95">
+                Ho capito!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const MATERIALS = {
+            gold: { name: 'Oro', density: 19.32, color: '#eab308', icon: 'fa-gem' },
+            copper: { name: 'Rame', density: 8.96, color: '#f97316', icon: 'fa-cube' },
+            iron: { name: 'Ferro', density: 7.87, color: '#64748b', icon: 'fa-weight-hanging' },
+            glass: { name: 'Vetro', density: 2.50, color: '#38bdf8', icon: 'fa-wine-bottle' },
+            aluminum: { name: 'Alluminio', density: 2.70, color: '#94a3b8', icon: 'fa-shield-halved' },
+            wood: { name: 'Legno', density: 0.60, color: '#b45309', icon: 'fa-tree' }
+        };
+
+        const LIQUIDS = {
+            water: { name: 'Acqua', density: 1.00, color: 'rgba(56, 189, 248, 0.45)', borderColor: '#38bdf8' },
+            alcohol: { name: 'Alcol', density: 0.79, color: 'rgba(232, 121, 249, 0.45)', borderColor: '#e879f9' },
+            oil: { name: 'Olio', density: 0.92, color: 'rgba(234, 179, 8, 0.45)', borderColor: '#eab308' },
+            glycerin: { name: 'Glicerina', density: 1.26, color: 'rgba(74, 222, 128, 0.45)', borderColor: '#4ade80' }
+        };
+
+        let currentMaterialKey = 'copper';
+        let currentLiquidKey = 'water';
+        let sampleVolume = 50;
+        let addedWeights = 250.0; // Initialized to match default copper mass (50 * 5.0 = 250g in air) for zero initial angle!
+        let immersionFactor = 0.0; // 0.0 (0%) to 1.0 (100%)
+
+        let massAria = 0;
+        let apparentMass = 0;
+        let buoyantForce = 0;
+        let calculatedDensity = 0;
+
+        // Spring-damper physics variables for beam angle
+        let beamAngle = 0;
+        let beamVelocity = 0;
+        let targetAngle = 0;
+        const springConstant = 250;
+        const damping = 11.0;
+
+        let canvas, ctx;
+
+        window.onload = function() {
+            // Initialize with exact balanced weights so initial beam angle is precisely 0 and motionless
+            const mat = MATERIALS[currentMaterialKey];
+            massAria = sampleVolume * mat.density;
+            addedWeights = Math.round(massAria * 10) / 10;
+
+            initUI();
+            initCanvas();
+            updatePhysics(false);
+            window.addEventListener('resize', resizeCanvas);
+            requestAnimationFrame(renderLoop);
+        };
+
+        function initUI() {
+            const matGrid = document.getElementById('material-grid');
+            matGrid.innerHTML = '';
+            for (const [key, mat] of Object.entries(MATERIALS)) {
+                const btn = document.createElement('button');
+                btn.className = `p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition active:scale-95 ${key === currentMaterialKey ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'}`;
+                btn.onclick = () => selectMaterial(key);
+                btn.innerHTML = `
+                    <i class="fa-solid ${mat.icon} text-lg" style="color: ${mat.color}"></i>
+                    <span class="text-[11px] font-medium">${mat.name}</span>
+                `;
+                matGrid.appendChild(btn);
+            }
+
+            const liquidSelect = document.getElementById('select-liquid');
+            liquidSelect.innerHTML = '';
+            for (const [key, liq] of Object.entries(LIQUIDS)) {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = `${liq.name} (ρ = ${liq.density} g/cm³)`;
+                if (key === currentLiquidKey) opt.selected = true;
+                liquidSelect.appendChild(opt);
+            }
+
+            updateDisplays();
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('balanceCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth * window.devicePixelRatio;
+            canvas.height = container.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        function onImmersionSliderInput(val) {
+            immersionFactor = parseInt(val) / 100.0;
+            document.getElementById('slider-immersion-val').textContent = val + '%';
+            document.getElementById('immersion-percent-label').textContent = val + '%';
+            updatePhysics(true);
+        }
+
+        function updatePhysics(kick = true) {
+            const mat = MATERIALS[currentMaterialKey];
+            const liq = LIQUIDS[currentLiquidKey];
+
+            massAria = sampleVolume * mat.density;
+            buoyantForce = sampleVolume * immersionFactor * liq.density;
+            apparentMass = Math.max(0, massAria - buoyantForce);
+
+            const torqueDiff = addedWeights - apparentMass;
+            
+            // If forces are equal within a tiny threshold, target angle is strictly 0
+            if (Math.abs(torqueDiff) < 0.05) {
+                targetAngle = 0;
+            } else {
+                targetAngle = Math.max(-0.22, Math.min(0.22, torqueDiff * 0.003));
+            }
+
+            if (kick) {
+                beamVelocity += (torqueDiff * 0.0012);
+            }
+
+            if (buoyantForce > 0) {
+                calculatedDensity = massAria / buoyantForce * liq.density;
+            } else {
+                calculatedDensity = 0;
+            }
+
+            updateDisplays();
+        }
+
+        function updateDisplays() {
+            document.getElementById('display-p-left').textContent = apparentMass.toFixed(2) + ' g';
+            document.getElementById('display-added-weights').textContent = addedWeights.toFixed(1) + ' g';
+            document.getElementById('slider-weights').value = addedWeights;
+            document.getElementById('label-volume').textContent = sampleVolume + ' cm³';
+            document.getElementById('slider-volume').value = sampleVolume;
+
+            document.getElementById('res-p-aria').textContent = massAria.toFixed(2) + ' g';
+            document.getElementById('res-archimedes').textContent = buoyantForce.toFixed(2) + ' g';
+            
+            const densEl = document.getElementById('res-density');
+            const errEl = document.getElementById('res-error');
+            const theoryEl = document.getElementById('res-density-theory');
+            
+            const mat = MATERIALS[currentMaterialKey];
+            theoryEl.textContent = mat.density.toFixed(2) + ' g/cm³';
+
+            if (buoyantForce > 0) {
+                densEl.textContent = calculatedDensity.toFixed(2) + ' g/cm³';
+                const error = Math.abs((calculatedDensity - mat.density) / mat.density) * 100;
+                errEl.textContent = error.toFixed(1) + '%';
+            } else {
+                densEl.textContent = 'Immergi in liquido';
+                errEl.textContent = '-';
+            }
+
+            const isBalanced = Math.abs(addedWeights - apparentMass) < 0.2;
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            if (isBalanced) {
+                indicator.style.backgroundColor = '#10b981';
+                statusText.textContent = 'In equilibrio perfetto';
+            } else if (addedWeights > apparentMass) {
+                indicator.style.backgroundColor = '#f59e0b';
+                statusText.textContent = 'Piatto destro più pesante';
+            } else {
+                indicator.style.backgroundColor = '#ef4444';
+                statusText.textContent = 'Piatto sinistro più pesante';
+            }
+        }
+
+        function selectMaterial(key) {
+            currentMaterialKey = key;
+            const mat = MATERIALS[key];
+            massAria = sampleVolume * mat.density;
+            // Auto adjust weights to maintain balance upon switching material unless immersion is active
+            if (immersionFactor === 0) {
+                addedWeights = Math.round(massAria * 10) / 10;
+            }
+            initUI();
+            updatePhysics(true);
+        }
+
+        function changeLiquid(key) {
+            currentLiquidKey = key;
+            updatePhysics(true);
+        }
+
+        function updateVolume(val) {
+            sampleVolume = parseInt(val);
+            const mat = MATERIALS[currentMaterialKey];
+            massAria = sampleVolume * mat.density;
+            if (immersionFactor === 0) {
+                addedWeights = Math.round(massAria * 10) / 10;
+            }
+            updatePhysics(true);
+        }
+
+        function updateWeights(val) {
+            addedWeights = parseFloat(val);
+            updatePhysics(true);
+        }
+
+        function adjustWeights(amount) {
+            addedWeights = Math.max(0, Math.min(1000, addedWeights + amount));
+            updatePhysics(true);
+        }
+
+        function autoBalance() {
+            addedWeights = Math.round(apparentMass * 10) / 10;
+            updatePhysics(true);
+        }
+
+        function resetSimulation() {
+            addedWeights = Math.round((50 * MATERIALS['copper'].density) * 10) / 10;
+            immersionFactor = 0;
+            document.getElementById('slider-immersion').value = 0;
+            document.getElementById('slider-immersion-val').textContent = '0%';
+            document.getElementById('immersion-percent-label').textContent = '0%';
+            sampleVolume = 50;
+            currentMaterialKey = 'copper';
+            currentLiquidKey = 'water';
+            beamVelocity = 0;
+            beamAngle = 0;
+            initUI();
+            updatePhysics(false);
+        }
+
+        function switchTab(tabName) {
+            ['material', 'weights', 'results'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).className = "py-3 text-center border-b-2 border-transparent hover:text-slate-200 transition text-slate-400";
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabName}`).className = "py-3 text-center border-b-2 border-blue-500 text-blue-400 bg-slate-900/50 transition font-semibold";
+        }
+
+        function openInfoModal() {
+            document.getElementById('info-modal').classList.remove('hidden');
+        }
+
+        function closeInfoModal() {
+            document.getElementById('info-modal').classList.add('hidden');
+        }
+
+        let lastTime = 0;
+        function renderLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+            lastTime = timestamp;
+
+            const restoringForce = -springConstant * (beamAngle - targetAngle);
+            const dampingForce = -damping * beamVelocity;
+            const acceleration = restoringForce + dampingForce;
+
+            beamVelocity += acceleration * dt;
+            beamAngle += beamVelocity * dt;
+
+            // If extremely close to target angle and velocity is negligible, snap completely to zero/target for absolute stillness
+            if (Math.abs(targetAngle - beamAngle) < 0.0002 && Math.abs(beamVelocity) < 0.0005) {
+                beamAngle = targetAngle;
+                beamVelocity = 0;
+            }
+
+            drawBalance();
+            requestAnimationFrame(renderLoop);
+        }
+
+        function drawBalance() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const pillarBaseY = height - 10;
+            const pillarTopY = 40;
+            const beamY = pillarTopY;
+            const beamLength = 140;
+
+            // 1. Stand & Base Structure
+            ctx.save();
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.roundRect(centerX - 50, pillarBaseY - 10, 100, 10, 3);
+            ctx.fill();
+
+            const pillarGrad = ctx.createLinearGradient(centerX - 6, 0, centerX + 6, 0);
+            pillarGrad.addColorStop(0, '#334155');
+            pillarGrad.addColorStop(0.5, '#94a3b8');
+            pillarGrad.addColorStop(1, '#334155');
+            ctx.fillStyle = pillarGrad;
+            ctx.fillRect(centerX - 5, pillarTopY, 10, pillarBaseY - pillarTopY - 10);
+
+            // Fulcrum joint head
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.arc(centerX, beamY, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // 2. Beaker container placed directly below left pan path
+            const beakerWidth = 76;
+            const beakerHeight = 76;
+            const beakerX = centerX - beamLength - 38;
+            const beakerY = pillarBaseY - beakerHeight - 8;
+
+            ctx.save();
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(beakerX - 6, pillarBaseY - 10, beakerWidth + 12, 6);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.beginPath();
+            ctx.roundRect(beakerX, beakerY, beakerWidth, beakerHeight, [0, 0, 6, 6]);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Liquid inside beaker
+            const liqObj = LIQUIDS[currentLiquidKey];
+            ctx.fillStyle = liqObj.color;
+            const liquidLevelHeight = beakerHeight * 0.65;
+            ctx.fillRect(beakerX + 1, beakerY + beakerHeight - liquidLevelHeight, beakerWidth - 2, liquidLevelHeight);
+
+            ctx.strokeStyle = liqObj.borderColor;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(beakerX + 1, beakerY + beakerHeight - liquidLevelHeight);
+            ctx.lineTo(beakerX + beakerWidth - 1, beakerY + beakerHeight - liquidLevelHeight);
+            ctx.stroke();
+            ctx.restore();
+
+            // 3. Rotating Beam (Bilanciere)
+            ctx.save();
+            ctx.translate(centerX, beamY);
+            ctx.rotate(beamAngle);
+
+            const beamGrad = ctx.createLinearGradient(0, -4, 0, 4);
+            beamGrad.addColorStop(0, '#cbd5e1');
+            beamGrad.addColorStop(0.5, '#f1f5f9');
+            beamGrad.addColorStop(1, '#64748b');
+            ctx.fillStyle = beamGrad;
+            ctx.beginPath();
+            ctx.roundRect(-beamLength, -4, beamLength * 2, 8, 2);
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Central pointer needle
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.moveTo(0, 4);
+            ctx.lineTo(-3, 20);
+            ctx.lineTo(3, 20);
+            ctx.closePath();
+            ctx.fill();
+
+            const leftX = -beamLength;
+            const rightX = beamLength;
+            
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            ctx.moveTo(leftX, 0);
+            ctx.lineTo(leftX - 12, 38);
+            ctx.moveTo(leftX, 0);
+            ctx.lineTo(leftX + 12, 38);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(rightX, 0);
+            ctx.lineTo(rightX - 12, 38);
+            ctx.moveTo(rightX, 0);
+            ctx.lineTo(rightX + 12, 38);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // 4. Pans and Suspended Sample Positions
+            const leftPanY = beamY + beamLength * Math.sin(beamAngle) + 38;
+            const rightPanY = beamY - beamLength * Math.sin(beamAngle) + 38;
+
+            // Left Pan
+            ctx.save();
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.ellipse(centerX - beamLength, leftPanY, 18, 4.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Lower hook wire extending down into the beaker water
+            const hookTopY = leftPanY + 4.5;
+            const surfaceY = beakerY + beakerHeight - liquidLevelHeight;
+            const airSampleY = leftPanY + 28;
+            const sampleSize = Math.max(12, Math.min(24, 10 + sampleVolume * 0.07));
+            
+            const targetSampleY = surfaceY - (sampleSize / 2);
+            const currentSampleY = airSampleY + (targetSampleY - airSampleY) * immersionFactor;
+            
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(centerX - beamLength, hookTopY);
+            ctx.lineTo(centerX - beamLength, currentSampleY);
+            ctx.stroke();
+
+            // Draw Sample Object
+            const mat = MATERIALS[currentMaterialKey];
+            ctx.fillStyle = mat.color;
+            ctx.beginPath();
+            ctx.roundRect(centerX - beamLength - sampleSize/2, currentSampleY, sampleSize, sampleSize, 3);
+            ctx.fill();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.restore();
+
+            // Right Pan & Weights
+            ctx.save();
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.ellipse(centerX + beamLength, rightPanY, 18, 4.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            if (addedWeights > 0) {
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.roundRect(centerX + beamLength - 16, rightPanY - 14, 32, 14, 2);
+                ctx.fill();
+                ctx.strokeStyle = '#b45309';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px "Plus Jakarta Sans", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(addedWeights.toFixed(0) + 'g', centerX + beamLength, rightPanY - 4);
+            }
+            ctx.restore();
+
+            // 5. Dial indicator at the top of the pillar
+            ctx.save();
+            ctx.translate(centerX, pillarTopY + 12);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.5;
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, Math.PI * 0.2, Math.PI * 0.8);
+            ctx.stroke();
+
+            ctx.rotate(beamAngle * 4.5);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, 20);
+            ctx.stroke();
+
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
