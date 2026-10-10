@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baroscopio nella campana a vuoto</title>
+<style>
+:root{--bg:#f4f5f7;--fg:#1c2330;--card:#fff;--mut:#5b6575;--acc:#1f6feb;--bd:#d6dae1;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161d;--fg:#e8ecf2;--card:#1b212b;--mut:#9aa5b5;--acc:#4d8dff;--bd:#2c3441}}
+:root[data-theme="dark"]{--bg:#12161d;--fg:#e8ecf2;--card:#1b212b;--mut:#9aa5b5;--acc:#4d8dff;--bd:#2c3441}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:480px;margin:0 auto;padding:10px}
+h1{font-size:1.15rem;margin:4px 0 8px;text-align:center}
+canvas{width:100%;height:auto;display:block;border-radius:12px;background:#0f1a2b;touch-action:none}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+button{font:inherit;font-weight:600;padding:14px 8px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px;font-size:.93rem;line-height:1.45}
+.row{display:flex;justify-content:space-between;gap:6px;text-align:center}
+.row div{flex:1}.row b{display:block;font-size:1.1rem}.row span{color:var(--mut);font-size:.78rem}
+label{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:.9rem;margin:6px 2px}
+</style>
+</head>
+<body>
+<main>
+<h1>Baroscopio in campana a vuoto</h1>
+<canvas id="c"></canvas>
+<div class="ctl">
+ <button id="pump">⬇ Pompa (tieni premuto)</button>
+ <button id="vent">⬆ Fai rientrare l'aria</button>
+</div>
+<label><input type="checkbox" id="forces" checked> Mostra le forze (<span style="color:#ff6b6b">peso</span> / <span style="color:#5ec8ff">spinta di Archimede</span>)</label>
+<div class="card row">
+ <div><b id="rP">1013</b><span>pressione (hPa)</span></div>
+ <div><b id="rB">100%</b><span>spinta sulla sfera</span></div>
+ <div><b id="rA">0.0°</b><span>inclinazione</span></div>
+</div>
+<div class="card" id="cap"></div>
+<div class="card">
+<style>.t{width:100%;border-collapse:collapse;font-size:.85rem}.t td,.t th{padding:4px 2px;text-align:right;border-bottom:1px solid var(--bd)}.t th:first-child,.t td:first-child{text-align:left}</style>
+<b>Il calcolo (valori di esempio)</b><br>
+Sfera: volume 1 L. Ottone: volume 0,01 L, massa 100 g. Densità dell'aria: ρ = 1,2 g/L × (P / 1013).<br>
+Per l'equilibrio in aria la sfera ha massa reale 100 + 1,2·(1 − 0,01) = 101,188 g.
+<div id="calc"></div>
+<div style="color:var(--mut);font-size:.82rem">Peso apparente = massa reale − spinta (ρ·V). Quando P cala, la spinta cala di più sulla sfera (V grande), quindi il suo peso apparente supera quello dell'ottone e la sfera scende.</div>
+</div>
+<div class="card" style="color:var(--mut)">
+<b style="color:var(--fg)">Come funziona.</b> Il baroscopio è una bilancia a bracci uguali con una grande sfera cava, di massa reale appena maggiore, da un lato e un piccolo peso di ottone dall'altro. In aria si equilibrano perché la sfera, avendo un volume maggiore, riceve una spinta di Archimede (ρ·V·g) maggiore. Togliendo l'aria, ρ diminuisce: la spinta cala molto più sulla sfera grande che sul peso piccolo, e il braccio della sfera scende. Nel vuoto la bilancia indica la vera differenza di massa.
+</div>
+</main>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d');
+const dpr=Math.min(window.devicePixelRatio||1,2);
+c.width=600*dpr;c.height=780*dpr;g.scale(dpr,dpr);
+const P0=1013;
+let P=P0,pumping=false,venting=false,th=0,om=0,phase=0;
+const N=130,parts=[];
+const $=id=>document.getElementById(id);
+function inJar(x,y){return x>140&&x<460&&y<555&&(y>200||Math.hypot(x-300,y-200)<=160)}
+function spawn(nearTube){
+  for(let i=0;i<500;i++){
+    const x=nearTube?300+(Math.random()-.5)*40:140+Math.random()*320,
+          y=nearTube?540:60+Math.random()*495;
+    if(inJar(x,y)){const a=Math.random()*6.283,s=60+Math.random()*100;
+      parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s});return}
+  }
+}
+for(let i=0;i<N;i++)spawn(false);
+
+const bind=(b,on,off)=>{
+  b.addEventListener('pointerdown',e=>{e.preventDefault();on()});
+  ['pointerup','pointerleave','pointercancel'].forEach(t=>b.addEventListener(t,off));
+};
+bind($('pump'),()=>{pumping=true;venting=false;$('pump').classList.add('on')},()=>{pumping=false;$('pump').classList.remove('on')});
+$('vent').addEventListener('click',()=>{venting=true;pumping=false});
+
+function arrow(x0,y0,x1,y1,col){
+  g.strokeStyle=g.fillStyle=col;g.lineWidth=3;
+  g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();
+  const a=Math.atan2(y1-y0,x1-x0);
+  g.beginPath();g.moveTo(x1,y1);
+  g.lineTo(x1-9*Math.cos(a-.5),y1-9*Math.sin(a-.5));
+  g.lineTo(x1-9*Math.cos(a+.5),y1-9*Math.sin(a+.5));g.closePath();g.fill();
+}
+
+function update(dt){
+  if(pumping){P=Math.max(3,P-P*0.85*dt);phase+=dt*9}
+  if(venting){P=Math.min(P0,P+(P0-P)*2.6*dt+25*dt);if(P>=P0-0.5){P=P0;venting=false}}
+  const tgt=Math.round(N*P/P0);
+  if(parts.length>tgt){let k=Math.max(1,Math.ceil((parts.length-tgt)*.25));while(k--&&parts.length>tgt)parts.splice(Math.random()*parts.length|0,1)}
+  while(parts.length<tgt)spawn(true);
+  for(const p of parts){
+    let nx=p.x+p.vx*dt,ny=p.y+p.vy*dt;
+    if(inJar(nx,p.y))p.x=nx;else p.vx*=-1;
+    if(inJar(p.x,ny))p.y=ny;else p.vy*=-1;
+  }
+  const tt=-0.2*(1-P/P0);
+  om+=(-42*(th-tt)-5*om)*dt;th+=om*dt;
+}
+
+function draw(){
+  g.clearRect(0,0,600,780);
+  const r=P/P0;
+  // jar fill
+  const jar=()=>{g.beginPath();g.moveTo(130,560);g.lineTo(130,200);g.arc(300,200,170,Math.PI,0);g.lineTo(470,560);g.closePath()};
+  jar();g.fillStyle='rgba(150,200,255,.10)';g.fill();
+  // plate and base
+  g.fillStyle='#8892a0';g.fillRect(90,560,420,22);
+  g.fillStyle='#5d6573';g.beginPath();g.moveTo(150,582);g.lineTo(450,582);g.lineTo(430,606);g.lineTo(170,606);g.fill();
+  // tube
+  g.strokeStyle='#aab3c0';g.lineWidth=8;g.lineJoin='round';
+  g.beginPath();g.moveTo(300,560);g.lineTo(300,690);g.lineTo(420,690);g.stroke();
+  // pump
+  g.fillStyle='#39465a';g.fillRect(420,640,66,130);
+  g.fillStyle='#202938';g.fillRect(428,648,50,114);
+  const py=660+(pumping?18*Math.sin(phase):0)+18;
+  g.strokeStyle='#cbd2dc';g.lineWidth=6;g.beginPath();g.moveTo(453,610);g.lineTo(453,py);g.stroke();
+  g.fillRect;g.fillStyle='#cbd2dc';g.fillRect(430,py,46,14);
+  g.fillStyle='#e0b24a';g.fillRect(433,604,40,10);
+  // valve
+  g.fillStyle=venting?'#5ec8ff':'#6b7686';g.beginPath();g.arc(300,640,12,0,7);g.fill();
+  g.fillStyle='#fff';g.font='11px system-ui';g.textAlign='center';g.fillText('valv.',300,644);
+  // gauge
+  const gx=120,gy=690,gr=62;
+  g.fillStyle='#f2f4f7';g.beginPath();g.arc(gx,gy,gr,0,7);g.fill();
+  g.strokeStyle='#2b3342';g.lineWidth=4;g.stroke();
+  g.fillStyle='#222';g.font='11px system-ui';g.textAlign='center';
+  for(let v=0;v<=1000;v+=200){
+    const a=(135+270*v/1100)*Math.PI/180;
+    g.strokeStyle='#222';g.lineWidth=2;g.beginPath();
+    g.moveTo(gx+Math.cos(a)*(gr-12),gy+Math.sin(a)*(gr-12));g.lineTo(gx+Math.cos(a)*(gr-4),gy+Math.sin(a)*(gr-4));g.stroke();
+    g.fillText(v,gx+Math.cos(a)*(gr-24),gy+Math.sin(a)*(gr-24)+4);
+  }
+  const na=(135+270*P/1100)*Math.PI/180;
+  g.strokeStyle='#d33';g.lineWidth=3;g.beginPath();g.moveTo(gx,gy);g.lineTo(gx+Math.cos(na)*(gr-10),gy+Math.sin(na)*(gr-10));g.stroke();
+  g.fillStyle='#222';g.beginPath();g.arc(gx,gy,4,0,7);g.fill();
+  g.font='bold 11px system-ui';g.fillText('hPa',gx,gy+40);
+  // particles
+  g.fillStyle='rgba(140,210,255,.75)';
+  for(const p of parts){g.beginPath();g.arc(p.x,p.y,2.4,0,7);g.fill()}
+  // stand
+  g.fillStyle='#7c8594';g.fillRect(294,300,12,260);
+  g.fillStyle='#9aa3b1';g.fillRect(270,550,60,12);
+  // beam
+  const L=105,cx=300,cy=300;
+  g.save();g.translate(cx,cy);g.rotate(th);
+  g.strokeStyle='#d9a441';g.lineWidth=7;g.lineCap='round';
+  g.beginPath();g.moveTo(-L,0);g.lineTo(L,0);g.stroke();
+  g.restore();
+  g.fillStyle='#f0c860';g.beginPath();g.arc(cx,cy,8,0,7);g.fill();
+  const lx=cx-L*Math.cos(th),ly=cy+(-L)*Math.sin(th);
+  const rx=cx+L*Math.cos(th),ry=cy+L*Math.sin(th);
+  // big sphere (left)
+  const sR=46,sx=lx,sy=ly+30+sR;
+  g.strokeStyle='#cfd6e0';g.lineWidth=2;g.beginPath();g.moveTo(lx,ly);g.lineTo(sx,sy-sR);g.stroke();
+  let gr1=g.createRadialGradient(sx-14,sy-14,4,sx,sy,sR);
+  gr1.addColorStop(0,'#fff');gr1.addColorStop(1,'#b9c4d4');
+  g.fillStyle=gr1;g.beginPath();g.arc(sx,sy,sR,0,7);g.fill();
+  g.strokeStyle='#7e8aa0';g.lineWidth=2;g.stroke();
+  g.fillStyle='#4a5568';g.font='11px system-ui';g.textAlign='center';g.fillText('sfera cava',sx,sy+4);
+  // small weight (right)
+  const bR=13,bx=rx,by=ry+30+bR;
+  g.strokeStyle='#cfd6e0';g.beginPath();g.moveTo(rx,ry);g.lineTo(bx,by-bR);g.stroke();
+  let gr2=g.createRadialGradient(bx-4,by-4,2,bx,by,bR);
+  gr2.addColorStop(0,'#fff0b0');gr2.addColorStop(1,'#b98a1e');
+  g.fillStyle=gr2;g.beginPath();g.arc(bx,by,bR,0,7);g.fill();
+  g.fillStyle='#fff';g.font='11px system-ui';g.fillText('ottone',bx,by+bR+14);
+  // forces
+  if($('forces').checked){
+    arrow(sx,sy,sx,sy+84,'#ff6b6b');
+    if(r>0.03)arrow(sx,sy,sx,sy-36*r,'#5ec8ff');
+    arrow(bx,by,bx,by+50,'#ff6b6b');
+    if(r>0.03)arrow(bx,by,bx,by-2*r-3,'#5ec8ff');
+  }
+  // jar outline + glare
+  jar();g.strokeStyle='rgba(200,225,255,.85)';g.lineWidth=4;g.stroke();
+  g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=5;g.beginPath();g.arc(300,200,150,Math.PI*1.08,Math.PI*1.35);g.stroke();
+  // labels
+  g.fillStyle='#9fb3cc';g.font='13px system-ui';g.textAlign='center';
+  g.fillText('campana di vetro',300,22);g.fillText('pompa da vuoto',453,790-24);
+  g.fillText('manometro',gx,770);
+}
+
+const V1=1,V2=0.01,M2=100,M1=M2+1.2*(V1-V2);
+function calc(){
+  const rho=1.2*P/P0,b1=rho*V1,b2=rho*V2,w1=M1-b1,w2=M2-b2,d=w1-w2;
+  $('calc').innerHTML='<table class="t"><tr><th>ρ = '+rho.toFixed(3)+' g/L</th><th>Sfera</th><th>Ottone</th></tr>'+
+  '<tr><td>Massa reale</td><td>'+M1.toFixed(3)+' g</td><td>'+M2.toFixed(3)+' g</td></tr>'+
+  '<tr><td>Spinta ρ·V</td><td>'+b1.toFixed(3)+' g</td><td>'+b2.toFixed(3)+' g</td></tr>'+
+  '<tr><td>Peso apparente</td><td>'+w1.toFixed(3)+' g</td><td>'+w2.toFixed(3)+' g</td></tr>'+
+  '<tr><td><b>Differenza</b></td><td colspan="2"><b>'+(d>=0?'+':'')+d.toFixed(3)+' g</b> (sfera − ottone)</td></tr></table>';
+}
+let last=performance.now(),capT='';
+function cap(){
+  let t;
+  if(venting)t="L'aria rientra: la densità aumenta, cresce la spinta di Archimede sulla sfera grande (molto più che sul peso di ottone) e la bilancia torna in equilibrio.";
+  else if(P>P0-5&&!pumping)t="Pressione atmosferica: la sfera ha massa reale un po' maggiore dell'ottone, ma l'aria la sostiene di più perché il suo volume è molto più grande. I pesi apparenti (massa − spinta) coincidono e c'è equilibrio. Premi «Pompa».";
+  else if(pumping&&P>60)t="Si estrae l'aria: la spinta di Archimede cala su entrambi i corpi, ma molto di più sulla sfera, che ha il volume maggiore. Il sostegno che l'aria le dava viene meno, resta la sua massa reale (maggiore) e il suo braccio scende.";
+  else if(P<=60)t="Quasi vuoto: la spinta di Archimede è praticamente nulla. Ora la bilancia confronta le masse reali, e la sfera (circa 1,2 g in più) pesa più dell'ottone.";
+  else t="Pompa ferma: la pressione resta costante e la bilancia si assesta nella posizione corrispondente alla densità residua dell'aria.";
+  if(t!==capT){capT=t;$('cap').textContent=t}
+}
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  update(dt);draw();
+  $('rP').textContent=P<10?P.toFixed(1):Math.round(P);
+  $('rB').textContent=Math.round(P/P0*100)+'%';
+  $('rA').textContent=(-th*180/Math.PI).toFixed(1)+'°';
+  cap();calc();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
