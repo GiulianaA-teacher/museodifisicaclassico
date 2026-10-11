@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Prisma a Riflessione Totale</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        laser: {
+                            red: '#ff3366',
+                            green: '#00ff88',
+                            blue: '#00ccff',
+                            purple: '#b55fe6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- KaTeX CSS e JS per il render perfetto delle formule matematiche -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <style>
+        body {
+            touch-action: manipulation;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        canvas {
+            touch-action: none; /* Inibisce lo scroll della pagina durante il drag del laser */
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .glow-tir {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+        }
+        .glow-refract {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+        }
+        /* Style per i range slider touch-friendly */
+        input[type=range] {
+            height: 8px;
+            -webkit-appearance: none;
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between overflow-x-hidden bg-slate-950 text-slate-100 antialiased selection:bg-cyan-500 selection:text-white">
+
+    <!-- Header compatto per smartphone portrait -->
+    <header class="w-full bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between shrink-0 backdrop-blur">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center font-bold text-slate-950 shadow-md text-sm">
+                PR
+            </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-tight text-white leading-none">Prisma Ottico</h1>
+                <p class="text-[10px] text-cyan-400 font-medium">Riflessione Totale Interna</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <button id="btnReset" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition active:scale-95 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <!-- Area Principale Canvas + Banner di Stato -->
+    <main class="flex-1 flex flex-col p-3 max-w-md mx-auto w-full gap-2.5 overflow-y-auto custom-scroll">
+        
+        <!-- Interactive Optics Bench (Canvas Container) -->
+        <div class="relative w-full aspect-square bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col items-center justify-center group">
+            
+            <!-- Canvas principale 2D -->
+            <canvas id="opticsCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+            <!-- Overlay help/hint touch -->
+            <div class="absolute top-2 left-2 pointer-events-none bg-slate-950/75 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-800/80 flex items-center gap-1.5 text-[10px] text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span>Trascina la sorgente laser</span>
+            </div>
+
+            <!-- Pulsanti rapidi sovrapposti sul canvas -->
+            <div class="absolute bottom-2 right-2 flex gap-1.5">
+                <button id="btnToggleNormals" class="p-2 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-lg text-[11px] text-slate-300 backdrop-blur transition active:scale-95 flex items-center gap-1">
+                    <span id="indicatorNormals" class="w-2 h-2 rounded-full bg-cyan-400"></span> Normali
+                </button>
+                <button id="btnToggleAngles" class="p-2 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-lg text-[11px] text-slate-300 backdrop-blur transition active:scale-95 flex items-center gap-1">
+                    <span id="indicatorAngles" class="w-2 h-2 rounded-full bg-cyan-400"></span> Angoli
+                </button>
+            </div>
+        </div>
+
+        <!-- Banner Stato Fisico della Riflessione -->
+        <div id="statusBanner" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between transition-all duration-300">
+            <div class="flex items-center gap-2.5">
+                <div id="statusBadgeIcon" class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg font-bold">
+                    ⚡
+                </div>
+                <div>
+                    <div id="statusTitle" class="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                        Riflessione Totale Interna (TIR)
+                    </div>
+                    <div id="statusDesc" class="text-[11px] text-slate-400">
+                        100% dell'energia luminosa viene riflessa
+                    </div>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Angolo Inc.</div>
+                <div id="valIncidenceAngle" class="text-xs font-mono font-bold text-cyan-400">45.0°</div>
+            </div>
+        </div>
+
+        <!-- Metric Cards Grid -->
+        <div class="grid grid-cols-3 gap-2">
+            <div class="bg-slate-900/80 border border-slate-800/80 p-2 rounded-xl text-center">
+                <div class="text-[10px] text-slate-400 font-medium">Indice vetro ($n$)</div>
+                <div id="cardNValue" class="text-xs font-mono font-bold text-amber-400 mt-0.5">1.52</div>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800/80 p-2 rounded-xl text-center">
+                <div class="text-[10px] text-slate-400 font-medium">Angolo Critico ($\theta_c$)</div>
+                <div id="cardCriticalAngle" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">41.1°</div>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800/80 p-2 rounded-xl text-center">
+                <div class="text-[10px] text-slate-400 font-medium">Riflettanza</div>
+                <div id="cardReflectance" class="text-xs font-mono font-bold text-cyan-400 mt-0.5">100 %</div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation (Mobile UX Optimized) -->
+        <div class="w-full bg-slate-900/90 rounded-xl p-1 border border-slate-800 flex gap-1 mt-1">
+            <button id="tabBtnControls" class="flex-1 py-2 text-xs font-semibold rounded-lg bg-cyan-500 text-slate-950 transition">
+                🎛️ Controlli
+            </button>
+            <button id="tabBtnPresets" class="flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">
+                📐 Preset
+            </button>
+            <button id="tabBtnTheory" class="flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">
+                📖 Teoria
+            </button>
+        </div>
+
+        <!-- TAB CONTENT 1: CONTROLLI -->
+        <div id="tabContentControls" class="flex flex-col gap-3 bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+            
+            <!-- Indice di rifrazione n2 -->
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <label for="inputN" class="text-xs font-medium text-slate-300">Indice di Rifrazione del Prisma ($n$):</label>
+                    <span id="labelNVal" class="text-xs font-mono font-bold text-cyan-400">1.52</span>
+                </div>
+                <input id="inputN" type="range" min="1.00" max="2.00" step="0.01" value="1.52" class="w-full">
+                <!-- Preset di materiali -->
+                <div class="flex gap-1.5 mt-2 overflow-x-auto pb-1">
+                    <button class="preset-material px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 font-mono transition" data-n="1.33">Acqua (1.33)</button>
+                    <button class="preset-material px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-cyan-400 font-mono font-bold border border-cyan-500/30" data-n="1.52">Vetro Crown (1.52)</button>
+                    <button class="preset-material px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 font-mono transition" data-n="1.66">Vetro Flint (1.66)</button>
+                    <button class="preset-material px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 font-mono transition" data-n="2.42">Diamante (2.42)</button>
+                </div>
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Angolo del raggio sorgente -->
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <label for="inputRayAngle" class="text-xs font-medium text-slate-300">Angolo Inclinazione Laser:</label>
+                    <span id="labelRayAngleVal" class="text-xs font-mono font-bold text-cyan-400">0.0°</span>
+                </div>
+                <input id="inputRayAngle" type="range" min="-80" max="80" step="0.5" value="0" class="w-full">
+            </div>
+
+            <!-- Posizione Y sorgente -->
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <label for="inputRayY" class="text-xs font-medium text-slate-300">Posizione Sorgente (Altezza):</label>
+                    <span id="labelRayYVal" class="text-xs font-mono font-bold text-cyan-400">Center</span>
+                </div>
+                <input id="inputRayY" type="range" min="-120" max="120" step="1" value="0" class="w-full">
+            </div>
+
+            <hr class="border-slate-800">
+
+            <!-- Colore del Laser -->
+            <div>
+                <label class="text-xs font-medium text-slate-300 block mb-1.5">Lunghezza d'onda / Colore Laser:</label>
+                <div class="flex gap-2">
+                    <button class="color-btn flex-1 py-1.5 rounded-lg border-2 border-red-500 bg-red-500/20 text-red-400 text-xs font-semibold" data-color="#ff3366">Rosso</button>
+                    <button class="color-btn flex-1 py-1.5 rounded-lg border-2 border-transparent bg-slate-800 text-emerald-400 text-xs font-semibold" data-color="#00ff88">Verde</button>
+                    <button class="color-btn flex-1 py-1.5 rounded-lg border-2 border-transparent bg-slate-800 text-cyan-400 text-xs font-semibold" data-color="#00ccff">Blu</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB CONTENT 2: PRESET PRISMI -->
+        <div id="tabContentPresets" class="hidden flex-col gap-2 bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+            <p class="text-xs text-slate-400 mb-1">Seleziona una configurazione ottica tipica:</p>
+            
+            <button class="preset-config text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-cyan-500/40 flex items-center gap-3 transition" data-preset="90dev">
+                <div class="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-lg border border-cyan-500/30">
+                    ⊿
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white">Deviazione a 90° (Riflessione Singola)</div>
+                    <div class="text-[11px] text-slate-400">Usato nei periscopi e negli squadri ottici.</div>
+                </div>
+            </button>
+
+            <button class="preset-config text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-3 transition" data-preset="porro">
+                <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-lg border border-emerald-500/30">
+                    ⧎
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white">Prisma di Porro (Inversione 180°)</div>
+                    <div class="text-[11px] text-slate-400">Doppia riflessione totale usata nei binocoli.</div>
+                </div>
+            </button>
+
+            <button class="preset-config text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-3 transition" data-preset="equilateral">
+                <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-lg border border-amber-500/30">
+                    △
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white">Prisma Equilatero (60°)</div>
+                    <div class="text-[11px] text-slate-400">Studio della rifrazione e angolo di deviazione.</div>
+                </div>
+            </button>
+
+            <button class="preset-config text-left p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 flex items-center gap-3 transition" data-preset="critical_test">
+                <div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-lg border border-purple-500/30">
+                    🎯
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white">Test Soglia Angolo Critico</div>
+                    <div class="text-[11px] text-slate-400">Posiziona il raggio esattamente alla transizione.</div>
+                </div>
+            </button>
+        </div>
+
+        <!-- TAB CONTENT 3: TEORIA E FORMULE -->
+        <div id="tabContentTheory" class="hidden flex-col gap-3 bg-slate-900 border border-slate-800 p-3.5 rounded-xl text-slate-300 text-xs leading-relaxed">
+            
+            <div class="border-l-2 border-cyan-400 pl-2.5 py-0.5">
+                <h3 class="font-bold text-white text-xs mb-1">Cos'è la Riflessione Totale Interna?</h3>
+                <p class="text-slate-400 text-[11px]">
+                    Quando un raggio di luce viaggia da un mezzo otticamente più denso (come il vetro, $n_1 > 1$) a uno meno denso (come l'aria, $n_2 = 1$), la luce viene rifratta allontanandosi dalla normale alla superficie.
+                </p>
+            </div>
+
+            <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                <h4 class="font-bold text-cyan-400 text-[11px] uppercase tracking-wider mb-1">Legge di Snell-Descartes</h4>
+                <div class="text-center py-1 text-sm font-semibold text-amber-300">
+                    $$n_1 \cdot \sin(\theta_1) = n_2 \cdot \sin(\theta_2)$$
+                </div>
+            </div>
+
+            <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                <h4 class="font-bold text-emerald-400 text-[11px] uppercase tracking-wider mb-1">Formula dell'Angolo Critico ($\theta_c$)</h4>
+                <p class="text-slate-400 text-[11px] mb-1.5">
+                    L'angolo critico è l'angolo di incidenza per cui l'angolo di rifrazione diventa esattamente $90^\circ$:
+                </p>
+                <div class="text-center py-1 text-sm font-semibold text-emerald-300">
+                    $$\theta_c = \arcsin\left(\frac{n_2}{n_1}\right)$$
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1 italic">
+                    Per $n_{\text{vetro}} = 1.52$ ed $n_{\text{aria}} = 1.00$, si ottiene $\theta_c \approx 41.14^\circ$.
+                </p>
+            </div>
+
+            <div class="border-l-2 border-emerald-400 pl-2.5 py-0.5">
+                <h3 class="font-bold text-white text-xs mb-1">Condizioni necessarie per la Riflessione Totale:</h3>
+                <ol class="list-decimal list-inside text-slate-400 text-[11px] space-y-1">
+                    <li>La luce deve provenire dal mezzo con indice di rifrazione <strong>maggiore</strong> ($n_1 > n_2$).</li>
+                    <li>L'angolo di incidenza sulla superficie interna deve superare l'angolo critico ($\theta_i > \theta_c$).</li>
+                </ol>
+            </div>
+
+            <div class="bg-cyan-950/30 border border-cyan-800/40 p-2.5 rounded-lg text-[11px] text-cyan-200">
+                <strong>💡 Vantaggio del prisma rispetto agli specchi:</strong> Gli specchi tradizionali assorbono dal 5% al 10% della luce. Il prisma a riflessione totale riflette il <strong>100% dell'energia luminosa</strong> senza perdite nel tempo!
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Configurazione dello stato dell'applicazione
+        const state = {
+            n1: 1.00,             // Indice dell'aria
+            n2: 1.52,             // Indice di rifrazione del prisma
+            laserColor: '#ff3366',// Colore laser predefinito (Rosso)
+            showNormals: true,    // Mostra linee normali
+            showAngles: true,     // Mostra indicatore angoli
+            preset: '90dev',      // Configurazione attiva
+            laserPos: { x: 80, y: 400 }, // Posizione sorgente sul canvas
+            laserAngleDeg: 0,     // Inclinazione manuale della sorgente
+            offsetY: 0,           // Traslazione manuale da slider
+            
+            // Proprietà del prisma attivo
+            prismVertices: [],
+            
+            // Risultati della fisica calcolati in tempo reale
+            currentIncidenceAngle: 0,
+            criticalAngle: 0,
+            isTIRActive: false,
+            reflectance: 100
+        };
+
+        // Riferimenti DOM
+        const canvas = document.getElementById('opticsCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Elementi UI
+        const inputN = document.getElementById('inputN');
+        const labelNVal = document.getElementById('labelNVal');
+        const inputRayAngle = document.getElementById('inputRayAngle');
+        const labelRayAngleVal = document.getElementById('labelRayAngleVal');
+        const inputRayY = document.getElementById('inputRayY');
+        const labelRayYVal = document.getElementById('labelRayYVal');
+        
+        const statusBanner = document.getElementById('statusBanner');
+        const statusBadgeIcon = document.getElementById('statusBadgeIcon');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusDesc = document.getElementById('statusDesc');
+        const valIncidenceAngle = document.getElementById('valIncidenceAngle');
+        
+        const cardNValue = document.getElementById('cardNValue');
+        const cardCriticalAngle = document.getElementById('cardCriticalAngle');
+        const cardReflectance = document.getElementById('cardReflectance');
+
+        // Inizializzazione della risoluzione ad alta definizione del Canvas
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio || 800;
+            canvas.height = rect.height * window.devicePixelRatio || 800;
+            updatePrismGeometry();
+            draw();
+        }
+
+        // Imposta i vertici del prisma in base alla configurazione selezionata
+        function updatePrismGeometry() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w * 0.52;
+            const cy = h * 0.50;
+            const size = Math.min(w, h) * 0.30;
+
+            if (state.preset === '90dev') {
+                // Prisma isoscele rettangolo (Cateto verticale a sx, Cateto orizzontale in basso)
+                // Ipotenusa orientata a 45 gradi
+                state.prismVertices = [
+                    { x: cx - size*0.8, y: cy + size*0.8 }, // Angolo retto (90°) basso-sx
+                    { x: cx - size*0.8, y: cy - size*0.8 }, // Vertice alto
+                    { x: cx + size*0.8, y: cy + size*0.8 }  // Vertice destro
+                ];
+                state.laserPos = { x: w * 0.15, y: cy - state.offsetY };
+            } else if (state.preset === 'porro') {
+                // Prisma Porro: Ipotenusa rivolta verso la sorgente (a sinistra)
+                state.prismVertices = [
+                    { x: cx - size*0.6, y: cy - size*0.9 }, // Vertice alto ipotenusa
+                    { x: cx + size*0.8, y: cy },            // Vertice destro (90°)
+                    { x: cx - size*0.6, y: cy + size*0.9 }  // Vertice basso ipotenusa
+                ];
+                state.laserPos = { x: w * 0.15, y: cy - size*0.45 - state.offsetY };
+            } else if (state.preset === 'equilateral') {
+                // Prisma equilatero 60°
+                const hTriangle = size * Math.sqrt(3);
+                state.prismVertices = [
+                    { x: cx, y: cy - hTriangle*0.5 },
+                    { x: cx + size, y: cy + hTriangle*0.5 },
+                    { x: cx - size, y: cy + hTriangle*0.5 }
+                ];
+                state.laserPos = { x: w * 0.15, y: cy - state.offsetY };
+            } else if (state.preset === 'critical_test') {
+                // Configurazione tarata sull'angolo critico esatto
+                state.prismVertices = [
+                    { x: cx - size*0.8, y: cy + size*0.8 },
+                    { x: cx - size*0.8, y: cy - size*0.8 },
+                    { x: cx + size*0.8, y: cy + size*0.8 }
+                ];
+                state.laserPos = { x: w * 0.15, y: cy };
+            }
+        }
+
+        // Intersezione tra due segmenti di retta (Ray vs Edge)
+        function findIntersection(p1, p2, p3, p4) {
+            const dx12 = p2.x - p1.x;
+            const dy12 = p2.y - p1.y;
+            const dx34 = p4.x - p3.x;
+            const dy34 = p4.y - p3.y;
+
+            const denominator = dy34 * dx12 - dx34 * dy12;
+            if (Math.abs(denominator) < 1e-8) return null; // Retta parallela
+
+            const t = ((p3.x - p1.x) * dy34 - (p3.y - p1.y) * dx34) / denominator;
+            const u = ((p1.x - p3.x) * dy12 - (p1.y - p3.y) * dx12) / -denominator;
+
+            if (t > 0.001 && u >= 0 && u <= 1) {
+                return {
+                    x: p1.x + t * dx12,
+                    y: p1.y + t * dy12,
+                    t: t,
+                    u: u
+                };
+            }
+            return null;
+        }
+
+        // Calcola la normale verso l'esterno per un segmento di poligono
+        function getOutwardNormal(edgeStart, edgeEnd, polygonCentroid) {
+            const dx = edgeEnd.x - edgeStart.x;
+            const dy = edgeEnd.y - edgeStart.y;
+            // Vettore normale candidato
+            let nx = -dy;
+            let ny = dx;
+            const len = Math.hypot(nx, ny);
+            nx /= len;
+            ny /= len;
+
+            // Punto medio del segmento
+            const mx = (edgeStart.x + edgeEnd.x) / 2;
+            const my = (edgeStart.y + edgeEnd.y) / 2;
+
+            // Test del verso rivolto all'esterno del centroide
+            const dot = (mx - polygonCentroid.x) * nx + (my - polygonCentroid.y) * ny;
+            if (dot < 0) {
+                nx = -nx;
+                ny = -ny;
+            }
+            return { x: nx, y: ny };
+        }
+
+        // Calcola il centroide del poligono prisma
+        function getCentroid(vertices) {
+            let cx = 0, cy = 0;
+            vertices.forEach(v => { cx += v.x; cy += v.y; });
+            return { x: cx / vertices.length, y: cy / vertices.length };
+        }
+
+        // Algoritmo di Tracciamento Raggi Ottici con Riflessione Totale Interna
+        function traceRays() {
+            const rays = [];
+            const annotations = [];
+            
+            // Calcolo Angolo Critico fisoco
+            const sinCritical = state.n1 / state.n2;
+            state.criticalAngle = (sinCritical <= 1.0) ? (Math.asin(sinCritical) * 180 / Math.PI) : 90;
+
+            // Inizio raggio dalla sorgente laser
+            let currentStart = { x: state.laserPos.x, y: state.laserPos.y };
+            
+            // Calcolo direzione raggio sorgente
+            const angleRad = (state.laserAngleDeg) * Math.PI / 180;
+            let currentDir = { x: Math.cos(angleRad), y: Math.sin(angleRad) };
+            
+            let isInsidePrism = false;
+            const maxBounces = 6;
+            const centroid = getCentroid(state.prismVertices);
+
+            for (let bounce = 0; bounce < maxBounces; bounce++) {
+                // Calcola il punto finale del segmento esteso
+                const farPoint = {
+                    x: currentStart.x + currentDir.x * 3000,
+                    y: currentStart.y + currentDir.y * 3000
+                };
+
+                let closestHit = null;
+                let hitEdge = null;
+                let minT = Infinity;
+
+                // Trova la prima intersezione con i lati del prisma
+                const numVerts = state.prismVertices.length;
+                for (let i = 0; i < numVerts; i++) {
+                    const v1 = state.prismVertices[i];
+                    const v2 = state.prismVertices[(i + 1) % numVerts];
+                    const hit = findIntersection(currentStart, farPoint, v1, v2);
+
+                    if (hit && hit.t < minT) {
+                        minT = hit.t;
+                        closestHit = hit;
+                        hitEdge = { v1, v2 };
+                    }
+                }
+
+                if (!closestHit) {
+                    // Nessun ostacolo: il raggio procede all'infinito fuori dal canvas
+                    rays.push({ p1: currentStart, p2: farPoint, intensity: 1.0, type: 'primary' });
+                    break;
+                }
+
+                // Aggiunge il segmento fino all'impatto
+                rays.push({ p1: currentStart, p2: closestHit, intensity: 1.0, type: 'primary' });
+
+                // Vettore Normale alla superficie d'impatto
+                const outwardNormal = getOutwardNormal(hitEdge.v1, hitEdge.v2, centroid);
+                
+                // Orientiamo la normale in verso opposto alla direzione del raggio
+                let normal = { ...outwardNormal };
+                let cosI = -(currentDir.x * normal.x + currentDir.y * normal.y);
+                
+                if (cosI < 0) {
+                    normal.x = -normal.x;
+                    normal.y = -normal.y;
+                    cosI = -cosI;
+                }
+
+                // Angolo di incidenza relativo alla normale
+                cosI = Math.min(1.0, Math.max(0.0, cosI));
+                const incidenceAngleRad = Math.acos(cosI);
+                const incidenceAngleDeg = incidenceAngleRad * 180 / Math.PI;
+
+                // Registra dati sul primo impatto interno per il dashboard UI
+                if (isInsidePrism && bounce <= 2) {
+                    state.currentIncidenceAngle = incidenceAngleDeg;
+                }
+
+                // Definizione degli indici di rifrazione per la transizione
+                const nFrom = isInsidePrism ? state.n2 : state.n1;
+                const nTo = isInsidePrism ? state.n1 : state.n2;
+
+                const sinI = Math.sin(incidenceAngleRad);
+                const sinT = (nFrom / nTo) * sinI;
+
+                // Aggiungi annotazioni visive (linea normale e arco angolare)
+                annotations.push({
+                    hitPoint: closestHit,
+                    normal: normal,
+                    angleDeg: incidenceAngleDeg,
+                    isTIR: (sinT > 1.0)
+                });
+
+                // --- VERIFICA RIFLESSIONE TOTALE INTERNA (TIR) ---
+                if (sinT > 1.0) {
+                    // RIFLESSIONE TOTALE (100% riflesso, 0% trasmesso)
+                    if (isInsidePrism) state.isTIRActive = true;
+
+                    // Calcolo vettore direzione riflessa: R = I - 2*(I.N)*N
+                    const dot = currentDir.x * normal.x + currentDir.y * normal.y;
+                    const reflectDir = {
+                        x: currentDir.x - 2 * dot * normal.x,
+                        y: currentDir.y - 2 * dot * normal.y
+                    };
+
+                    currentStart = closestHit;
+                    currentDir = reflectDir;
+                    // Mantiene lo stato (rimane dentro il prisma)
+                } 
+                else {
+                    // RIFRAZIONE (Legge di Snell)
+                    if (isInsidePrism && bounce <= 2) state.isTIRActive = false;
+
+                    const refractAngleRad = Math.asin(sinT);
+                    const cosT = Math.cos(refractAngleRad);
+
+                    // Direzione trasmessa/rifratta
+                    const eta = nFrom / nTo;
+                    const refractDir = {
+                        x: eta * currentDir.x + (eta * cosI - cosT) * normal.x,
+                        y: eta * currentDir.y + (eta * cosI - cosT) * normal.y
+                    };
+
+                    // Traccia anche un raggio parzialmente riflesso per realismo grafico
+                    const dot = currentDir.x * normal.x + currentDir.y * normal.y;
+                    const weakReflectDir = {
+                        x: currentDir.x - 2 * dot * normal.x,
+                        y: currentDir.y - 2 * dot * normal.y
+                    };
+                    
+                    const farWeakPoint = {
+                        x: closestHit.x + weakReflectDir.x * 200,
+                        y: closestHit.y + weakReflectDir.y * 200
+                    };
+                    rays.push({ p1: closestHit, p2: farWeakPoint, intensity: 0.15, type: 'secondary' });
+
+                    // Prosegue con il raggio rifratto principale
+                    currentStart = closestHit;
+                    currentDir = refractDir;
+                    isInsidePrism = !isInsidePrism; // Inverte lo stato dentro/fuori
+                }
+            }
+
+            return { rays, annotations };
+        }
+
+        // Rendering Grafico su Canvas 2D
+        function draw() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Pulizia background
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, w, h);
+
+            // Griglia di sfondo dell'effetto laboratorio
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < w; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            // Disegna il Prisma in Vetro
+            ctx.save();
+            ctx.beginPath();
+            state.prismVertices.forEach((v, idx) => {
+                if (idx === 0) ctx.moveTo(v.x, v.y);
+                else ctx.lineTo(v.x, v.y);
+            });
+            ctx.closePath();
+
+            // Gradient per il vetro trasparente
+            const centroid = getCentroid(state.prismVertices);
+            const glassGrad = ctx.createRadialGradient(centroid.x, centroid.y, 10, centroid.x, centroid.y, 250);
+            glassGrad.addColorStop(0, 'rgba(30, 58, 138, 0.35)');
+            glassGrad.addColorStop(1, 'rgba(15, 23, 42, 0.65)');
+
+            ctx.fillStyle = glassGrad;
+            ctx.fill();
+
+            // Bordo brillante del prisma
+            ctx.strokeStyle = state.isTIRActive ? '#10b981' : '#06b6d4';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = state.isTIRActive ? '#10b981' : '#06b6d4';
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+            ctx.restore();
+
+            // Calcola la fisica dei raggi
+            const { rays, annotations } = traceRays();
+
+            // Disegna i Raggi Laser
+            rays.forEach(ray => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(ray.p1.x, ray.p1.y);
+                ctx.lineTo(ray.p2.x, ray.p2.y);
+
+                if (ray.type === 'primary') {
+                    // Glow esterno
+                    ctx.strokeStyle = state.laserColor;
+                    ctx.globalAlpha = ray.intensity * 0.4;
+                    ctx.lineWidth = 8;
+                    ctx.shadowColor = state.laserColor;
+                    ctx.shadowBlur = 15;
+                    ctx.stroke();
+
+                    // Anima nucleo bianco interno del laser
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.globalAlpha = ray.intensity * 0.95;
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+                } else {
+                    // Raggio secondario parzialmente rifratto/riflesso
+                    ctx.strokeStyle = state.laserColor;
+                    ctx.globalAlpha = 0.25;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+
+            // Disegna Normali ed Angoli di Incidenza
+            annotations.forEach(ann => {
+                if (state.showNormals) {
+                    ctx.save();
+                    ctx.beginPath();
+                    const nLen = 50;
+                    ctx.moveTo(ann.hitPoint.x - ann.normal.x * nLen, ann.hitPoint.y - ann.normal.y * nLen);
+                    ctx.lineTo(ann.hitPoint.x + ann.normal.x * nLen, ann.hitPoint.y + ann.normal.y * nLen);
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                if (state.showAngles && ann.angleDeg > 1) {
+                    ctx.save();
+                    ctx.fillStyle = ann.isTIR ? '#10b981' : '#f59e0b';
+                    ctx.font = 'bold 12px monospace';
+                    ctx.fillText(`${ann.angleDeg.toFixed(1)}°`, ann.hitPoint.x + 12, ann.hitPoint.y - 12);
+                    ctx.restore();
+                }
+            });
+
+            // Disegna la Sorgente Laser Emotore
+            ctx.save();
+            ctx.translate(state.laserPos.x, state.laserPos.y);
+            ctx.rotate(state.laserAngleDeg * Math.PI / 180);
+
+            // Corpo emettitore
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.rect(-25, -12, 30, 24);
+            ctx.fill();
+            ctx.stroke();
+
+            // Beccuccio emettitore
+            ctx.fillStyle = state.laserColor;
+            ctx.fillRect(5, -6, 6, 12);
+
+            // Anello touch di trascinamento
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Aggiorna cruscotto UI testuale
+            updateUIDashboard();
+        }
+
+        // Aggiorna gli indicatori di stato e le schede numeriche nel DOM
+        function updateUIDashboard() {
+            // Aggiorna valori testo cards
+            cardNValue.textContent = state.n2.toFixed(2);
+            cardCriticalAngle.textContent = `${state.criticalAngle.toFixed(1)}°`;
+            valIncidenceAngle.textContent = `${state.currentIncidenceAngle.toFixed(1)}°`;
+
+            if (state.isTIRActive) {
+                statusBanner.className = "w-full p-3 rounded-xl bg-slate-900 border border-emerald-500/50 flex items-center justify-between transition-all duration-300 glow-tir";
+                statusBadgeIcon.className = "w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg font-bold";
+                statusBadgeIcon.textContent = "⚡";
+                statusTitle.className = "text-xs font-bold text-emerald-400 uppercase tracking-wider";
+                statusTitle.textContent = "Riflessione Totale Interna (TIR)";
+                statusDesc.textContent = "100% dell'energia riflessa (Nessuna rifrazione)";
+                cardReflectance.textContent = "100 %";
+                cardReflectance.className = "text-xs font-mono font-bold text-emerald-400 mt-0.5";
+            } else {
+                statusBanner.className = "w-full p-3 rounded-xl bg-slate-900 border border-amber-500/40 flex items-center justify-between transition-all duration-300 glow-refract";
+                statusBadgeIcon.className = "w-9 h-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg font-bold";
+                statusBadgeIcon.textContent = "↗️";
+                statusTitle.className = "text-xs font-bold text-amber-400 uppercase tracking-wider";
+                statusTitle.textContent = "Rifrazione Parziale (No TIR)";
+                statusDesc.textContent = "Una parte della luce esce dal prisma";
+                cardReflectance.textContent = "< 100 %";
+                cardReflectance.className = "text-xs font-mono font-bold text-amber-400 mt-0.5";
+            }
+        }
+
+        // Gestione Touch/Mouse sul Canvas per il trascinamento della sorgente
+        let isDragging = false;
+
+        function getCanvasPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function handlePointerDown(e) {
+            const pos = getCanvasPos(e);
+            const dist = Math.hypot(pos.x - state.laserPos.x, pos.y - state.laserPos.y);
+            if (dist < 50) {
+                isDragging = true;
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!isDragging) return;
+            const pos = getCanvasPos(e);
+            state.laserPos.x = Math.max(30, Math.min(canvas.width * 0.45, pos.x));
+            state.laserPos.y = Math.max(30, Math.min(canvas.height - 30, pos.y));
+            draw();
+        }
+
+        function handlePointerUp() {
+            isDragging = false;
+        }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDragging) e.preventDefault(); // Previene scroll pagina mentre si sposta il raggio
+            handlePointerMove(e);
+        }, { passive: false });
+        window.addEventListener('touchend', handlePointerUp);
+
+        // Collegamento Controlli Sliders
+        inputN.addEventListener('input', (e) => {
+            state.n2 = parseFloat(e.target.value);
+            labelNVal.textContent = state.n2.toFixed(2);
+            draw();
+        });
+
+        inputRayAngle.addEventListener('input', (e) => {
+            state.laserAngleDeg = parseFloat(e.target.value);
+            labelRayAngleVal.textContent = `${state.laserAngleDeg.toFixed(1)}°`;
+            draw();
+        });
+
+        inputRayY.addEventListener('input', (e) => {
+            state.offsetY = parseFloat(e.target.value);
+            labelRayYVal.textContent = `${state.offsetY > 0 ? '+' : ''}${state.offsetY}px`;
+            updatePrismGeometry();
+            draw();
+        });
+
+        // Pulsanti preset materiale
+        document.querySelectorAll('.preset-material').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const n = parseFloat(e.target.getAttribute('data-n'));
+                state.n2 = n;
+                inputN.value = n;
+                labelNVal.textContent = n.toFixed(2);
+                draw();
+            });
+        });
+
+        // Selezione colore laser
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.color-btn').forEach(b => {
+                    b.classList.remove('border-red-500', 'border-emerald-500', 'border-cyan-500');
+                    b.classList.add('border-transparent');
+                });
+                state.laserColor = e.target.getAttribute('data-color');
+                e.target.classList.remove('border-transparent');
+                if (state.laserColor === '#ff3366') e.target.classList.add('border-red-500');
+                if (state.laserColor === '#00ff88') e.target.classList.add('border-emerald-500');
+                if (state.laserColor === '#00ccff') e.target.classList.add('border-cyan-500');
+                draw();
+            });
+        });
+
+        // Togglers Visibilità Normali ed Angoli
+        document.getElementById('btnToggleNormals').addEventListener('click', () => {
+            state.showNormals = !state.showNormals;
+            document.getElementById('indicatorNormals').className = state.showNormals ? "w-2 h-2 rounded-full bg-cyan-400" : "w-2 h-2 rounded-full bg-slate-600";
+            draw();
+        });
+
+        document.getElementById('btnToggleAngles').addEventListener('click', () => {
+            state.showAngles = !state.showAngles;
+            document.getElementById('indicatorAngles').className = state.showAngles ? "w-2 h-2 rounded-full bg-cyan-400" : "w-2 h-2 rounded-full bg-slate-600";
+            draw();
+        });
+
+        // Preset configurazioni prismi
+        document.querySelectorAll('.preset-config').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const presetKey = e.currentTarget.getAttribute('data-preset');
+                state.preset = presetKey;
+                state.laserAngleDeg = 0;
+                state.offsetY = 0;
+                inputRayAngle.value = 0;
+                inputRayY.value = 0;
+                labelRayAngleVal.textContent = "0.0°";
+                labelRayYVal.textContent = "Center";
+                updatePrismGeometry();
+                draw();
+            });
+        });
+
+        // Tasto Reset
+        document.getElementById('btnReset').addEventListener('click', () => {
+            state.n2 = 1.52;
+            state.laserAngleDeg = 0;
+            state.offsetY = 0;
+            state.preset = '90dev';
+            inputN.value = 1.52;
+            labelNVal.textContent = "1.52";
+            inputRayAngle.value = 0;
+            labelRayAngleVal.textContent = "0.0°";
+            inputRayY.value = 0;
+            labelRayYVal.textContent = "Center";
+            updatePrismGeometry();
+            draw();
+        });
+
+        // Gestore Schede Tab per Smartphone
+        const tabBtnControls = document.getElementById('tabBtnControls');
+        const tabBtnPresets = document.getElementById('tabBtnPresets');
+        const tabBtnTheory = document.getElementById('tabBtnTheory');
+
+        const tabContentControls = document.getElementById('tabContentControls');
+        const tabContentPresets = document.getElementById('tabContentPresets');
+        const tabContentTheory = document.getElementById('tabContentTheory');
+
+        function switchTab(activeBtn, activeContent) {
+            [tabBtnControls, tabBtnPresets, tabBtnTheory].forEach(btn => {
+                btn.className = "flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition";
+            });
+            [tabContentControls, tabContentPresets, tabContentTheory].forEach(content => {
+                content.classList.add('hidden');
+                content.classList.remove('flex');
+            });
+
+            activeBtn.className = "flex-1 py-2 text-xs font-semibold rounded-lg bg-cyan-500 text-slate-950 transition";
+            activeContent.classList.remove('hidden');
+            activeContent.classList.add('flex');
+
+            // Renderizza Formule Matematica KaTeX quando si apre la tab teoria
+            if (activeContent === tabContentTheory && window.renderMathInElement) {
+                renderMathInElement(tabContentTheory, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        tabBtnControls.addEventListener('click', () => switchTab(tabBtnControls, tabContentControls));
+        tabBtnPresets.addEventListener('click', () => switchTab(tabBtnPresets, tabContentPresets));
+        tabBtnTheory.addEventListener('click', () => switchTab(tabBtnTheory, tabContentTheory));
+
+        // Inizializzazione Applicazione
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            // Render KaTeX iniziale su tutta la pagina
+            if (window.renderMathInElement) {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+</body>
+</html>
