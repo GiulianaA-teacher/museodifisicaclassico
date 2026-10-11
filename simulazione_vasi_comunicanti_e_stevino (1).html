@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Principio dei Vasi Comunicanti e Legge di Stevino</title>
+    <!-- Tailwind CSS per UI stilizzata -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per Icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom Scrollbar per UI compatta */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .active-tab {
+            border-bottom: 2px solid #38bdf8;
+            color: #38bdf8;
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start p-2 sm:p-4 max-w-md md:max-w-xl lg:max-w-2xl mx-auto pb-12 select-none">
+
+    <!-- Header -->
+    <header class="w-full text-center py-3 mb-2 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid font-bold text-white text-lg">p</i>
+            </div>
+            <div class="text-left">
+                <h1 class="text-base font-bold text-slate-100 leading-tight">Vasi Comunicanti</h1>
+                <p class="text-xs text-cyan-400 font-medium">Legge di Stevino (1586)</p>
+            </div>
+        </div>
+        <button id="infoBtn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition">
+            <i class="fa-solid fa-circle-info text-sm"></i>
+        </button>
+    </header>
+
+    <!-- Canvas Simulation Area -->
+    <div class="w-full glass-card rounded-2xl p-3 relative shadow-2xl flex flex-col items-center mb-3">
+        <!-- Canvas Header Overlay -->
+        <div class="w-full flex justify-between items-center mb-2 px-1 text-xs">
+            <div class="flex items-center space-x-2">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-slate-300 font-semibold uppercase tracking-wider text-[10px]">Simulazione Live</span>
+            </div>
+            <div class="flex items-center space-x-3 text-slate-400">
+                <span id="pAtmBadge" class="bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50">
+                    P₀: <strong class="text-slate-200">101.3 kPa</strong>
+                </span>
+            </div>
+        </div>
+
+        <!-- Canvas Frame -->
+        <div class="relative w-full aspect-[4/3] bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80 shadow-inner">
+            <canvas id="simCanvas" class="w-full h-full cursor-crosshair"></canvas>
+            
+            <!-- Canvas Overlay Controls (Tappi/Valvole) -->
+            <div class="absolute top-2 left-0 right-0 px-4 flex justify-around pointer-events-none">
+                <button onclick="toggleCap(0)" class="pointer-events-auto bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold px-2 py-1 rounded-md border text-slate-300 transition flex items-center gap-1 shadow" id="capBtn0">
+                    <i class="fa-solid fa-lock-open text-emerald-400"></i> V1
+                </button>
+                <button onclick="toggleCap(1)" class="pointer-events-auto bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold px-2 py-1 rounded-md border text-slate-300 transition flex items-center gap-1 shadow" id="capBtn1">
+                    <i class="fa-solid fa-lock-open text-emerald-400"></i> V2
+                </button>
+                <button onclick="toggleCap(2)" class="pointer-events-auto bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold px-2 py-1 rounded-md border text-slate-300 transition flex items-center gap-1 shadow" id="capBtn2">
+                    <i class="fa-solid fa-lock-open text-emerald-400"></i> V3
+                </button>
+                <button onclick="toggleCap(3)" class="pointer-events-auto bg-slate-800/90 hover:bg-slate-700 text-[10px] font-bold px-2 py-1 rounded-md border text-slate-300 transition flex items-center gap-1 shadow" id="capBtn3">
+                    <i class="fa-solid fa-lock-open text-emerald-400"></i> V4
+                </button>
+            </div>
+
+            <!-- Sensor On Screen Info Box -->
+            <div id="sensorDisplay" class="absolute bottom-2 left-2 right-2 bg-slate-900/90 border border-cyan-500/30 backdrop-blur rounded-lg p-2 flex items-center justify-between text-xs shadow-lg pointer-events-none">
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></div>
+                    <span class="text-slate-400 font-medium">Sonda Pressione:</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div>
+                        <span class="text-slate-400 text-[10px]">Prof. (h):</span>
+                        <span id="sensorH" class="font-mono font-bold text-cyan-300 ml-1">0.00 m</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px]">Pressione (p):</span>
+                        <span id="sensorP" class="font-mono font-bold text-amber-300 ml-1">101.30 kPa</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+            <i class="fa-solid fa-hand-pointer text-cyan-400"></i> Trascina il pallino giallo sulla simulazione per misurare la pressione $p$ ad ogni profondità $h$.
+        </p>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="w-full glass-card rounded-2xl p-4 mb-3 space-y-4 shadow-xl">
+        <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-700/60 pb-1.5 flex items-center justify-between">
+            <span><i class="fa-solid fa-sliders text-cyan-400 mr-1.5"></i> Parametri Fisici</span>
+            <button id="resetBtn" class="text-[11px] text-slate-400 hover:text-cyan-400 transition font-normal flex items-center gap-1">
+                <i class="fa-solid fa-rotate-right"></i> Reset
+            </button>
+        </h2>
+
+        <!-- Volume Level Slider -->
+        <div class="space-y-1.5">
+            <div class="flex justify-between text-xs">
+                <label for="liquidLevel" class="text-slate-300 font-medium">Livello Liquido (Quantità Totale)</label>
+                <span id="liquidLevelVal" class="font-mono text-cyan-400 font-semibold">60 %</span>
+            </div>
+            <input type="range" id="liquidLevel" min="15" max="85" value="60" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+        </div>
+
+        <!-- Fluid Selector -->
+        <div class="space-y-1.5">
+            <label class="text-xs text-slate-300 font-medium block">Tipo di Fluido (Densità $\rho$)</label>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button onclick="setFluid('water')" id="fluid-water" class="fluid-btn active bg-cyan-900/60 border border-cyan-400 text-cyan-200 rounded-xl p-2 text-xs font-medium flex flex-col items-center justify-center transition">
+                    <span>Acqua</span>
+                    <span class="text-[10px] text-cyan-400/80 font-mono">1000 kg/m³</span>
+                </button>
+                <button onclick="setFluid('oil')" id="fluid-oil" class="fluid-btn bg-slate-800 border border-slate-700 text-slate-300 rounded-xl p-2 text-xs font-medium flex flex-col items-center justify-center transition">
+                    <span>Olio</span>
+                    <span class="text-[10px] text-amber-400/80 font-mono">920 kg/m³</span>
+                </button>
+                <button onclick="setFluid('mercury')" id="fluid-mercury" class="fluid-btn bg-slate-800 border border-slate-700 text-slate-300 rounded-xl p-2 text-xs font-medium flex flex-col items-center justify-center transition">
+                    <span>Mercurio</span>
+                    <span class="text-[10px] text-slate-400 font-mono">13600 kg/m³</span>
+                </button>
+                <button onclick="setFluid('alcohol')" id="fluid-alcohol" class="fluid-btn bg-slate-800 border border-slate-700 text-slate-300 rounded-xl p-2 text-xs font-medium flex flex-col items-center justify-center transition">
+                    <span>Alcol</span>
+                    <span class="text-[10px] text-rose-400/80 font-mono">789 kg/m³</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Gravity Selector -->
+        <div class="space-y-1.5">
+            <label class="text-xs text-slate-300 font-medium block">Accelerazione di Gravità ($g$)</label>
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="setGravity(9.81)" id="grav-9.81" class="grav-btn active bg-slate-700 border border-cyan-400 text-white rounded-lg p-1.5 text-xs font-medium text-center">
+                    <div>Terra</div>
+                    <div class="text-[9px] text-slate-300 font-mono">9.81 m/s²</div>
+                </button>
+                <button onclick="setGravity(1.62)" id="grav-1.62" class="grav-btn bg-slate-800 border border-slate-700 text-slate-400 rounded-lg p-1.5 text-xs font-medium text-center">
+                    <div>Luna</div>
+                    <div class="text-[9px] text-slate-400 font-mono">1.62 m/s²</div>
+                </button>
+                <button onclick="setGravity(3.71)" id="grav-3.71" class="grav-btn bg-slate-800 border border-slate-700 text-slate-400 rounded-lg p-1.5 text-xs font-medium text-center">
+                    <div>Marte</div>
+                    <div class="text-[9px] text-slate-400 font-mono">3.71 m/s²</div>
+                </button>
+                <button onclick="setGravity(24.79)" id="grav-24.79" class="grav-btn bg-slate-800 border border-slate-700 text-slate-400 rounded-lg p-1.5 text-xs font-medium text-center">
+                    <div>Giove</div>
+                    <div class="text-[9px] text-slate-400 font-mono">24.8 m/s²</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Educational Section & Tabs -->
+    <div class="w-full glass-card rounded-2xl p-4 shadow-xl mb-4">
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-700 text-xs font-semibold mb-3">
+            <button onclick="switchTab('formula')" id="tab-formula" class="tab-btn active-tab flex-1 pb-2 text-center transition">
+                <i class="fa-solid fa-square-root-variable mr-1"></i> Legge di Stevino
+            </button>
+            <button onclick="switchTab('applications')" id="tab-applications" class="tab-btn flex-1 pb-2 text-center text-slate-400 transition">
+                <i class="fa-solid fa-faucet-drip mr-1"></i> Applicazioni
+            </button>
+            <button onclick="switchTab('experiments')" id="tab-experiments" class="tab-btn flex-1 pb-2 text-center text-slate-400 transition">
+                <i class="fa-solid fa-vial mr-1"></i> Sfide
+            </button>
+        </div>
+
+        <!-- Tab Content 1: Formula -->
+        <div id="content-formula" class="tab-content space-y-3">
+            <div class="bg-slate-900/90 border border-cyan-500/20 p-3 rounded-xl text-center">
+                <div class="text-slate-400 text-xs mb-1">Equazione Fondamentale dell'Idrostatica:</div>
+                <div class="text-xl sm:text-2xl font-mono font-extrabold text-cyan-300 tracking-wide">
+                    $p = p_0 + \rho \cdot g \cdot h$
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <span class="font-bold text-amber-400">$p$</span> : Pressione totale alla profondità $h$ (Pa o kPa).
+                </div>
+                <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <span class="font-bold text-slate-300">$p_0$</span> : Pressione atmosferica in superficie ($\approx 101.3 \text{ kPa}$).
+                </div>
+                <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <span class="font-bold text-cyan-400">$\rho$</span> : Densità del fluido ($\text{kg/m}^3$).
+                </div>
+                <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                    <span class="font-bold text-emerald-400">$g$</span> : Accelerazione di gravità ($\text{m/s}^2$).
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed pt-1">
+                <strong>Principale conseguenza:</strong> La pressione idrostatica dipende <em>unicamente</em> dalla profondità $h$ e dalla densità del fluido, non dalla forma o dalla sezione del contenitore. Per questo motivo, nei vasi comunicanti aperti, il livello del liquido raggiunge sempre la medesima altezza $h$.
+            </p>
+        </div>
+
+        <!-- Tab Content 2: Applications -->
+        <div id="content-applications" class="tab-content hidden space-y-2 text-xs">
+            <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50 flex items-start space-x-3">
+                <div class="text-cyan-400 text-lg pt-0.5"><i class="fa-solid fa-tower-observation"></i></div>
+                <div>
+                    <h4 class="font-bold text-slate-200">Torri dell'Acqua & Acquedotti</h4>
+                    <p class="text-slate-400 text-[11px] mt-0.5">I serbatoi vengono posti in alto affinché il principio dei vasi comunicanti spinga l'acqua fino ai piani alti dei palazzi senza bisogno di pompe continue.</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50 flex items-start space-x-3">
+                <div class="text-emerald-400 text-lg pt-0.5"><i class="fa-solid fa-water"></i></div>
+                <div>
+                    <h4 class="font-bold text-slate-200">Chiuse Navigli e Canali</h4>
+                    <p class="text-slate-400 text-[11px] mt-0.5">Permettono alle navi di superare dislivelli di terreno e fiumi livellando l'acqua tra bacini comunicanti ad altezze diverse.</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50 flex items-start space-x-3">
+                <div class="text-amber-400 text-lg pt-0.5"><i class="fa-solid fa-ruler-horizontal"></i></div>
+                <div>
+                    <h4 class="font-bold text-slate-200">Livella d'Acqua da Cantiere</h4>
+                    <p class="text-slate-400 text-[11px] mt-0.5">Un tubo flessibile trasparente pieno d'acqua consente ai muratori di trasferire un riferimento di altezza perfetto tra punti lontani.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content 3: Experiments / Quiz -->
+        <div id="content-experiments" class="tab-content hidden space-y-3 text-xs">
+            <div id="quizCard" class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Esperimento Guidato</span>
+                    <span id="quizStep" class="text-[10px] text-slate-400 font-mono">1 di 3</span>
+                </div>
+                <h4 id="quizQuestion" class="font-semibold text-slate-100 text-xs mb-2">Cosa succede se chiudi la valvola del Vaso 1 e aumenti la quantità di liquido?</h4>
+                <div id="quizOptions" class="space-y-1.5">
+                    <!-- Dinamico -->
+                </div>
+                <div id="quizFeedback" class="hidden mt-2 p-2 rounded-lg text-[11px] font-medium"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card max-w-sm w-full rounded-2xl p-5 border border-slate-700 space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                <h3 class="font-bold text-slate-100 text-sm">Contesto Storico & Fisica</h3>
+                <button onclick="toggleModal(false)" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Il fisico e matematico fiammingo <strong>Simon Stevin</strong> (Stevino) formulò nel 1586 il principio fondamentale dell'idrostatica.
+            </p>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Stevino dimostrò il cosiddetto <em>"Paradosso Idrostatico"</em>: la forza esercitata da un liquido sul fondo del recipiente dipende unicamente dall'altezza del liquido e dall'area di base, indipendentemente dalla quantità complessiva di liquido o dalla forma delle pareti.
+            </p>
+            <button onclick="toggleModal(false)" class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 font-bold text-white rounded-xl text-xs transition">
+                Ho capito!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- STATO DELLA SIMULAZIONE ---
+        const state = {
+            fluid: {
+                type: 'water',
+                density: 1000, // kg/m^3
+                color: 'rgba(14, 165, 233, 0.65)',
+                strokeColor: 'rgba(56, 189, 248, 0.9)',
+                viscosity: 0.1
+            },
+            gravity: 9.81, // m/s^2
+            pAtm: 101.325, // kPa
+            totalVolumePercent: 60,
+            caps: [false, false, false, false], // Stato valvole (true = sigillato)
+            vesselPressures: [0, 0, 0, 0], // Pressione aria intrappolata nei vasi sigillati (kPa in eccesso)
+            levels: [0.5, 0.5, 0.5, 0.5], // Livelli normalizzati per vaso (0..1)
+            targetLevels: [0.5, 0.5, 0.5, 0.5],
+            
+            // Sonda di pressione
+            sensor: {
+                x: 0,
+                y: 0,
+                dragging: false,
+                active: true
+            }
+        };
+
+        // Fluido Preset
+        const fluids = {
+            water: { density: 1000, color: 'rgba(14, 165, 233, 0.65)', stroke: 'rgba(56, 189, 248, 0.95)' },
+            oil: { density: 920, color: 'rgba(245, 158, 11, 0.65)', stroke: 'rgba(251, 191, 36, 0.95)' },
+            mercury: { density: 13600, color: 'rgba(148, 163, 184, 0.85)', stroke: 'rgba(203, 213, 225, 0.95)' },
+            alcohol: { density: 789, color: 'rgba(244, 63, 94, 0.60)', stroke: 'rgba(251, 113, 133, 0.95)' }
+        };
+
+        // Dom Elements & Canvas Setup
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, dpr;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            dpr = window.devicePixelRatio || 1;
+            width = rect.width;
+            height = rect.height;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Inizializza posizione sonda se non posizionata
+            if (state.sensor.x === 0) {
+                state.sensor.x = width * 0.5;
+                state.sensor.y = height * 0.5;
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Geometria dei Vasi Comunicanti
+        // 4 Vasi disposti lungo l'asse X
+        function getVesselGeometries() {
+            const bottomY = height * 0.82;
+            const topY = height * 0.18;
+            const vesselHeight = bottomY - topY;
+            const tubeWidth = width * 0.08;
+
+            return [
+                // Vaso 1: Cilindro Largo Standard
+                {
+                    type: 'cylinder',
+                    cx: width * 0.18,
+                    w: width * 0.15,
+                    topY, bottomY, vesselHeight,
+                    getPath: function(level) {
+                        const h = level * vesselHeight;
+                        const y = bottomY - h;
+                        return { x: this.cx - this.w/2, y, w: this.w, h };
+                    }
+                },
+                // Vaso 2: Capillare / Tubo Sottile
+                {
+                    type: 'thin',
+                    cx: width * 0.38,
+                    w: width * 0.05,
+                    topY, bottomY, vesselHeight,
+                    getPath: function(level) {
+                        const h = level * vesselHeight;
+                        const y = bottomY - h;
+                        return { x: this.cx - this.w/2, y, w: this.w, h };
+                    }
+                },
+                // Vaso 3: Inclinato / Sagomato a Z
+                {
+                    type: 'zigzag',
+                    cx: width * 0.60,
+                    w: width * 0.08,
+                    topY, bottomY, vesselHeight,
+                    getPath: function(level) {
+                        const h = level * vesselHeight;
+                        const y = bottomY - h;
+                        return { x: this.cx - this.w/2, y, w: this.w, h };
+                    }
+                },
+                // Vaso 4: Imbuto Conico
+                {
+                    type: 'funnel',
+                    cx: width * 0.82,
+                    wTop: width * 0.18,
+                    wBot: width * 0.06,
+                    topY, bottomY, vesselHeight,
+                    getPath: function(level) {
+                        const h = level * vesselHeight;
+                        const y = bottomY - h;
+                        // Larghezza interpolata in base all'altezza
+                        const currentTopW = this.wBot + (this.wTop - this.wBot) * level;
+                        return { x: this.cx - currentTopW/2, y, w: currentTopW, h };
+                    }
+                }
+            ];
+        }
+
+        // --- RISOLUTORE FISICO ---
+        function updatePhysics() {
+            const targetBaseLevel = state.totalVolumePercent / 100;
+            
+            // Calcolo dell'equilibrio tra i vasi considerati i tappi (aria sigillata)
+            // Se un vaso è sigillato e il livello sale/scende, l'aria compressa esercita una pressione contraria
+            for (let i = 0; i < 4; i++) {
+                if (!state.caps[i]) {
+                    state.vesselPressures[i] = 0;
+                    state.targetLevels[i] = targetBaseLevel;
+                } else {
+                    // Pressione dell'aria intrappolata cambia inversamente al volume d'aria rimasto
+                    const deltaL = state.levels[i] - targetBaseLevel;
+                    state.vesselPressures[i] = deltaL * 15; // Modello idealizzato di molla/pressione pneumatica
+                    state.targetLevels[i] = targetBaseLevel - state.vesselPressures[i] * 0.02;
+                }
+
+                // Smooth Lerp per animazione acqua fluida
+                state.levels[i] += (state.targetLevels[i] - state.levels[i]) * 0.08;
+            }
+        }
+
+        // --- RENDERING CANVAS ---
+        function render() {
+            ctx.clearRect(0, 0, width, height);
+
+            const vessels = getVesselGeometries();
+            const bottomY = height * 0.82;
+            const pipeThick = height * 0.05;
+
+            // 1. Disegna Griglia di Sfondo Scientifica
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
+            ctx.lineWidth = 1;
+            for (let y = height * 0.1; y < height * 0.9; y += height * 0.1) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // 2. Disegna Tubo Orizzontale di Collegamento (Basso)
+            ctx.fillStyle = state.fluid.color;
+            ctx.fillRect(vessels[0].cx - vessels[0].w/2, bottomY, vessels[3].cx - vessels[0].cx + vessels[3].wTop/2, pipeThick);
+
+            // 3. Disegna Fluido dentro ogni Vaso
+            vessels.forEach((v, idx) => {
+                const lvl = state.levels[idx];
+                const info = v.getPath(lvl);
+
+                ctx.save();
+                ctx.fillStyle = state.fluid.color;
+
+                if (v.type === 'funnel') {
+                    // Trapezio per Imbuto
+                    ctx.beginPath();
+                    const topW = v.wBot + (v.wTop - v.wBot) * lvl;
+                    const botW = v.wBot;
+                    ctx.moveTo(v.cx - botW/2, v.bottomY + pipeThick);
+                    ctx.lineTo(v.cx + botW/2, v.bottomY + pipeThick);
+                    ctx.lineTo(v.cx + topW/2, info.y);
+                    ctx.lineTo(v.cx - topW/2, info.y);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (v.type === 'zigzag') {
+                    // Vaso Inclinato
+                    ctx.beginPath();
+                    const shiftX = Math.sin(lvl * Math.PI) * 12;
+                    ctx.moveTo(v.cx - v.w/2, v.bottomY + pipeThick);
+                    ctx.lineTo(v.cx + v.w/2, v.bottomY + pipeThick);
+                    ctx.lineTo(v.cx + v.w/2 + shiftX, info.y);
+                    ctx.lineTo(v.cx - v.w/2 + shiftX, info.y);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    // Retttangoli per cilindro e capillare
+                    ctx.fillRect(info.x, info.y, info.w, info.h + pipeThick);
+                }
+                ctx.restore();
+
+                // Superficie Menisco Liquido (Linea brillante in cima)
+                ctx.strokeStyle = state.fluid.stroke;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                if (v.type === 'funnel') {
+                    const topW = v.wBot + (v.wTop - v.wBot) * lvl;
+                    ctx.moveTo(v.cx - topW/2, info.y);
+                    ctx.lineTo(v.cx + topW/2, info.y);
+                } else if (v.type === 'zigzag') {
+                    const shiftX = Math.sin(lvl * Math.PI) * 12;
+                    ctx.moveTo(v.cx - v.w/2 + shiftX, info.y);
+                    ctx.lineTo(v.cx + v.w/2 + shiftX, info.y);
+                } else {
+                    ctx.moveTo(info.x, info.y);
+                    ctx.lineTo(info.x + info.w, info.y);
+                }
+                ctx.stroke();
+            });
+
+            // Tubo Orizzontale Coperchio/Contorno
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.7)';
+            ctx.lineWidth = 2;
+
+            // 4. Disegna Contorni in Vetro dei Vasi
+            vessels.forEach((v) => {
+                ctx.beginPath();
+                if (v.type === 'funnel') {
+                    ctx.moveTo(v.cx - v.wTop/2, v.topY);
+                    ctx.lineTo(v.cx - v.wBot/2, v.bottomY);
+                    ctx.lineTo(v.cx - v.wBot/2, v.bottomY + pipeThick);
+                    
+                    ctx.moveTo(v.cx + v.wTop/2, v.topY);
+                    ctx.lineTo(v.cx + v.wBot/2, v.bottomY);
+                    ctx.lineTo(v.cx + v.wBot/2, v.bottomY + pipeThick);
+                } else if (v.type === 'zigzag') {
+                    const shiftX = 12;
+                    ctx.moveTo(v.cx - v.w/2 + shiftX, v.topY);
+                    ctx.lineTo(v.cx - v.w/2, v.bottomY);
+                    ctx.lineTo(v.cx - v.w/2, v.bottomY + pipeThick);
+
+                    ctx.moveTo(v.cx + v.w/2 + shiftX, v.topY);
+                    ctx.lineTo(v.cx + v.w/2, v.bottomY);
+                    ctx.lineTo(v.cx + v.w/2, v.bottomY + pipeThick);
+                } else {
+                    ctx.moveTo(v.cx - v.w/2, v.topY);
+                    ctx.lineTo(v.cx - v.w/2, v.bottomY + pipeThick);
+
+                    ctx.moveTo(v.cx + v.w/2, v.topY);
+                    ctx.lineTo(v.cx + v.w/2, v.bottomY + pipeThick);
+                }
+                ctx.stroke();
+            });
+
+            // 5. Linea Tratteggiata del Livello di Equilibrio h (Se tutti i vasi aperti)
+            if (!state.caps.some(c => c)) {
+                const avgLevel = state.levels[0];
+                const avgY = vessels[0].bottomY - (avgLevel * vessels[0].vesselHeight);
+                
+                ctx.save();
+                ctx.setLineDash([4, 4]);
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(width * 0.05, avgY);
+                ctx.lineTo(width * 0.95, avgY);
+                ctx.stroke();
+
+                // Etichetta Quota Equilibrio
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = '10px Inter';
+                ctx.fillText('Livello d\'Equilibrio h', width * 0.05, avgY - 5);
+                ctx.restore();
+            }
+
+            // 6. Rendering Sonda Interattiva di Pressione
+            drawSensor(vessels);
+        }
+
+        // Rendering e Calcolo Pressione della Sonda
+        function drawSensor(vessels) {
+            const sx = state.sensor.x;
+            const sy = state.sensor.y;
+
+            // Calcolo profondità h rispetto al livello liquido più vicino
+            // Troviamo il vaso più vicino alla posizione X della sonda
+            let nearestVessel = vessels[0];
+            let minDist = Math.abs(sx - vessels[0].cx);
+            vessels.forEach(v => {
+                const d = Math.abs(sx - v.cx);
+                if (d < minDist) {
+                    minDist = d;
+                    nearestVessel = v;
+                }
+            });
+
+            const currentFluidY = nearestVessel.bottomY - (state.levels[vessels.indexOf(nearestVessel)] * nearestVessel.vesselHeight);
+            
+            // Profondità calcolata in metri (scala: altezza vaso = 2.0 metri reali)
+            const pixelToMeter = 2.0 / nearestVessel.vesselHeight;
+            let depthMeters = (sy - currentFluidY) * pixelToMeter;
+
+            if (depthMeters < 0) depthMeters = 0; // Sonda fuori dal fluido (in aria)
+
+            // Formula di Stevino: p = p0 + rho * g * h
+            // p0 = 101.325 kPa
+            const hydroPressurePa = state.fluid.density * state.gravity * depthMeters; // In Pascal
+            const hydroPressureKPa = hydroPressurePa / 1000; // in kPa
+            const totalPressureKPa = state.pAtm + hydroPressureKPa;
+
+            // Aggiorna UI Display
+            document.getElementById('sensorH').textContent = depthMeters.toFixed(2) + ' m';
+            document.getElementById('sensorP').textContent = totalPressureKPa.toFixed(2) + ' kPa';
+
+            // Disegna Sonda Visiva su Canvas
+            ctx.save();
+            // Linea Sonda
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx, Math.max(currentFluidY, 20));
+            ctx.stroke();
+
+            // Pallino Cursore
+            ctx.setLineDash([]);
+            ctx.fillStyle = state.sensor.dragging ? '#f59e0b' : '#fbbf24';
+            ctx.shadowColor = 'rgba(245, 158, 11, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Vettore Pressione (Frecce subacquee orientate verso il basso)
+            if (depthMeters > 0) {
+                const arrowLen = Math.min(30, depthMeters * 15);
+                ctx.strokeStyle = '#ef4444';
+                ctx.fillStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(sx, sy + arrowLen);
+                ctx.stroke();
+                // Punta Freccia
+                ctx.beginPath();
+                ctx.moveTo(sx - 4, sy + arrowLen - 4);
+                ctx.lineTo(sx, sy + arrowLen);
+                ctx.lineTo(sx + 4, sy + arrowLen - 4);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // Loop Principale Animazione 60fps
+        function loop() {
+            updatePhysics();
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        // Interazioni Touch / Mouse per Sonda
+        function handlePointerMove(e) {
+            if (!state.sensor.dragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            state.sensor.x = Math.max(10, Math.min(width - 10, clientX - rect.left));
+            state.sensor.y = Math.max(10, Math.min(height - 10, clientY - rect.top));
+        }
+
+        function handlePointerStart(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const clickX = clientX - rect.left;
+            const clickY = clientY - rect.top;
+
+            const dist = Math.hypot(clickX - state.sensor.x, clickY - state.sensor.y);
+            if (dist < 30) { // Tolleranza tocco
+                state.sensor.dragging = true;
+            }
+        }
+
+        function handlePointerEnd() {
+            state.sensor.dragging = false;
+        }
+
+        canvas.addEventListener('mousedown', handlePointerStart);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerEnd);
+
+        canvas.addEventListener('touchstart', handlePointerStart, { passive: true });
+        canvas.addEventListener('touchmove', handlePointerMove, { passive: true });
+        window.addEventListener('touchend', handlePointerEnd);
+
+        // --- INTERFACCIA UTENTE & CONTROLLI ---
+        document.getElementById('liquidLevel').addEventListener('input', (e) => {
+            state.totalVolumePercent = parseFloat(e.target.value);
+            document.getElementById('liquidLevelVal').textContent = state.totalVolumePercent + ' %';
+        });
+
+        function setFluid(type) {
+            state.fluid.type = type;
+            state.fluid.density = fluids[type].density;
+            state.fluid.color = fluids[type].color;
+            state.fluid.stroke = fluids[type].stroke;
+
+            document.querySelectorAll('.fluid-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-cyan-900/60', 'border-cyan-400');
+                btn.classList.add('bg-slate-800', 'border-slate-700');
+            });
+            const activeBtn = document.getElementById(`fluid-${type}`);
+            activeBtn.classList.add('active', 'bg-cyan-900/60', 'border-cyan-400');
+            activeBtn.classList.remove('bg-slate-800', 'border-slate-700');
+        }
+
+        function setGravity(g) {
+            state.gravity = g;
+            document.querySelectorAll('.grav-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-slate-700', 'border-cyan-400', 'text-white');
+                btn.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400');
+            });
+            const activeBtn = document.getElementById(`grav-${g}`);
+            activeBtn.classList.add('active', 'bg-slate-700', 'border-cyan-400', 'text-white');
+            activeBtn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+        }
+
+        function toggleCap(index) {
+            state.caps[index] = !state.caps[index];
+            const btn = document.getElementById(`capBtn${index}`);
+            if (state.caps[index]) {
+                btn.innerHTML = `<i class="fa-solid fa-lock text-rose-400"></i> V${index+1}`;
+                btn.classList.add('border-rose-500/50', 'bg-rose-950/40');
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-lock-open text-emerald-400"></i> V${index+1}`;
+                btn.classList.remove('border-rose-500/50', 'bg-rose-950/40');
+            }
+        }
+
+        // Tabs Navigation
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab', 'text-cyan-400'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.add('text-slate-400'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+            document.getElementById(`tab-${tabName}`).classList.add('active-tab');
+            document.getElementById(`tab-${tabName}`).classList.remove('text-slate-400');
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+        }
+
+        // Reset Simulation
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            state.totalVolumePercent = 60;
+            document.getElementById('liquidLevel').value = 60;
+            document.getElementById('liquidLevelVal').textContent = '60 %';
+            state.caps = [false, false, false, false];
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById(`capBtn${i}`);
+                btn.innerHTML = `<i class="fa-solid fa-lock-open text-emerald-400"></i> V${i+1}`;
+                btn.classList.remove('border-rose-500/50', 'bg-rose-950/40');
+            }
+            setFluid('water');
+            setGravity(9.81);
+        });
+
+        // Modal Handler
+        function toggleModal(show) {
+            document.getElementById('infoModal').classList.toggle('hidden', !show);
+        }
+        document.getElementById('infoBtn').addEventListener('click', () => toggleModal(true));
+
+        // Quiz System
+        const quizData = [
+            {
+                q: "1. Se sigilli la valvola del Vaso 1 e aggiungi del liquido, cosa accadrà al livello in Vaso 1 rispetto agli altri?",
+                options: [
+                    "Rimarrà più basso a causa dell'aria intrappolata compressa",
+                    "Salirà più in alto rispetto agli altri",
+                    "Rimarrà esattamente identico a tutti gli altri"
+                ],
+                correct: 0,
+                explain: "Esatto! L'aria sigillata sopra il Vaso 1 si comprime opponendosi all'ascesa del liquido."
+            },
+            {
+                q: "2. Se sostituisci l'Acqua con il Mercurio ($\rho = 13600 \\text{ kg/m}^3$), la pressione alla stessa profondità $h$ sarà:",
+                options: [
+                    "13.6 volte maggiore",
+                    "Identica, la forma non cambia",
+                    "Minore a causa della viscosità"
+                ],
+                correct: 0,
+                explain: "Corretto! La pressione idrostatica è direttamente proporzionale alla densità $\\rho$."
+            }
+        ];
+
+        let currentQuizIndex = 0;
+
+        function renderQuiz() {
+            const q = quizData[currentQuizIndex];
+            document.getElementById('quizStep').textContent = `${currentQuizIndex + 1} di ${quizData.length}`;
+            document.getElementById('quizQuestion').textContent = q.q;
+            
+            const optionsContainer = document.getElementById('quizOptions');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-2 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 transition text-[11px] border border-slate-600/50';
+                btn.textContent = opt;
+                btn.onclick = () => checkAnswer(idx);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quizFeedback').classList.add('hidden');
+        }
+
+        function checkAnswer(selectedIdx) {
+            const q = quizData[currentQuizIndex];
+            const feedback = document.getElementById('quizFeedback');
+            feedback.classList.remove('hidden');
+
+            if (selectedIdx === q.correct) {
+                feedback.className = 'mt-2 p-2 rounded-lg text-[11px] font-medium bg-emerald-950/80 border border-emerald-500/50 text-emerald-300';
+                feedback.textContent = '✓ ' + q.explain;
+                setTimeout(() => {
+                    currentQuizIndex = (currentQuizIndex + 1) % quizData.length;
+                    renderQuiz();
+                }, 3000);
+            } else {
+                feedback.className = 'mt-2 p-2 rounded-lg text-[11px] font-medium bg-rose-950/80 border border-rose-500/50 text-rose-300';
+                feedback.textContent = '✕ Riprova! Ricorda la legge di Stevino p = p₀ + ρgh.';
+            }
+        }
+
+        // Init App
+        window.onload = () => {
+            resizeCanvas();
+            renderQuiz();
+            loop();
+        };
+    </script>
+</body>
+</html>
