@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apparecchio Storico di Bernoulli con 4 Tubi Piezometrici</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .lab-shadow {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-500 selection:text-white">
+
+    <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl shadow-lg shadow-amber-500/10">
+                    <i class="fa-solid fa-flask-vial"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Apparecchio Storico con 4 Tubi (3 a Sinistra e 1 a Destra)</h1>
+                    <p class="text-xs text-slate-400">Banco in ottone con condotto continuo, serpentina e colonne piezometriche asimmetriche</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btnPlayPause" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-medium text-sm flex items-center gap-2 transition shadow-lg shadow-amber-600/20 active:scale-95">
+                    <i class="fa-solid fa-pause" id="playPauseIcon"></i> <span id="playPauseText">Pausa Flusso</span>
+                </button>
+                <button id="btnReset" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm flex items-center gap-2 transition active:scale-95 border border-slate-700">
+                    <i class="fa-solid fa-rotate-right"></i> Reset
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left & Center columns: Simulation Canvas & Graphs -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            
+            <section class="glass-panel lab-shadow rounded-3xl p-5 flex flex-col gap-4 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
+                        <h2 class="font-semibold text-sm tracking-wide text-slate-200 uppercase">Banco Storico in Ottone (3 Tubi a Sinistra, Serpentina, 1 Tubo a Destra)</h2>
+                    </div>
+                    <div class="text-xs text-slate-400 bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700">
+                        Fluido: <span class="text-amber-400 font-medium">Acqua Fresca (ρ = 1000 kg/m³)</span>
+                    </div>
+                </div>
+
+                <!-- Canvas container -->
+                <div class="relative w-full aspect-[16/10] bg-slate-900/90 rounded-2xl border border-slate-800/80 overflow-hidden shadow-inner flex items-center justify-center">
+                    <canvas id="benchCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    
+                    <!-- Overlay tooltip for hover data -->
+                    <div id="canvasTooltip" class="absolute hidden pointer-events-none bg-slate-900/95 border border-amber-500/40 text-xs px-3 py-2 rounded-xl shadow-2xl backdrop-blur text-slate-200 z-20">
+                        <div class="font-bold text-amber-400 mb-1" id="tipTitle">Sezione 1</div>
+                        <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                            <span class="text-slate-400">Velocità (v):</span> <span id="tipV" class="font-mono">0.0 m/s</span>
+                            <span class="text-slate-400">Pressione (p):</span> <span id="tipP" class="font-mono">0 kPa</span>
+                            <span class="text-slate-400">Livello Piez.:</span> <span id="tipH" class="font-mono">0 cm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend / Indicators -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60 flex flex-col">
+                        <span class="text-slate-400">Portata (Q)</span>
+                        <span id="lblQ" class="font-mono text-amber-400 font-semibold text-sm mt-0.5">1.20 L/s</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60 flex flex-col">
+                        <span class="text-slate-400">Perdita Serpentina</span>
+                        <span id="lblLoss" class="font-mono text-orange-400 font-semibold text-sm mt-0.5">12.4 kPa</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60 flex flex-col">
+                        <span class="text-slate-400">Velocità Tubo</span>
+                        <span id="lblVelRange" class="font-mono text-cyan-400 font-semibold text-sm mt-0.5">1.4 m/s</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60 flex flex-col">
+                        <span class="text-slate-400">Pressione Finale (T4)</span>
+                        <span id="lblMinP" class="font-mono text-emerald-400 font-semibold text-sm mt-0.5">18.2 kPa</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-panel lab-shadow rounded-3xl p-5 flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-amber-400"></i>
+                        <h2 class="font-semibold text-sm tracking-wide text-slate-200 uppercase">Andamento delle Piezometriche (T1, T2, T3 a Sinistra → T4 a Destra)</h2>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1 rounded-lg bg-amber-600 text-white text-xs font-medium">Livelli Piezometrici (4 Prese)</button>
+                    </div>
+                </div>
+
+                <div class="relative w-full h-48 bg-slate-900/90 rounded-2xl border border-slate-800/80 p-2 overflow-hidden flex items-center justify-center">
+                    <canvas id="chartCanvas" class="w-full h-full block"></canvas>
+                </div>
+                <p class="text-[11px] text-slate-400 text-center italic">Il grafico evidenzia la pressione misurata dai tre tubi a monte della serpentina (T1, T2, T3) e la caduta netta registrata dal quarto tubo a valle (T4).</p>
+            </section>
+        </div>
+
+        <div class="flex flex-col gap-6">
+            
+            <section class="glass-panel lab-shadow rounded-3xl p-5 flex flex-col gap-5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-amber-400"></i>
+                        <h2 class="font-semibold text-sm tracking-wide text-slate-200 uppercase">Parametri Operativi</h2>
+                    </div>
+                    <span class="text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md">Interattivo</span>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <!-- Slider 1: Portata Q -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between items-center text-xs">
+                            <label for="flowSlider" class="font-medium text-slate-300">Portata del Flusso ($Q$)</label>
+                            <span id="flowVal" class="font-mono font-semibold text-amber-400">1.20 L/s</span>
+                        </div>
+                        <input id="flowSlider" type="range" min="0.4" max="2.5" step="0.05" value="1.20" 
+                               class="w-full accent-amber-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>0.4 L/s (Min)</span>
+                            <span>2.5 L/s (Max)</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 2: Numero di Spire della Serpentina -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between items-center text-xs">
+                            <label for="coilSlider" class="font-medium text-slate-300">Spire della Serpentina ($N$)</label>
+                            <span id="coilVal" class="font-mono font-semibold text-orange-400">4 Spire</span>
+                        </div>
+                        <input id="coilSlider" type="range" min="1" max="8" step="1" value="4" 
+                               class="w-full accent-orange-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>1 Spira</span>
+                            <span>8 Spire</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 3: Livello Carico Iniziale h0 -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between items-center text-xs">
+                            <label for="headSlider" class="font-medium text-slate-300">Carico Iniziale ($h_0$)</label>
+                            <span id="headVal" class="font-mono font-semibold text-cyan-400">1.35 m</span>
+                        </div>
+                        <input id="headSlider" type="range" min="0.90" max="1.80" step="0.02" value="1.35" 
+                               class="w-full accent-cyan-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>0.90 m</span>
+                            <span>1.80 m</span>
+                        </div>
+                    </div>
+
+                    <!-- Toggle: Valvola di scarico finale -->
+                    <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-medium text-slate-300">Rubinetto di Scarico Aperto</div>
+                            <div class="text-[10px] text-slate-500">Simula efflusso all'estremità</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="valveToggle" checked class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-panel lab-shadow rounded-3xl p-5 flex flex-col gap-3">
+                <div class="flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-book-open text-amber-400"></i>
+                    <h2 class="font-semibold text-sm tracking-wide text-slate-200 uppercase">Configurazione a 4 Colonne</h2>
+                </div>
+                
+                <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                    <div>
+                        <strong class="text-amber-400">I 3 Tubi a Sinistra (T1, T2, T3):</strong>
+                        <p class="text-slate-400 mt-0.5">Monitorano la pressione statica iniziale e le variazioni di carico prima dell'ingresso nella serpentina elicoidale in ottone.</p>
+                    </div>
+                    <div>
+                        <strong class="text-orange-400">Il Tubo a Destra (T4):</strong>
+                        <p class="text-slate-400 mt-0.5">Posto subito dopo la serpentina, mostra chiaramente la forte cadente di pressione (perdita di carico localizzata e distribuita) dovuta all'attraversamento delle spire.</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
+        Simulazione Storica Banco Idraulico (3 Tubi a Sinistra, 1 a Destra) • Modello Didattico per la Fisica dei Fluidi
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('benchCanvas');
+        const ctx = canvas.getContext('2d');
+        const chartCanvas = document.getElementById('chartCanvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        // UI elements
+        const flowSlider = document.getElementById('flowSlider');
+        const flowVal = document.getElementById('flowVal');
+        const coilSlider = document.getElementById('coilSlider');
+        const coilVal = document.getElementById('coilVal');
+        const headSlider = document.getElementById('headSlider');
+        const headVal = document.getElementById('headVal');
+        const valveToggle = document.getElementById('valveToggle');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const playPauseIcon = document.getElementById('playPauseIcon');
+        const playPauseText = document.getElementById('playPauseText');
+        const btnReset = document.getElementById('btnReset');
+        const canvasTooltip = document.getElementById('canvasTooltip');
+        const tipTitle = document.getElementById('tipTitle');
+        const tipV = document.getElementById('tipV');
+        const tipP = document.getElementById('tipP');
+        const tipH = document.getElementById('tipH');
+        
+        const lblQ = document.getElementById('lblQ');
+        const lblLoss = document.getElementById('lblLoss');
+        const lblVelRange = document.getElementById('lblVelRange');
+        const lblMinP = document.getElementById('lblMinP');
+
+        let isRunning = true;
+        let animTime = 0;
+
+        let Q_Ls = 1.20; // L/s
+        let N_coils = 4; // Number of coil turns
+        let H0 = 1.35;   // m
+        let valveOpen = true;
+        const rho = 1000.0;  // kg/m^3
+        const g = 9.81;      // m/s^2
+
+        // EXACT LAYOUT: 3 taps on the left side of the coil, 1 tap on the right side after the coil
+        const tapPositions = [0.10, 0.22, 0.34, 0.78];
+        
+        function resizeCanvases() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const chartRect = chartCanvas.parentElement.getBoundingClientRect();
+            chartCanvas.width = chartRect.width * window.devicePixelRatio;
+            chartCanvas.height = chartRect.height * window.devicePixelRatio;
+            chartCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        function calculateFluidState() {
+            Q_Ls = parseFloat(flowSlider.value);
+            N_coils = parseInt(coilSlider.value);
+            H0 = parseFloat(headSlider.value);
+            valveOpen = valveToggle.checked;
+
+            flowVal.textContent = Q_Ls.toFixed(2) + " L/s";
+            coilVal.textContent = N_coils + (N_coils === 1 ? " Spira" : " Spire");
+            headVal.textContent = H0.toFixed(2) + " m";
+            lblQ.textContent = Q_Ls.toFixed(2) + " L/s";
+
+            const Q_m3s = Q_Ls / 1000.0;
+            const pipeDiameter = 0.022; // 22mm main brass tube
+            const area = Math.PI * Math.pow(pipeDiameter / 2, 2);
+            const velocity = Q_m3s / area;
+
+            const basePressure = rho * g * H0;
+            
+            // Continuous friction drop along the single tube, with significant drop across the coil (located between pos 0.40 and 0.65)
+            const pressures = tapPositions.map((pos, idx) => {
+                let drop = pos * 6000 * Math.pow(velocity, 1.5);
+                // If position is past the coil (idx === 3, pos = 0.78), add massive coil loss
+                if (pos > 0.60) {
+                    drop += N_coils * 4500 * Math.pow(velocity, 1.8);
+                }
+                if (!valveOpen && idx === 3) {
+                    return basePressure - drop + 18000; // backed up pressure if valve closed
+                }
+                return Math.max(4000, basePressure - drop);
+            });
+
+            const piezometricHeights = pressures.map(p => Math.max(0.08, p / (rho * g)));
+            const coilLoss = N_coils * 0.055 * rho * Math.pow(velocity, 1.8) / 1000.0;
+
+            lblLoss.textContent = coilLoss.toFixed(1) + " kPa";
+            lblVelRange.textContent = velocity.toFixed(2) + " m/s";
+            lblMinP.textContent = (pressures[3] / 1000.0).toFixed(1) + " kPa";
+
+            return {
+                velocity,
+                pressures,
+                piezometricHeights,
+                coilLoss
+            };
+        }
+
+        function drawInstrument(state) {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const baseY = height * 0.72;
+            const startX = width * 0.08;
+            const endX = width * 0.92;
+
+            // 1. Draw Cast Iron Tripod Base
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.moveTo(width * 0.45, baseY + 15);
+            ctx.lineTo(width * 0.55, baseY + 15);
+            ctx.lineTo(width * 0.60, height * 0.88);
+            ctx.lineTo(width * 0.40, height * 0.88);
+            ctx.closePath();
+            ctx.fill();
+
+            // Heavy brass vertical mounting column from base to central T-junction
+            ctx.fillStyle = '#b45309'; 
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 2;
+            ctx.fillRect(width * 0.475, baseY - 30, width * 0.05, 50);
+            ctx.strokeRect(width * 0.475, baseY - 30, width * 0.05, 50);
+
+            // 2. Draw ONE Continuous Long Main Brass Pipe from startX to endX
+            ctx.fillStyle = '#d97706'; 
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 2;
+
+            ctx.fillRect(startX, baseY - 10, endX - startX, 20);
+            ctx.strokeRect(startX, baseY - 10, endX - startX, 20);
+
+            // 3. Draw Helical Coils (Serpentina) in the middle of the pipe (approx x: 40% to 65%)
+            ctx.save();
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            
+            const coilStartX = width * 0.40;
+            const coilEndX = width * 0.65;
+            const coilCenterX = (coilStartX + coilEndX) / 2;
+            const coilRadiusY = 32;
+            
+            for (let i = 0; i < N_coils; i++) {
+                const cx = coilCenterX - (N_coils * 12) / 2 + i * 14;
+                ctx.beginPath();
+                ctx.ellipse(cx, baseY - 15, 8, coilRadiusY, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 4. Draw End Valve / Stopcock at the right end of the long pipe
+            ctx.fillStyle = '#b45309';
+            ctx.fillRect(endX - 15, baseY - 18, 25, 36);
+            ctx.strokeRect(endX - 15, baseY - 18, 25, 36);
+            // Valve handle
+            ctx.beginPath();
+            ctx.moveTo(endX - 2.5, baseY - 18);
+            ctx.lineTo(endX - 2.5, baseY - 35);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#d97706';
+            ctx.stroke();
+
+            // Water stream dripping from valve if open
+            if (valveOpen) {
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(endX + 10, baseY + 10);
+                ctx.quadraticCurveTo(endX + 10, baseY + 50, endX + 15, baseY + 90);
+                ctx.stroke();
+            }
+
+            // 5. Draw 4 Vertical Piezometric Glass Tubes (3 on left, 1 on right)
+            const tapXCoords = tapPositions.map(p => startX + p * (endX - startX));
+            
+            tapXCoords.forEach((tx, idx) => {
+                const glassWidth = 12;
+                // Make the first 3 tubes (left side) taller, matching the reference photo
+                const glassHeightMax = (idx < 3) ? 240 : 200;
+                const glassBottomY = baseY - 10;
+                const glassTopY = glassBottomY - glassHeightMax;
+
+                // Brass collar fitting at base of glass tube
+                ctx.fillStyle = '#92400e';
+                ctx.fillRect(tx - glassWidth/2 - 3, glassBottomY - 6, glassWidth + 6, 12);
+                ctx.strokeRect(tx - glassWidth/2 - 3, glassBottomY - 6, glassWidth + 6, 12);
+
+                // Glass tube outline
+                ctx.fillStyle = 'rgba(30, 41, 59, 0.4)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(tx - glassWidth/2, glassTopY, glassWidth, glassHeightMax, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Water column inside glass tube
+                const hPx = Math.min(glassHeightMax - 10, state.piezometricHeights[idx] * 85);
+                const liquidTopY = glassBottomY - hPx;
+
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.75)';
+                ctx.fillRect(tx - glassWidth/2 + 2, liquidTopY, glassWidth - 4, hPx);
+
+                // Meniscus highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(tx - glassWidth/2 + 3, liquidTopY, glassWidth - 6, 3);
+
+                // Tube Label
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`T${idx+1}`, tx, glassTopY - 10);
+            });
+
+            // 6. Animated Water Flow Particles inside the continuous pipe
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            const particleCount = 30;
+            const speedFactor = parseFloat(flowSlider.value) * 1.8;
+            for (let i = 0; i < particleCount; i++) {
+                const totalLen = endX - startX;
+                const progress = ((animTime * speedFactor * 40 + i * (totalLen / particleCount)) % totalLen);
+                const px = startX + progress;
+                ctx.beginPath();
+                ctx.arc(px, baseY, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawChart(state) {
+            const width = chartCanvas.width / window.devicePixelRatio;
+            const height = chartCanvas.height / window.devicePixelRatio;
+
+            chartCtx.clearRect(0, 0, width, height);
+
+            const padding = 35;
+            const graphWidth = width - padding * 2;
+            const graphHeight = height - padding * 2;
+
+            // Axes
+            chartCtx.strokeStyle = 'rgba(51, 65, 85, 0.8)';
+            chartCtx.lineWidth = 1;
+            chartCtx.beginPath();
+            chartCtx.moveTo(padding, padding);
+            chartCtx.lineTo(padding, height - padding);
+            chartCtx.lineTo(width - padding, height - padding);
+            chartCtx.stroke();
+
+            chartCtx.fillStyle = '#94a3b8';
+            chartCtx.font = '10px Inter, sans-serif';
+            chartCtx.textAlign = 'right';
+            chartCtx.fillText('P (kPa)', padding - 8, padding + 5);
+            chartCtx.textAlign = 'center';
+            chartCtx.fillText('Prese Piezometriche (T1, T2, T3 a Sinistra → T4 a Destra)', width / 2, height - 8);
+
+            const values = state.pressures.map(p => p / 1000.0); // kPa
+            const minVal = Math.min(...values) - 5;
+            const maxVal = Math.max(...values) + 5;
+            const range = maxVal - minVal;
+
+            const startX = padding;
+            const endX = width - padding;
+            const xCoords = tapPositions.map(p => startX + p * (endX - startX));
+
+            // Grid lines
+            chartCtx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
+            chartCtx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = height - padding - (i / 4) * graphHeight;
+                chartCtx.beginPath();
+                chartCtx.moveTo(padding, y);
+                chartCtx.lineTo(width - padding, y);
+                chartCtx.stroke();
+
+                const labelVal = (minVal + (i / 4) * range).toFixed(0);
+                chartCtx.fillStyle = '#64748b';
+                chartCtx.font = '9px Inter, sans-serif';
+                chartCtx.textAlign = 'right';
+                chartCtx.fillText(labelVal, padding - 6, y + 3);
+            }
+
+            // Draw line connecting T1, T2, T3, T4 pressure drops
+            chartCtx.strokeStyle = '#f59e0b';
+            chartCtx.lineWidth = 2.5;
+            chartCtx.beginPath();
+            xCoords.forEach((x, idx) => {
+                const y = height - padding - ((values[idx] - minVal) / range) * graphHeight;
+                if (idx === 0) chartCtx.moveTo(x, y);
+                else chartCtx.lineTo(x, y);
+            });
+            chartCtx.stroke();
+
+            // Draw points
+            xCoords.forEach((x, idx) => {
+                const y = height - padding - ((values[idx] - minVal) / range) * graphHeight;
+                chartCtx.fillStyle = '#d97706';
+                chartCtx.beginPath();
+                chartCtx.arc(x, y, 5, 0, Math.PI * 2);
+                chartCtx.fill();
+                chartCtx.strokeStyle = '#ffffff';
+                chartCtx.lineWidth = 1.5;
+                chartCtx.stroke();
+
+                chartCtx.fillStyle = '#fbbf24';
+                chartCtx.font = '10px Inter, sans-serif';
+                chartCtx.textAlign = 'center';
+                chartCtx.fillText(`${values[idx].toFixed(1)} kPa`, x, y - 10);
+            });
+        }
+
+        function mainLoop() {
+            if (isRunning) {
+                animTime += 0.03;
+            }
+            const state = calculateFluidState();
+            drawInstrument(state);
+            drawChart(state);
+            requestAnimationFrame(mainLoop);
+        }
+
+        // Event Listeners
+        btnPlayPause.addEventListener('click', () => {
+            isRunning = !isRunning;
+            if (isRunning) {
+                playPauseIcon.className = 'fa-solid fa-pause';
+                playPauseText.textContent = 'Pausa Flusso';
+            } else {
+                playPauseIcon.className = 'fa-solid fa-play';
+                playPauseText.textContent = 'Avvia Flusso';
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            flowSlider.value = 1.20;
+            coilSlider.value = 4;
+            headSlider.value = 1.35;
+            valveToggle.checked = true;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const width = canvas.width / window.devicePixelRatio;
+            const startX = width * 0.08;
+            const endX = width * 0.92;
+            const tapXCoords = tapPositions.map(p => startX + p * (endX - startX));
+
+            const state = calculateFluidState();
+            let foundIdx = -1;
+
+            tapXCoords.forEach((tx, idx) => {
+                if (Math.abs(mouseX - tx) < 25) {
+                    foundIdx = idx;
+                }
+            });
+
+            if (foundIdx !== -1) {
+                canvasTooltip.style.display = 'block';
+                canvasTooltip.style.left = `${e.clientX - rect.left + 15}px`;
+                canvasTooltip.style.top = `${e.clientY - rect.top - 40}px`;
+                tipTitle.textContent = `Colonna Piezometrica T${foundIdx + 1} (${foundIdx < 3 ? 'Lato Sinistro' : 'Lato Destro'})`;
+                tipV.textContent = `${state.velocity.toFixed(2)} m/s`;
+                tipP.textContent = `${(state.pressures[foundIdx] / 1000.0).toFixed(1)} kPa`;
+                tipH.textContent = `${(state.piezometricHeights[foundIdx] * 100).toFixed(1)} cm`;
+            } else {
+                canvasTooltip.style.display = 'none';
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            canvasTooltip.style.display = 'none';
+        });
+
+        window.onload = function () {
+            resizeCanvases();
+            requestAnimationFrame(mainLoop);
+        };
+    </script>
+</body>
+</html>
