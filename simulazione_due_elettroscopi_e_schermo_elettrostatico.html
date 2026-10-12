@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione: Due Elettroscopi e Schermo Elettrostatico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f8fafc;
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-6">
+
+    <header class="w-full max-w-6xl text-center mb-3">
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-cyan-400 mb-1">
+            Esperimento dei Due Elettroscopi & Schermo Elettrostatico
+        </h1>
+        <p class="text-slate-400 text-sm md:text-base">
+            Distribuzione superficiale delle cariche, campo interno nullo ($E=0$) e verifica con foglioline d'oro ed elettroscopi affiancati.
+        </p>
+    </header>
+
+    <main class="w-full max-w-6xl flex-1 flex flex-col items-center justify-center bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-2xl relative overflow-hidden">
+        
+        <!-- Canvas principale -->
+        <div class="relative w-full aspect-[16/10] max-h-[620px] flex items-center justify-center bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
+            <canvas id="simCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Legenda Dinamica / Stato -->
+            <div id="statusOverlay" class="absolute top-4 left-4 bg-slate-900/90 backdrop-blur border border-slate-700/60 rounded-xl p-3 text-xs md:text-sm shadow-lg pointer-events-none transition-all duration-300 max-w-xs">
+                <div class="font-semibold text-cyan-300 mb-1 flex items-center gap-2">
+                    <span id="stateIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
+                    <span id="stateIndicatorText">Stato: Sistema Neutro</span>
+                </div>
+                <div class="text-slate-300 space-y-1 text-xs" id="stateDescription">
+                    • Carica totale: 0<br>
+                    • Foglioline: Chiuse (a riposo)<br>
+                    • Campo elettrico interno: $E = 0$
+                </div>
+            </div>
+        </div>
+
+        <!-- Pannello di Controllo -->
+        <div class="flex flex-wrap items-center justify-center gap-4 mt-5 w-full">
+            <button id="btnCharge" class="flex-1 min-w-[180px] bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-red-900/30 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Carica l'Apparato
+            </button>
+            <button id="btnReset" class="flex-1 min-w-[180px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-3 px-6 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Scarica / Reset
+            </button>
+        </div>
+
+    </main>
+
+    <footer class="w-full max-w-6xl mt-4 text-xs text-slate-400 bg-slate-900/50 border border-slate-800/80 rounded-xl p-4 leading-relaxed">
+        <span class="font-semibold text-slate-300">Analisi dell'apparato:</span> Entrambi gli elettroscopi possiedono foglioline che si divaricano (perché la carica scorre lungo la struttura conduttrice). Tuttavia, le sferette del <strong>Primo Elettroscopio</strong> (esterne) divergono perché risentono del campo superficiale, mentre le sferette del <strong>Secondo Elettroscopio</strong> (interne nella cavità) restano verticali a riposo poiché all'interno la carica si distribuisce solo all'esterno e il campo elettrico interno è rigorosamente nullo ($E = 0$).
+    </footer>
+
+    <script>
+        window.onload = function () {
+            const canvas = document.getElementById('simCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const btnCharge = document.getElementById('btnCharge');
+            const btnReset = document.getElementById('btnReset');
+            const stateIndicatorDot = document.getElementById('stateIndicatorDot');
+            const stateIndicatorText = document.getElementById('stateIndicatorText');
+            const stateDescription = document.getElementById('stateDescription');
+
+            // Simulation state: 'NEUTRAL', 'CHARGING', 'CHARGED', 'DISCHARGING'
+            let simState = 'NEUTRAL';
+            let transitionProgress = 0.0; // 0.0 to 1.0
+
+            // Pendulum physics variables (outer pendulums on electroscope 1)
+            let outerAngle1 = 0;
+            let outerAngle2 = 0;
+            let outerVel1 = 0;
+            let outerVel2 = 0;
+
+            // Gold leaves divergence angles inside bottles
+            let leafAngle1 = 0;
+            let leafAngle2 = 0;
+            let leafVel1 = 0;
+            let leafVel2 = 0;
+
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            btnCharge.addEventListener('click', () => {
+                if (simState === 'NEUTRAL') {
+                    simState = 'CHARGING';
+                    transitionProgress = 0.0;
+                    updateUIState();
+                }
+            });
+
+            btnReset.addEventListener('click', () => {
+                if (simState === 'CHARGED' || simState === 'CHARGING') {
+                    simState = 'DISCHARGING';
+                    transitionProgress = 1.0;
+                    updateUIState();
+                }
+            });
+
+            function updateUIState() {
+                if (simState === 'NEUTRAL' || simState === 'DISCHARGING') {
+                    stateIndicatorDot.className = "w-2.5 h-2.5 rounded-full bg-slate-500 inline-block";
+                    stateIndicatorText.textContent = "Stato: Sistema Neutro";
+                    stateDescription.innerHTML = `• Carica totale: 0<br>• Foglioline: Chiuse (a riposo)<br>• Campo elettrico interno: E = 0`;
+                    btnCharge.disabled = false;
+                    btnReset.disabled = true;
+                    btnReset.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    stateIndicatorDot.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block animate-pulse";
+                    stateIndicatorText.textContent = "Stato: Apparato Carico";
+                    stateDescription.innerHTML = `• Carica presente <strong>solo sulla superficie esterna</strong> dei cilindri<br>• Foglioline di entrambi gli elettroscopi: <strong>Divaricate</strong><br>• Sferette interne: Immobili (E = 0 nella cavità)`;
+                    btnCharge.disabled = true;
+                    btnReset.disabled = false;
+                    btnReset.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+            updateUIState();
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const width = canvas.clientWidth;
+                const height = canvas.clientHeight;
+
+                // Update transition progress
+                if (simState === 'CHARGING') {
+                    transitionProgress += 0.025;
+                    if (transitionProgress >= 1.0) {
+                        transitionProgress = 1.0;
+                        simState = 'CHARGED';
+                    }
+                } else if (simState === 'DISCHARGING') {
+                    transitionProgress -= 0.025;
+                    if (transitionProgress <= 0.0) {
+                        transitionProgress = 0.0;
+                        simState = 'NEUTRAL';
+                        updateUIState();
+                    }
+                }
+
+                // Physics spring calculations
+                const targetOuterAngle = 0.52 * transitionProgress;
+                const targetLeafAngle = 0.38 * transitionProgress;
+
+                // Outer pendulums
+                let f1 = (-0.1 * (outerAngle1 - (-targetOuterAngle))) - (0.85 * outerVel1);
+                outerVel1 += f1; outerAngle1 += outerVel1;
+
+                let f2 = (-0.1 * (outerAngle2 - targetOuterAngle)) - (0.85 * outerVel2);
+                outerVel2 += f2; outerAngle2 += outerVel2;
+
+                // Gold leaves (both electroscopes diverge because both rods conduct charge to the interior leaves)
+                let lf1 = (-0.12 * (leafAngle1 - targetLeafAngle)) - (0.8 * leafVel1);
+                leafVel1 += lf1; leafAngle1 += leafVel1;
+
+                let lf2 = (-0.12 * (leafAngle2 - targetLeafAngle)) - (0.8 * leafVel2);
+                leafVel2 += lf2; leafAngle2 += leafVel2;
+
+                // Coordinates for two electroscopes placed side-by-side
+                const spacingX = width / 2;
+                const centerX1 = spacingX / 2 + 30;
+                const centerX2 = spacingX + spacingX / 2 - 30;
+                const baseY = height - 50;
+
+                // Draw both electroscopes
+                drawElectroscope(centerX1, baseY, "Elettroscopio 1 (Sferette Esterne)", outerAngle1, outerAngle2, leafAngle1, true);
+                drawElectroscope(centerX2, baseY, "Elettroscopio 2 (Sferette Interne)", 0, 0, leafAngle2, false);
+
+                requestAnimationFrame(animate);
+            }
+
+            function drawElectroscope(centerX, baseY, label, angle1, angle2, leafAngle, hasOuterPendulums) {
+                // Bottle dimensions
+                const bottleWidth = 140;
+                const bottleHeight = 180;
+                const bottleX = centerX - bottleWidth / 2;
+                const bottleY = baseY - bottleHeight;
+
+                // --- 1. GLASS BOTTLE ---
+                ctx.save();
+                // Glass gradient / transparency
+                const glassGrad = ctx.createLinearGradient(bottleX, bottleY, bottleX + bottleWidth, baseY);
+                glassGrad.addColorStop(0, 'rgba(56, 189, 248, 0.08)');
+                glassGrad.addColorStop(0.5, 'rgba(30, 41, 59, 0.4)');
+                glassGrad.addColorStop(1, 'rgba(56, 189, 248, 0.12)');
+
+                ctx.fillStyle = glassGrad;
+                ctx.strokeStyle = 'rgba(125, 211, 252, 0.35)';
+                ctx.lineWidth = 2.5;
+
+                // Draw bottle shape (flask / jar style with narrow neck)
+                const neckWidth = 50;
+                const neckHeight = 35;
+                const neckX = centerX - neckWidth / 2;
+
+                ctx.beginPath();
+                // Base bottom
+                ctx.roundRect(bottleX, bottleY + neckHeight, bottleWidth, bottleHeight - neckHeight, [16, 16, 24, 24]);
+                // Neck
+                ctx.rect(neckX, bottleY, neckWidth, neckHeight);
+                ctx.fill();
+                ctx.stroke();
+
+                // Bottle glass reflection highlight
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(bottleX + 12, bottleY + neckHeight + 15);
+                ctx.lineTo(bottleX + 12, baseY - 20);
+                ctx.stroke();
+
+                // --- 2. INSULATING STOPPER (Tappo Isolante in gomma/sughero scuro) ---
+                const stopperWidth = 64;
+                const stopperHeight = 22;
+                const stopperX = centerX - stopperWidth / 2;
+                const stopperY = bottleY - 5;
+
+                ctx.fillStyle = '#475569';
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(stopperX, stopperY, stopperWidth, stopperHeight, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // --- 3. VERTICAL METAL ROD & GOLD LEAVES ---
+                const rodWidth = 8;
+                const rodTopY = stopperY - 55;
+                const rodX = centerX - rodWidth / 2;
+
+                // Rod
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(rodX, rodTopY, rodWidth, (stopperY - rodTopY) + 30);
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(rodX, rodTopY, rodWidth, (stopperY - rodTopY) + 30);
+
+                // Gold leaves inside bottle
+                const leafOriginX = centerX;
+                const leafOriginY = stopperY + 25;
+                const leafLen = 45;
+
+                ctx.save();
+                ctx.strokeStyle = '#facc15'; // Gold color
+                ctx.lineWidth = 2.5;
+
+                // Left leaf
+                ctx.save();
+                ctx.translate(leafOriginX, leafOriginY);
+                ctx.rotate(-leafAngle);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, leafLen);
+                ctx.stroke();
+                ctx.restore();
+
+                // Right leaf
+                ctx.save();
+                ctx.translate(leafOriginX, leafOriginY);
+                ctx.rotate(leafAngle);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, leafLen);
+                ctx.stroke();
+                ctx.restore();
+                ctx.restore();
+
+                // --- 4. HORIZONTAL HOLLOW METAL CYLINDER (Cilindro Cavo in Sezione) ---
+                const cylWidth = 170;
+                const cylHeight = 55;
+                const cylX = centerX - cylWidth / 2;
+                const cylY = rodTopY - cylHeight;
+                const cylRadius = 10;
+
+                ctx.save();
+                ctx.shadowColor = 'rgba(6, 182, 212, 0.2)';
+                ctx.shadowBlur = 12;
+
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 3.5;
+
+                // Draw cylinder with cavity cutout
+                ctx.beginPath();
+                ctx.roundRect(cylX, cylY, cylWidth, cylHeight, cylRadius);
+
+                // Cavity inside cylinder
+                const cavWidth = 110;
+                const cavHeight = 33;
+                const cavX = centerX - cavWidth / 2;
+                const cavY = cylY + 11;
+                const cavRadius = 6;
+
+                ctx.roundRect(cavX, cavY, cavWidth, cavHeight, cavRadius);
+                ctx.closePath();
+                ctx.fill('evenodd');
+                ctx.stroke();
+                ctx.restore();
+
+                // --- 5. CHARGE SIGNS (+) ON OUTER SURFACE ONLY ---
+                if (transitionProgress > 0.05) {
+                    ctx.fillStyle = `rgba(239, 68, 68, ${transitionProgress})`;
+                    ctx.font = 'bold 12px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Top and bottom outer surface marks
+                    const plusPositions = [
+                        {x: cylX + 20, y: cylY - 2},
+                        {x: cylX + 65, y: cylY - 2},
+                        {x: cylX + 110, y: cylY - 2},
+                        {x: cylX + 150, y: cylY - 2},
+                        {x: cylX + 25, y: cylY + cylHeight + 2},
+                        {x: cylX + 85, y: cylY + cylHeight + 2},
+                        {x: cylX + 145, y: cylY + cylHeight + 2},
+                        // Sides
+                        {x: cylX - 2, y: cylY + 20},
+                        {x: cylX + cylWidth + 2, y: cylY + 20}
+                    ];
+
+                    plusPositions.forEach(p => {
+                        ctx.fillText('+', p.x, p.y);
+                    });
+
+                    // Show charge flowing down the metal rod
+                    if (transitionProgress > 0.3) {
+                        ctx.fillText('+', centerX, rodTopY + 15);
+                        ctx.fillText('+', centerX, rodTopY + 35);
+                    }
+                }
+
+                // --- 6. PENDULUMS (Sferette di carta) ---
+                if (hasOuterPendulums) {
+                    // EXTERNAL PENDULUMS (Elettroscopio 1) -> Divaricate
+                    const pivotY = cylY + 10;
+                    const stringLen = 65;
+                    const ballRadius = 8;
+
+                    // Left external pendulum
+                    const leftAnchorX = cylX - 2;
+                    const leftBallX = leftAnchorX - Math.sin(-angle1) * stringLen;
+                    const leftBallY = pivotY + Math.cos(angle1) * stringLen;
+
+                    // Right external pendulum
+                    const rightAnchorX = cylX + cylWidth + 2;
+                    const rightBallX = rightAnchorX + Math.sin(angle2) * stringLen;
+                    const rightBallY = pivotY + Math.cos(angle2) * stringLen;
+
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1.2;
+
+                    ctx.beginPath(); ctx.moveTo(leftAnchorX, pivotY); ctx.lineTo(leftBallX, leftBallY); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(rightAnchorX, pivotY); ctx.lineTo(rightBallX, rightBallY); ctx.stroke();
+
+                    // Draw balls
+                    const ballColor = transitionProgress > 0.5 ? '#ef4444' : '#e2e8f0';
+                    [ {x: leftBallX, y: leftBallY}, {x: rightBallX, y: rightBallY} ].forEach(ball => {
+                        ctx.fillStyle = ballColor;
+                        ctx.beginPath();
+                        ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = transitionProgress > 0.5 ? '#b91c1c' : '#64748b';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
+                        if (transitionProgress > 0.5) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 9px Inter, sans-serif';
+                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                            ctx.fillText('+', ball.x, ball.y);
+                        }
+                    });
+                } else {
+                    // INTERNAL PENDULUMS (Elettroscopio 2) -> Inside cavity, stay vertical and immobile!
+                    const innerPivotY = cavY + 6;
+                    const innerStringLen = 22;
+                    const innerBallRadius = 6;
+
+                    const innerX1 = centerX - 12;
+                    const innerY1 = innerPivotY + innerStringLen;
+                    const innerX2 = centerX + 12;
+                    const innerY2 = innerPivotY + innerStringLen;
+
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1.2;
+
+                    ctx.beginPath(); ctx.moveTo(centerX - 12, innerPivotY); ctx.lineTo(innerX1, innerY1); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(centerX + 12, innerPivotY); ctx.lineTo(innerX2, innerY2); ctx.stroke();
+
+                    [ {x: innerX1, y: innerY1}, {x: innerX2, y: innerY2} ].forEach(ball => {
+                        ctx.fillStyle = '#e2e8f0'; // Neutral grey/white, unaffected
+                        ctx.beginPath();
+                        ctx.arc(ball.x, ball.y, innerBallRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#94a3b8';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    });
+                }
+
+                // --- 7. LABEL BELOW BOTTLE ---
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '600 12px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText(label, centerX, baseY + 12);
+
+                ctx.restore();
+            }
+
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore Piano Inclinato</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Custom scrollbar for controls */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased overflow-x-hidden">
+
+    <header class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700/60 px-4 py-3 sticky top-0 z-50 flex items-center justify-between shadow-sm">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-inner">
+                PI
+            </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-tight text-white leading-tight">Piano Inclinato</h1>
+                <p class="text-[11px] text-slate-400">Laboratorio di Fisica Interattivo</p>
+            </div>
+        </div>
+        <button id="infoBtn" class="bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white p-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1 border border-slate-600/50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span>Teoria</span>
+        </button>
+    </header>
+
+    <main class="flex-1 flex flex-col max-w-md mx-auto w-full p-3 gap-3">
+        
+        <!-- Canvas Display Card -->
+        <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-2 shadow-xl relative flex flex-col items-center">
+            <div class="w-full flex justify-between items-center px-2 py-1 text-xs text-slate-400 border-b border-slate-700/50 mb-2">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Apparato Reale</span>
+                <span id="scaleIndicator" class="font-mono text-[11px] text-indigo-300">Scala: 1:1</span>
+            </div>
+            
+            <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-inner">
+                <canvas id="simCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            </div>
+
+            <!-- Quick Readout Overlay Bar -->
+            <div class="grid grid-cols-3 gap-2 w-full mt-2 text-center">
+                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-1.5">
+                    <span class="block text-[10px] text-slate-400 font-medium uppercase tracking-wider">Inclinazione</span>
+                    <span id="readoutAngle" class="text-sm font-bold text-indigo-400 font-mono">30°</span>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-1.5">
+                    <span class="block text-[10px] text-slate-400 font-medium uppercase tracking-wider">Forza Parallela</span>
+                    <span id="readoutForce" class="text-sm font-bold text-emerald-400 font-mono">4.9 N</span>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-1.5">
+                    <span class="block text-[10px] text-slate-400 font-medium uppercase tracking-wider">Attrito</span>
+                    <span id="readoutFriction" class="text-sm font-bold text-amber-400 font-mono">0.0 N</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Controls Panel -->
+        <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-3 shadow-xl flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Parametri Apparato</h2>
+                <button id="resetBtn" class="text-xs text-rose-400 hover:text-rose-300 font-medium transition-colors flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Ripristina
+                </button>
+            </div>
+
+            <!-- Sliders and Inputs -->
+            <div class="grid grid-cols-1 gap-3 text-xs">
+                <!-- Angle Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between font-medium">
+                        <span class="text-slate-300">Angolo del Piano ($\theta$)</span>
+                        <span id="angleVal" class="text-indigo-400 font-mono font-bold">30°</span>
+                    </div>
+                    <input id="angleRange" type="range" min="5" max="60" value="30" step="1" class="w-full accent-indigo-500 bg-slate-700 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Carrello Mass -->
+                <div class="space-y-1">
+                    <div class="flex justify-between font-medium">
+                        <span class="text-slate-300">Massa Carrello ($m$)</span>
+                        <span id="massVal" class="text-indigo-400 font-mono font-bold">1.0 kg</span>
+                    </div>
+                    <input id="massRange" type="range" min="0.2" max="5.0" value="1.0" step="0.1" class="w-full accent-indigo-500 bg-slate-700 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Counterweight Mass -->
+                <div class="space-y-1">
+                    <div class="flex justify-between font-medium">
+                        <span class="text-slate-300">Massa Piattello Sospeso ($M_c$)</span>
+                        <span id="counterMassVal" class="text-indigo-400 font-mono font-bold">0.5 kg</span>
+                    </div>
+                    <input id="counterMassRange" type="range" min="0.0" max="5.0" value="0.5" step="0.1" class="w-full accent-indigo-500 bg-slate-700 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Friction Coefficient -->
+                <div class="space-y-1">
+                    <div class="flex justify-between font-medium">
+                        <span class="text-slate-300">Coefficiente Attrito ($\mu$)</span>
+                        <span id="frictionVal" class="text-indigo-400 font-mono font-bold">0.05</span>
+                    </div>
+                    <input id="frictionRange" type="range" min="0.0" max="0.4" value="0.05" step="0.01" class="w-full accent-indigo-500 bg-slate-700 rounded-lg h-2 cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="grid grid-cols-2 gap-2 pt-1">
+                <button id="playBtn" class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium py-2.5 px-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 text-xs font-semibold">
+                    <svg id="playIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span id="playText">Avvia Moto</span>
+                </button>
+                <button id="stepBtn" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-200 font-medium py-2.5 px-3 rounded-xl transition-all border border-slate-600/60 flex items-center justify-center gap-1.5 text-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                    <span>Passo 0.1s</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Formula Insights Card (Rendered Formulas) -->
+        <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3 text-xs space-y-2 mb-4">
+            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[10px] text-indigo-300 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                Analisi Dinamica in tempo reale
+            </h3>
+            <div class="grid grid-cols-2 gap-2 font-mono text-slate-300">
+                <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                    <span class="block text-[10px] text-slate-400">Forza Motrice Parallela</span>
+                    <span id="formulaParallel" class="text-emerald-400 font-bold">$F_\parallel = mg \sin\theta$</span>
+                </div>
+                <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                    <span class="block text-[10px] text-slate-400">Accelerazione Totale</span>
+                    <span id="formulaAccel" class="text-indigo-400 font-bold">$a = 0.00\text{ m/s}^2$</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="infoModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-white text-sm">Informazioni sull'Apparato</h3>
+                <button id="closeModal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="text-xs text-slate-300 space-y-2.5 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
+                <p>Questo simulatore riproduce un apparato da laboratorio di fisica per lo studio del <strong>piano inclinato</strong>, completo di struttura metallica, guide graduate, carrello mobile e sistema di carrucola con piattelli per carichi variabili.</p>
+                <p><strong>Componenti Principali:</strong></p>
+                <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                    <li><strong>Struttura e Base:</strong> Base metallica rigida con supporto centrale e fulcro regolabile.</li>
+                    <li><strong>Piano Inclinato Graduato:</strong> Asta obliqua graduata in centimetri per misurare con precisione lo spostamento del carrello.</li>
+                    <li><strong>Sistema di Carrucola:</strong> Situata nella parte superiore, consente l'uso di fili inestensibili collegati a piattelli sospesi per applicare forze di trazione.</li>
+                </ul>
+                <p><strong>Principi Fisici:</strong> Il carrello è soggetto alla forza peso $mg$, scomposta nella componente parallela $mg \sin\theta$ e perpendicolare $mg \cos\theta$, oltre all'eventuale forza d'attrito dinamico/statico e alla tensione del filo collegato al piattello.</p>
+            </div>
+            <button id="closeModalBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-xl text-xs transition-colors">Ho capito</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Simulation parameters
+        let state = {
+            angleDeg: 30,
+            massCart: 1.0,     // kg
+            massCounter: 0.5,  // kg
+            friction: 0.05,    // mu
+            cartPos: 0.4,      // normalized position along inclined plane [0.1 to 0.85]
+            velocity: 0.0,     // m/s
+            isRunning: false,
+            g: 9.81            // m/s^2
+        };
+
+        // UI element bindings
+        const angleRange = document.getElementById('angleRange');
+        const angleVal = document.getElementById('angleVal');
+        const massRange = document.getElementById('massRange');
+        const massVal = document.getElementById('massVal');
+        const counterMassRange = document.getElementById('counterMassRange');
+        const counterMassVal = document.getElementById('counterMassVal');
+        const frictionRange = document.getElementById('frictionRange');
+        const frictionVal = document.getElementById('frictionVal');
+        
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const stepBtn = document.getElementById('stepBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        const readoutAngle = document.getElementById('readoutAngle');
+        const readoutForce = document.getElementById('readoutForce');
+        const readoutFriction = document.getElementById('readoutFriction');
+        const formulaParallel = document.getElementById('formulaParallel');
+        const formulaAccel = document.getElementById('formulaAccel');
+
+        // Modal elements
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeModal = document.getElementById('closeModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        infoBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+        closeModal.addEventListener('click', () => infoModal.classList.add('hidden'));
+        closeModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            drawScene();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function updateFromControls() {
+            state.angleDeg = parseFloat(angleRange.value);
+            state.massCart = parseFloat(massRange.value);
+            state.massCounter = parseFloat(counterMassRange.value);
+            state.friction = parseFloat(frictionRange.value);
+
+            angleVal.textContent = state.angleDeg + '°';
+            massVal.textContent = state.massCart.toFixed(1) + ' kg';
+            counterMassVal.textContent = state.massCounter.toFixed(1) + ' kg';
+            frictionVal.textContent = state.friction.toFixed(2);
+
+            readoutAngle.textContent = state.angleDeg + '°';
+            
+            const thetaRad = state.angleDeg * Math.PI / 180;
+            const F_parallel = state.massCart * state.g * Math.sin(thetaRad);
+            readoutForce.textContent = F_parallel.toFixed(1) + ' N';
+
+            const N = state.massCart * state.g * Math.cos(thetaRad);
+            const F_friction = state.friction * N;
+            readoutFriction.textContent = F_friction.toFixed(1) + ' N';
+
+            // Formulas formatted cleanly without LaTeX raw tags
+            formulaParallel.innerHTML = `F<sub>&parallel;</sub> = ${(state.massCart * state.g).toFixed(1)} &times; sin(${state.angleDeg}&deg;) = ${F_parallel.toFixed(2)} N`;
+            
+            // Calculate acceleration: Net force = (Mc*g) - (Cart*g*sinθ) - sign(v)*F_friction
+            const netForce = (state.massCounter * state.g) - F_parallel;
+            const frictionForceSigned = Math.abs(state.velocity) > 0.001 ? Math.sign(state.velocity) * F_friction : Math.min(Math.abs(netForce), F_friction) * Math.sign(netForce);
+            const effectiveForce = netForce - frictionForceSigned;
+            const totalMass = state.massCart + state.massCounter + 0.2; // adding small inertia for pulley/cart
+            const accel = effectiveForce / totalMass;
+            
+            formulaAccel.innerHTML = `a = ${accel.toFixed(2)} m/s<sup>2</sup>`;
+
+            drawScene();
+        }
+
+        [angleRange, massRange, counterMassRange, frictionRange].forEach(elem => {
+            elem.addEventListener('input', updateFromControls);
+        });
+
+        function drawScene() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Background grid / workbench
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, width, height);
+
+            // Base workbench line
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(20, height - 25);
+            ctx.lineTo(width - 20, height - 25);
+            ctx.stroke();
+
+            // Geometry setup for the inclined plane
+            const thetaRad = state.angleDeg * Math.PI / 180;
+            const pivotX = 60;
+            const pivotY = height - 35;
+            
+            const planeLength = Math.min(width * 0.75, 260);
+            const topX = pivotX + planeLength * Math.cos(thetaRad);
+            const topY = pivotY - planeLength * Math.sin(thetaRad);
+
+            // 1. Structural metal base and vertical support columns
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(pivotX, pivotY);
+            ctx.lineTo(pivotX + 80, pivotY); // base rail
+            ctx.stroke();
+
+            // Central adjustable vertical support bar
+            const supportX = pivotX + planeLength * 0.5 * Math.cos(thetaRad);
+            const supportY = pivotY - planeLength * 0.5 * Math.sin(thetaRad);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(pivotX + 50, pivotY);
+            ctx.lineTo(supportX, supportY);
+            ctx.stroke();
+
+            // 2. The Inclined Plane (Graduated Metallic Track)
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(pivotX - 5, pivotY + 2);
+            ctx.lineTo(topX + 5, topY - 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0; // reset shadow
+
+            // Graduation marks on the incline
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            const numMarks = 10;
+            for (let i = 0; i <= numMarks; i++) {
+                const ratio = i / numMarks;
+                const mx = pivotX + (topX - pivotX) * ratio;
+                const my = pivotY + (topY - pivotY) * ratio;
+                
+                // perpendicular tick offset
+                const perpX = -Math.sin(thetaRad) * 6;
+                const perpY = -Math.cos(thetaRad) * 6;
+
+                ctx.beginPath();
+                ctx.moveTo(mx, my);
+                ctx.lineTo(mx + perpX, my + perpY);
+                ctx.stroke();
+            }
+
+            // 3. Top Pulley Wheel
+            const pulleyRadius = 12;
+            const pulleyX = topX + pulleyRadius * Math.sin(thetaRad);
+            const pulleyY = topY - pulleyRadius * Math.cos(thetaRad);
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(pulleyX, pulleyY, pulleyRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Pulley axle center
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(pulleyX, pulleyY, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. Cart Position on Incline
+            const cartDist = state.cartPos * planeLength;
+            const cartX = pivotX + cartDist * Math.cos(thetaRad);
+            const cartY = pivotY - cartDist * Math.sin(thetaRad);
+
+            // Draw string from cart to pulley
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cartX, cartY);
+            ctx.lineTo(pulleyX, pulleyY);
+            ctx.stroke();
+
+            // Draw hanging string from pulley to counterweight plate
+            const hangX = pulleyX + pulleyRadius + 15;
+            const hangStartY = pulleyY;
+            const hangLength = 70 + state.massCounter * 12; // visual length depends on mass
+            const hangEndY = hangStartY + hangLength;
+
+            ctx.beginPath();
+            ctx.moveTo(pulleyX, pulleyY);
+            ctx.lineTo(hangX, hangStartY);
+            ctx.lineTo(hangX, hangEndY);
+            ctx.stroke();
+
+            // Draw Counterweight Plate & Weights
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(hangX - 14, hangEndY, 28, 4); // plate base
+            
+            // Stacked plates for counterweight
+            const plateBlocks = Math.max(1, Math.round(state.massCounter * 2));
+            for (let b = 0; b < plateBlocks; b++) {
+                ctx.fillStyle = b % 2 === 0 ? '#4f46e5' : '#6366f1';
+                ctx.fillRect(hangX - 10, hangEndY - 8 - (b * 9), 20, 8);
+                ctx.strokeStyle = '#312e81';
+                ctx.strokeRect(hangX - 10, hangEndY - 8 - (b * 9), 20, 8);
+            }
+
+            // Draw Metallic Cart on Incline
+            ctx.save();
+            ctx.translate(cartX, cartY);
+            ctx.rotate(-thetaRad);
+
+            // Cart Body
+            ctx.fillStyle = '#6366f1';
+            ctx.shadowColor = 'rgba(99, 102, 241, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(-18, -18, 36, 16);
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#4338ca';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-18, -18, 36, 16);
+
+            // Cart Wheels
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.arc(-11, -2, 4, 0, Math.PI * 2);
+            ctx.arc(11, -2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.stroke();
+
+            // Mass label on cart
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(state.massCart.toFixed(1) + 'kg', 0, -7);
+
+            ctx.restore();
+        }
+
+        let lastTime = null;
+
+        function physicsStep(dt) {
+            const thetaRad = state.angleDeg * Math.PI / 180;
+            const F_parallel = state.massCart * state.g * Math.sin(thetaRad);
+            const N = state.massCart * state.g * Math.cos(thetaRad);
+            const F_friction = state.friction * N;
+
+            // Net force driving the cart along the incline
+            // Positive direction = towards top of incline (pulled by counterweight)
+            const netForce = (state.massCounter * state.g) - F_parallel;
+            
+            // Friction opposes motion
+            let frictionForce = 0;
+            if (Math.abs(state.velocity) > 0.001) {
+                frictionForce = -Math.sign(state.velocity) * F_friction;
+            } else {
+                // Static friction check
+                if (Math.abs(netForce) <= F_friction) {
+                    frictionForce = -netForce; // holds in place
+                } else {
+                    frictionForce = -Math.sign(netForce) * F_friction;
+                }
+            }
+
+            const totalAcc = (netForce + frictionForce) / (state.massCart + state.massCounter + 0.3);
+            
+            state.velocity += totalAcc * dt;
+            state.cartPos += state.velocity * dt * 0.12;
+
+            // Boundary limits on incline
+            if (state.cartPos < 0.1) {
+                state.cartPos = 0.1;
+                state.velocity = 0;
+            } else if (state.cartPos > 0.85) {
+                state.cartPos = 0.85;
+                state.velocity = 0;
+            }
+
+            updateFromControls();
+        }
+
+        function animationLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            if (state.isRunning) {
+                physicsStep(dt);
+            }
+
+            requestAnimationFrame(animationLoop);
+        }
+
+        // Play / Pause button handling
+        playBtn.addEventListener('click', () => {
+            state.isRunning = !state.isRunning;
+            if (state.isRunning) {
+                playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+                playText.textContent = 'Pausa';
+                playBtn.classList.replace('bg-indigo-600', 'bg-amber-600');
+                playBtn.classList.replace('hover:bg-indigo-500', 'hover:bg-amber-500');
+            } else {
+                playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                playText.textContent = 'Avvia Moto';
+                playBtn.classList.replace('bg-amber-600', 'bg-indigo-600');
+                playBtn.classList.replace('hover:bg-amber-500', 'hover:bg-indigo-500');
+            }
+        });
+
+        // Single step button (0.1s)
+        stepBtn.addEventListener('click', () => {
+            if (state.isRunning) {
+                playBtn.click(); // pause if running
+            }
+            physicsStep(0.1);
+        });
+
+        // Reset button
+        resetBtn.addEventListener('click', () => {
+            state.isRunning = false;
+            state.cartPos = 0.4;
+            state.velocity = 0.0;
+            angleRange.value = 30;
+            massRange.value = 1.0;
+            counterMassRange.value = 0.5;
+            frictionRange.value = 0.05;
+            
+            playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            playText.textContent = 'Avvia Moto';
+            playBtn.classList.replace('bg-amber-600', 'bg-indigo-600');
+            playBtn.classList.replace('hover:bg-amber-500', 'hover:bg-indigo-500');
+
+            updateFromControls();
+        });
+
+        // Initialize on load
+        window.onload = () => {
+            resizeCanvas();
+            updateFromControls();
+            requestAnimationFrame(animationLoop);
+        };
+    </script>
+</body>
+</html>
