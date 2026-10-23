@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Anello di Gravesande - Dilatazione Termica</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontInter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Custom Scrollbar for Controls Panel */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
+    /* Glow Effects */
+    .glow-orange {
+      box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+    }
+    .glow-blue {
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+    /* Range Input Customization */
+    input[type=range] {
+      accent-color: #f97316;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between bg-slate-900 select-none">
+
+  <!-- HEADER COMPATTO -->
+  <header class="px-4 py-3 bg-slate-800/90 border-b border-slate-700/60 backdrop-blur shrink-0 flex items-center justify-between z-10">
+    <div>
+      <h1 class="text-base font-bold text-slate-100 leading-tight">Anello di Gravesande</h1>
+      <p class="text-xs text-orange-400 font-medium">Esperimento di Dilatazione Termica</p>
+    </div>
+    <span id="status-badge" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+      T = 20 °C
+    </span>
+  </header>
+
+  <!-- CANVAS DI SIMULAZIONE PRINCIPALE -->
+  <main class="relative flex-1 w-full flex items-center justify-center p-2 bg-slate-950 overflow-hidden">
+    <canvas id="simCanvas" class="w-full h-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 shadow-2xl block"></canvas>
+
+    <!-- OVERLAY INFO SULLA SIMULAZIONE -->
+    <div class="absolute top-4 left-4 bg-slate-900/85 backdrop-blur border border-slate-700/60 p-2.5 rounded-xl text-xs space-y-1 shadow-xl pointer-events-none z-10">
+      <div class="flex justify-between items-center gap-3">
+        <span class="text-slate-400">Diametro Sfera (d):</span>
+        <span id="sphere-diameter-label" class="font-mono font-bold text-slate-200">20.00 mm</span>
+      </div>
+      <div class="flex justify-between items-center gap-3">
+        <span class="text-slate-400">Diametro Anello (d₀):</span>
+        <span class="font-mono font-bold text-slate-200">20.05 mm</span>
+      </div>
+      <div class="flex justify-between items-center gap-3">
+        <span class="text-slate-400">Stato:</span>
+        <span id="fit-status" class="font-semibold text-emerald-400">Passa liberamente</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- PANNELLO CONTROLLI E TEORIA -->
+  <footer class="bg-slate-800/95 border-t border-slate-700/80 p-4 rounded-t-3xl shadow-2xl shrink-0 max-h-[52vh] overflow-y-auto space-y-4">
+
+    <!-- CONTROLLI PRINCIPALI: PULSANTI GRANDI PER MOBILE -->
+    <div class="grid grid-cols-3 gap-2.5">
+      <button id="btn-heat" class="flex flex-col items-center justify-center py-3 px-2 rounded-xl bg-gradient-to-b from-orange-500 to-amber-600 text-white font-bold text-xs active:scale-95 transition-transform shadow-lg shadow-orange-950/40 min-h-[48px]">
+        <svg class="w-5 h-5 mb-1 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Riscalda
+      </button>
+
+      <button id="btn-cool" class="flex flex-col items-center justify-center py-3 px-2 rounded-xl bg-gradient-to-b from-sky-500 to-blue-600 text-white font-bold text-xs active:scale-95 transition-transform shadow-lg shadow-blue-950/40 min-h-[48px]">
+        <svg class="w-5 h-5 mb-1 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v18m9-9H3m15.364 6.364l-14.142-14.142m0 14.142l14.142-14.142"/></svg>
+        Raffredda
+      </button>
+
+      <button id="btn-test" class="flex flex-col items-center justify-center py-3 px-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 text-white font-bold text-xs active:scale-95 transition-transform shadow-lg shadow-teal-950/40 min-h-[48px]">
+        <svg class="w-5 h-5 mb-1 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        Prova Passaggio
+      </button>
+    </div>
+
+    <!-- REGOLATORE MATERIALE E PARAMETRI -->
+    <div class="bg-slate-900/70 p-3 rounded-2xl border border-slate-700/50 space-y-3">
+      <div class="flex items-center justify-between text-xs">
+        <label for="material-select" class="text-slate-300 font-medium">Materiale Sfera:</label>
+        <select id="material-select" class="bg-slate-800 text-amber-400 font-semibold border border-slate-600 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-orange-500">
+          <option value="12e-6" selected>Acciaio (α = 12 × 10⁻⁶ /°C)</option>
+          <option value="19e-6">Ottone (α = 19 × 10⁻⁶ /°C)</option>
+          <option value="23e-6">Alluminio (α = 23 × 10⁻⁶ /°C)</option>
+        </select>
+      </div>
+
+      <!-- TEMPERATURA SLIDER -->
+      <div class="space-y-1">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-400">Temperatura Sfera (T):</span>
+          <span id="temp-display" class="font-mono text-orange-400 font-bold">20 °C</span>
+        </div>
+        <input id="temp-slider" type="range" min="20" max="600" value="20" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+      </div>
+    </div>
+
+    <!-- FORMULE MATEMATICHE & CALCOLI LIVE (RENDER HTML/CSS ELEGANTE) -->
+    <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-700/60 text-xs space-y-2">
+      <div class="text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-800 pb-1">
+        Modello Fisico della Dilatazione
+      </div>
+
+      <!-- FORMULE ELEGANTI -->
+      <div class="grid grid-cols-1 gap-2 text-slate-200">
+        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-xl">
+          <span class="text-slate-400">Dilatazione Lineare:</span>
+          <span class="font-serif italic text-amber-300 font-semibold text-sm">
+            Δd = d<sub>0</sub> · α · ΔT
+          </span>
+        </div>
+        <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded-xl">
+          <span class="text-slate-400">Dilatazione Volumica:</span>
+          <span class="font-serif italic text-amber-300 font-semibold text-sm">
+            ΔV = V<sub>0</sub> · 3α · ΔT
+          </span>
+        </div>
+      </div>
+
+      <!-- CALCOLO DINAMICO IN TEMPO REALE -->
+      <div class="pt-1 text-[11px] space-y-1 border-t border-slate-800 text-slate-300 font-mono">
+        <div class="flex justify-between">
+          <span>Variazione Temp. (ΔT):</span>
+          <span id="calc-delta-t" class="text-slate-100 font-bold">0 °C</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Incremento Diametro (Δd):</span>
+          <span id="calc-delta-d" class="text-orange-400 font-bold">+0.0000 mm</span>
+        </div>
+      </div>
+    </div>
+
+  </footer>
+
+  <!-- JAVASCRIPT SIMULAZIONE FISICA E ANIMAZIONE -->
+  <script>
+    // Inizializzazione Elementi DOM
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const btnHeat = document.getElementById('btn-heat');
+    const btnCool = document.getElementById('btn-cool');
+    const btnTest = document.getElementById('btn-test');
+
+    const tempSlider = document.getElementById('temp-slider');
+    const tempDisplay = document.getElementById('temp-display');
+    const statusBadge = document.getElementById('status-badge');
+    const materialSelect = document.getElementById('material-select');
+
+    const sphereDiameterLabel = document.getElementById('sphere-diameter-label');
+    const fitStatus = document.getElementById('fit-status');
+    const calcDeltaT = document.getElementById('calc-delta-t');
+    const calcDeltaD = document.getElementById('calc-delta-d');
+
+    // Costanti Fisiche e Configurazione
+    const ROOM_TEMP = 20; // °C
+    const BASE_DIAMETER_MM = 20.00; // mm
+    const RING_DIAMETER_MM = 20.05; // mm
+
+    let currentTemp = ROOM_TEMP;
+    let alpha = parseFloat(materialSelect.value);
+    let isHeating = false;
+    let isCooling = false;
+
+    // Posizione e animazione della Sfera
+    let sphereYOffset = -100; // Offset verticale iniziale (sopra l'anello)
+    let isTesting = false;
+    let testDirection = 1; // 1 = discesa, -1 = salita
+    let isBlocked = false;
+
+    // Adjust Canvas Size
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Event Listeners
+    materialSelect.addEventListener('change', (e) => {
+      alpha = parseFloat(e.target.value);
+      updatePhysics();
+    });
+
+    tempSlider.addEventListener('input', (e) => {
+      currentTemp = parseFloat(e.target.value);
+      isHeating = false;
+      isCooling = false;
+      updatePhysics();
+    });
+
+    btnHeat.addEventListener('mousedown', () => isHeating = true);
+    btnHeat.addEventListener('mouseup', () => isHeating = false);
+    btnHeat.addEventListener('touchstart', (e) => { e.preventDefault(); isHeating = true; });
+    btnHeat.addEventListener('touchend', () => isHeating = false);
+
+    btnCool.addEventListener('mousedown', () => isCooling = true);
+    btnCool.addEventListener('mouseup', () => isCooling = false);
+    btnCool.addEventListener('touchstart', (e) => { e.preventDefault(); isCooling = true; });
+    btnCool.addEventListener('touchend', () => isCooling = false);
+
+    btnTest.addEventListener('click', () => {
+      if (!isTesting) {
+        isTesting = true;
+        testDirection = 1;
+        isBlocked = false;
+      }
+    });
+
+    function updatePhysics() {
+      const deltaT = currentTemp - ROOM_TEMP;
+      const deltaD = BASE_DIAMETER_MM * alpha * deltaT;
+      const currentDiameter = BASE_DIAMETER_MM + deltaD;
+
+      tempDisplay.innerText = `${Math.round(currentTemp)} °C`;
+      statusBadge.innerText = `T = ${Math.round(currentTemp)} °C`;
+      tempSlider.value = currentTemp;
+
+      sphereDiameterLabel.innerText = `${currentDiameter.toFixed(3)} mm`;
+      calcDeltaT.innerText = `${Math.round(deltaT)} °C`;
+      calcDeltaD.innerText = `+${deltaD.toFixed(4)} mm`;
+
+      if (currentDiameter <= RING_DIAMETER_MM) {
+        fitStatus.innerText = "Passa liberamente";
+        fitStatus.className = "font-semibold text-emerald-400";
+      } else {
+        fitStatus.innerText = "Bloccata dall'espansione";
+        fitStatus.className = "font-semibold text-rose-400";
+      }
+    }
+
+    // Colore incandescenza della Sfera
+    function getSphereColor(temp) {
+      const ratio = Math.min((temp - ROOM_TEMP) / 580, 1);
+      const r = Math.round(50 + ratio * 205);
+      const g = Math.round(55 + ratio * 65);
+      const b = Math.round(65 - ratio * 65);
+
+      return {
+        fill: `rgb(${r}, ${g}, ${b})`,
+        glow: ratio > 0.1 ? `rgba(249, 115, 22, ${ratio * 0.9})` : 'transparent'
+      };
+    }
+
+    // DISEGNO DELL'APPARATO REALE (FEDELE ALLA FOTO)
+    function drawRealApparatus(centerX, centerY, sphereX, sphereY, visualRadius) {
+      // 1. BASE A TREPPIEDE METALLICO VERDE/GRIGIO MARTELATO (Come in foto)
+      ctx.save();
+      
+      // Ombra Base
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY + 145, 95, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Treppiede
+      const baseGrad = ctx.createLinearGradient(centerX - 80, centerY + 130, centerX + 80, centerY + 150);
+      baseGrad.addColorStop(0, '#4a5d4e');
+      baseGrad.addColorStop(0.5, '#6b806e');
+      baseGrad.addColorStop(1, '#38473b');
+
+      ctx.fillStyle = baseGrad;
+      ctx.strokeStyle = '#273329';
+      ctx.lineWidth = 2;
+
+      // Gamba Sinistra
+      ctx.beginPath();
+      ctx.moveTo(centerX - 10, centerY + 125);
+      ctx.lineTo(centerX - 85, centerY + 145);
+      ctx.lineTo(centerX - 70, centerY + 155);
+      ctx.lineTo(centerX - 5, centerY + 130);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Gamba Destra
+      ctx.beginPath();
+      ctx.moveTo(centerX + 10, centerY + 125);
+      ctx.lineTo(centerX + 85, centerY + 145);
+      ctx.lineTo(centerX + 70, centerY + 155);
+      ctx.lineTo(centerX + 5, centerY + 130);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Gamba Centrale / Mozzo
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY + 125, 25, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Vite di serraggio della base (in basso a sinistra come nella foto)
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(centerX - 35, centerY + 130, 8, 8);
+      
+      ctx.restore();
+
+      // 2. ASTA VERTICALE DI ACCIAIO (Stand)
+      const rodGrad = ctx.createLinearGradient(centerX - 6, 0, centerX + 6, 0);
+      rodGrad.addColorStop(0, '#64748b');
+      rodGrad.addColorStop(0.4, '#f1f5f9');
+      rodGrad.addColorStop(1, '#334155');
+
+      ctx.fillStyle = rodGrad;
+      ctx.fillRect(centerX - 5, centerY - 170, 10, 295);
+
+      // 3. MORSETTO SUPERIORE (Supporto per Catena)
+      const topClampY = centerY - 120;
+      
+      // Manopola di blocco nera (Knob)
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(centerX - 12, topClampY, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.stroke();
+
+      // Braccio Morsetto Superiore
+      const clampGrad = ctx.createLinearGradient(centerX - 5, topClampY - 8, centerX + 45, topClampY + 8);
+      clampGrad.addColorStop(0, '#94a3b8');
+      clampGrad.addColorStop(0.5, '#cbd5e1');
+      clampGrad.addColorStop(1, '#64748b');
+
+      ctx.fillStyle = clampGrad;
+      ctx.fillRect(centerX - 5, topClampY - 7, 50, 14);
+
+      // 4. CATENELLA A ANELLI METALLICI (Come nella foto)
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2.5;
+      const chainTopY = topClampY + 7;
+      const chainBottomY = sphereY - visualRadius;
+      const linksCount = Math.max(3, Math.floor((chainBottomY - chainTopY) / 8));
+      
+      for (let i = 0; i < linksCount; i++) {
+        const linkY = chainTopY + (i * (chainBottomY - chainTopY) / linksCount);
+        ctx.beginPath();
+        ctx.ellipse(centerX + 40, linkY, 2.5, 4.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 5. MORSETTO INFERIORE E ANELLO BRONZO/OTTONE
+      const ringClampY = centerY;
+
+      // Manopola di blocco nera
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(centerX - 12, ringClampY, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Braccio Morsetto Inferiore
+      ctx.fillStyle = clampGrad;
+      ctx.fillRect(centerX - 5, ringClampY - 7, 30, 14);
+
+      // ANELLO METALLICO (Sezione Prospettica)
+      const ringCenterX = centerX + 40;
+      const ringRadiusX = 26;
+      const ringRadiusY = 8;
+
+      // Retro dell'Anello (sotto la sfera)
+      ctx.strokeStyle = '#b45309'; // Colore Ottone/Bronzo
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.ellipse(ringCenterX, ringClampY, ringRadiusX, ringRadiusY, 0, Math.PI, 0, true);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#f59e0b'; // Highlight bronzo
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(ringCenterX, ringClampY, ringRadiusX - 1, ringRadiusY - 1, 0, Math.PI, 0, true);
+      ctx.stroke();
+
+      return { ringCenterX, ringClampY, ringRadiusX, ringRadiusY };
+    }
+
+    // ANIMAZIONE PRINCIPALE
+    function animate() {
+      if (isHeating && currentTemp < 600) {
+        currentTemp += 2.5;
+        updatePhysics();
+      } else if (isCooling && currentTemp > 20) {
+        currentTemp -= 4.0;
+        if (currentTemp < 20) currentTemp = 20;
+        updatePhysics();
+      }
+
+      // Gestione del test di passaggio
+      if (isTesting) {
+        const deltaT = currentTemp - ROOM_TEMP;
+        const currentDiameter = BASE_DIAMETER_MM + (BASE_DIAMETER_MM * alpha * deltaT);
+        const ringPassY = 0; // Posizione Y relativa dell'anello
+
+        if (testDirection === 1) {
+          sphereYOffset += 2.5;
+          // Se la sfera è dilatata si ferma sopra l'anello
+          if (currentDiameter > RING_DIAMETER_MM && sphereYOffset >= ringPassY - 10) {
+            sphereYOffset = ringPassY - 10;
+            isBlocked = true;
+            setTimeout(() => {
+              testDirection = -1;
+            }, 700);
+          } else if (sphereYOffset >= 90) {
+            testDirection = -1;
+          }
+        } else {
+          sphereYOffset -= 2.5;
+          if (sphereYOffset <= -100) {
+            sphereYOffset = -100;
+            isTesting = false;
+            isBlocked = false;
+          }
+        }
+      }
+
+      // RENDER CANVAS
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+      const centerX = w / 2 - 20;
+      const centerY = h / 2 + 10;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Calcolo dimensioni Sfera
+      const deltaT = currentTemp - ROOM_TEMP;
+      const currentDiameter = BASE_DIAMETER_MM + (BASE_DIAMETER_MM * alpha * deltaT);
+      const visualRadius = 16 * (currentDiameter / BASE_DIAMETER_MM);
+      const sphereX = centerX + 40;
+      const sphereY = centerY + sphereYOffset;
+
+      // Fiamma del Bruciatore durante il riscaldamento
+      if (isHeating) {
+        ctx.save();
+        const flameY = sphereY + visualRadius + 15;
+        const flameGrad = ctx.createRadialGradient(sphereX, flameY, 2, sphereX, flameY, 22);
+        flameGrad.addColorStop(0, '#fef08a');
+        flameGrad.addColorStop(0.3, '#f97316');
+        flameGrad.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = flameGrad;
+        ctx.beginPath();
+        ctx.arc(sphereX, flameY, 20 + Math.random() * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Disegna Supporto Meccanico dal vivo
+      const ringInfo = drawRealApparatus(centerX, centerY, sphereX, sphereY, visualRadius);
+
+      // Disegna la Sfera Metallica
+      const colorInfo = getSphereColor(currentTemp);
+
+      // Bagliore della sfera calda
+      if (currentTemp > 90) {
+        ctx.save();
+        ctx.shadowColor = colorInfo.glow;
+        ctx.shadowBlur = (currentTemp / 600) * 28;
+        ctx.fillStyle = colorInfo.fill;
+        ctx.beginPath();
+        ctx.arc(sphereX, sphereY, visualRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Texture metallica 3D Sfera
+      const sphereGrad = ctx.createRadialGradient(
+        sphereX - visualRadius * 0.35,
+        sphereY - visualRadius * 0.35,
+        visualRadius * 0.08,
+        sphereX,
+        sphereY,
+        visualRadius
+      );
+      sphereGrad.addColorStop(0, '#ffffff');
+      sphereGrad.addColorStop(0.35, colorInfo.fill);
+      sphereGrad.addColorStop(1, '#090d16');
+
+      ctx.fillStyle = sphereGrad;
+      ctx.beginPath();
+      ctx.arc(sphereX, sphereY, visualRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Parte Anteriore dell'Anello (Copre la sfera quando passa attraverso)
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.ellipse(ringInfo.ringCenterX, ringInfo.ringClampY, ringInfo.ringRadiusX, ringInfo.ringRadiusY, 0, 0, Math.PI, false);
+      ctx.stroke();
+
+      // Indicatore di Blocco
+      if (isBlocked) {
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('BLOCCATA!', ringInfo.ringCenterX, ringInfo.ringClampY - 28);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    window.onload = () => {
+      updatePhysics();
+      animate();
+    };
+  </script>
+</body>
+</html>
