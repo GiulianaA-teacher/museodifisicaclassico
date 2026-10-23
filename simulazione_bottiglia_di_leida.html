@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Bottiglia di Leida</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .spark {
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9));
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-20 flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow-inner">L</div>
+            <h1 class="text-base font-bold tracking-tight text-slate-100">Bottiglia di Leida</h1>
+        </div>
+        <div class="flex items-center space-x-1">
+            <button id="tab-sim" onclick="switchTab('sim')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition shadow">Simulazione</button>
+            <button id="tab-theory" onclick="switchTab('theory')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Teoria</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 flex flex-col overflow-y-auto p-4 max-w-md mx-auto w-full space-y-4">
+
+        <!-- SIMULATION VIEW -->
+        <div id="view-sim" class="flex flex-col space-y-4 flex-1">
+            
+            <!-- Status Card -->
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl p-3 flex justify-between items-center shadow-lg">
+                <div>
+                    <span class="text-xs text-slate-400 block font-medium">Stato Condensatore</span>
+                    <span id="status-text" class="text-sm font-bold text-emerald-400">Scaricata (0 V)</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400 block font-medium">Carica Accumulata</span>
+                    <span id="charge-text" class="text-sm font-bold text-blue-400">0.0 μC</span>
+                </div>
+            </div>
+
+            <!-- Canvas Interactive Area -->
+            <div class="relative bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex items-center justify-center p-2 min-h-[320px]">
+                <canvas id="leydenCanvas" class="w-full h-[320px] rounded-xl cursor-pointer"></canvas>
+                
+                <!-- Floating badge instruction -->
+                <div class="absolute bottom-3 left-3 right-3 bg-slate-900/90 backdrop-blur border border-slate-800/80 text-center py-1.5 px-3 rounded-xl text-xs text-slate-300 shadow pointer-events-none">
+                    Tocca la sferetta superiore per far scoccare la scintilla!
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-300">Tensione Generatore</span>
+                    <span id="voltage-val" class="text-xs font-bold text-emerald-400">10 kV</span>
+                </div>
+                <input type="range" id="voltageSlider" min="2" max="30" value="10" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button id="btn-charge" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-900/30 transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        <span>Carica</span>
+                    </button>
+                    <button id="btn-discharge" class="w-full py-3 px-4 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg shadow-amber-900/30 transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>
+                        <span>Scarica</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- THEORY VIEW -->
+        <div id="view-theory" class="hidden flex flex-col space-y-4 flex-1">
+            
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+                <h2 class="text-sm font-bold text-emerald-400 flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    <span>Cos'è la Bottiglia di Leida?</span>
+                </h2>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    La bottiglia di Leida è il primo prototipo storico di condensatore elettrico, inventato indipendentemente da Ewald Georg von Kleist nel 1745 e da Pieter van Musschenbroek a Leida nel 1746. Consiste in un vaso di vetro rivestito sia internamente che esternamente da fogli conduttivi (armature).
+                </p>
+            </div>
+
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+                <h2 class="text-sm font-bold text-emerald-400">Principio di Funzionamento</h2>
+                <ul class="text-xs text-slate-300 space-y-2 list-disc pl-4 leading-relaxed">
+                    <li><strong>Armatura Interna:</strong> Riceve carica elettrica tramite l'asta metallica e la sferetta superiore.</li>
+                    <li><strong>Dielettrico:</strong> Il corpo in vetro della bottiglia isola le due armature impedendo il contatto diretto ma permettendo l'induzione elettrostatica.</li>
+                    <li><strong>Armatura Esterna:</strong> Collegata solitamente a terra o toccata dall'operatore, accumula carica di segno opposto per induzione.</li>
+                </ul>
+            </div>
+
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+                <h2 class="text-sm font-bold text-emerald-400">Formule Fondamentali</h2>
+                
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-2">
+                    <div class="text-[11px] text-slate-400 font-medium">Capacità del condensatore cilindrico:</div>
+                    <div class="text-sm font-mono font-bold text-emerald-300 text-center py-1 bg-slate-900 rounded-lg border border-slate-800">
+                        C = (2 &pi; &epsilon;<sub>0</sub> &epsilon;<sub>r</sub> L) / ln(R<sub>2</sub> / R<sub>1</sub>)
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-2">
+                    <div class="text-[11px] text-slate-400 font-medium">Carica immagazzinata:</div>
+                    <div class="text-sm font-mono font-bold text-blue-300 text-center py-1 bg-slate-900 rounded-lg border border-slate-800">
+                        Q = C &times; V
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-2">
+                    <div class="text-[11px] text-slate-400 font-medium">Energia immagazzinata nel campo elettrico:</div>
+                    <div class="text-sm font-mono font-bold text-amber-300 text-center py-1 bg-slate-900 rounded-lg border border-slate-800">
+                        U = 0.5 &times; C &times; V<sup>2</sup>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer note -->
+    <footer class="py-2 text-center text-[10px] text-slate-500 border-t border-slate-900">
+        Simulazione Interattiva Didattica • Formato Portrait Ottimizzato
+    </footer>
+
+    <!-- Custom Modal for Notifications -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-5 text-center space-y-4 shadow-2xl">
+            <div id="modal-icon" class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-xl font-bold">⚡</div>
+            <h3 id="modal-title" class="text-base font-bold text-slate-100">Avviso</h3>
+            <p id="modal-message" class="text-xs text-slate-300 leading-relaxed">Messaggio di prova.</p>
+            <button onclick="closeModal()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition">Capito</button>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Tab Navigation
+        function switchTab(tab) {
+            const simView = document.getElementById('view-sim');
+            const theoryView = document.getElementById('view-theory');
+            const tabSim = document.getElementById('tab-sim');
+            const tabTheory = document.getElementById('tab-theory');
+
+            if (tab === 'sim') {
+                simView.classList.remove('hidden');
+                theoryView.classList.add('hidden');
+                tabSim.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition shadow';
+                tabTheory.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            } else {
+                simView.classList.add('hidden');
+                theoryView.classList.remove('hidden');
+                tabTheory.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition shadow';
+                tabSim.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            }
+        }
+
+        // Modal Handler (No alert/confirm used)
+        function showModal(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        // Simulation State & Canvas
+        const canvas = document.getElementById('leydenCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let chargeLevel = 0; // 0 to 100%
+        let isCharging = false;
+        let targetVoltage = 10;
+        let sparkAnimProgress = 0;
+        let sparkActive = false;
+
+        // Resize canvas for high DPI and responsiveness
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth * window.devicePixelRatio;
+            canvas.height = 320 * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // UI Controls Listeners
+        const slider = document.getElementById('voltageSlider');
+        const voltageVal = document.getElementById('voltageVal');
+        slider.addEventListener('input', (e) => {
+            targetVoltage = parseInt(e.target.value);
+            voltageVal.innerText = targetVoltage + ' kV';
+        });
+
+        document.getElementById('btn-charge').addEventListener('click', () => {
+            if (chargeLevel >= 100) {
+                showModal("Bottiglia Carica", "La bottiglia di Leida ha raggiunto la massima carica accumulabile per questa tensione!");
+                return;
+            }
+            isCharging = true;
+        });
+
+        document.getElementById('btn-discharge').addEventListener('click', () => {
+            triggerDischarge();
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Check if click near sphere (top center)
+            const centerX = canvas.clientWidth / 2;
+            const sphereY = 65;
+            const dist = Math.hypot(x - centerX, y - sphereY);
+            
+            if (dist < 30) {
+                if (chargeLevel > 5) {
+                    triggerDischarge();
+                } else {
+                    showModal("Bottiglia Scarica", "Carica prima la bottiglia usando il pulsante 'Carica' per generare una scintilla.");
+                }
+            } else {
+                if (chargeLevel < 100) {
+                    isCharging = true;
+                }
+            }
+        });
+
+        function triggerDischarge() {
+            if (chargeLevel <= 1) {
+                showModal("Nessuna Carica", "La bottiglia è già scarica. Impossibile generare una scintilla.");
+                return;
+            }
+            sparkActive = true;
+            sparkAnimProgress = 1.0;
+            chargeLevel = 0;
+            isCharging = false;
+            updateStatusDisplay();
+        }
+
+        function updateStatusDisplay() {
+            const statusText = document.getElementById('status-text');
+            const chargeText = document.getElementById('charge-text');
+            
+            const currentV = Math.round((chargeLevel / 100) * targetVoltage);
+            const currentQ = (chargeLevel * 0.12).toFixed(1);
+
+            chargeText.innerText = currentQ + ' μC';
+            
+            if (chargeLevel === 0) {
+                statusText.innerText = "Scaricata (0 V)";
+                statusText.className = "text-sm font-bold text-emerald-400";
+            } else if (chargeLevel < 50) {
+                statusText.innerText = `In carica (${currentV} kV)`;
+                statusText.className = "text-sm font-bold text-blue-400";
+            } else if (chargeLevel < 100) {
+                statusText.innerText = `Carica alta (${currentV} kV)`;
+                statusText.className = "text-sm font-bold text-amber-400";
+            } else {
+                statusText.innerText = `Carica Massima (${targetVoltage} kV)`;
+                statusText.className = "text-sm font-bold text-rose-400";
+            }
+        }
+
+        // Main Animation Loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.clientWidth, 320);
+
+            const w = canvas.clientWidth;
+            const h = 320;
+            const cx = w / 2;
+
+            // Handle charging state increment
+            if (isCharging) {
+                chargeLevel += 1.5;
+                if (chargeLevel >= 100) {
+                    chargeLevel = 100;
+                    isCharging = false;
+                }
+                updateStatusDisplay();
+            }
+
+            // Draw Leyden Jar based on photo structure:
+            // 1. External metal casing (tin foil cylinder)
+            // 2. Glass container inside/upper
+            // 3. Inner foil lining
+            // 4. Central rod with top sphere
+
+            const jarWidth = 110;
+            const jarHeight = 180;
+            const jarX = cx - jarWidth / 2;
+            const jarY = 95;
+
+            // External metal casing (pewter/tin look)
+            const extGrad = ctx.createLinearGradient(jarX, 0, jarX + jarWidth, 0);
+            extGrad.addColorStop(0, '#475569');
+            extGrad.addColorStop(0.5, '#94a3b8');
+            extGrad.addColorStop(1, '#334155');
+
+            ctx.fillStyle = extGrad;
+            ctx.beginPath();
+            ctx.roundRect(jarX, jarY + 80, jarWidth, 100, [0, 0, 12, 12]);
+            ctx.fill();
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Charges on external foil (-)
+            if (chargeLevel > 0) {
+                ctx.fillStyle = '#60a5fa';
+                ctx.font = '11px sans-serif';
+                for (let i = 0; i < Math.floor(chargeLevel / 20) + 1; i++) {
+                    ctx.fillText('-', jarX + 15 + (i * 20), jarY + 130);
+                    ctx.fillText('-', jarX + 15 + (i * 20), jarY + 160);
+                }
+            }
+
+            // Glass container (transparent cyan/white tint)
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.08)';
+            ctx.beginPath();
+            ctx.roundRect(jarX + 8, jarY, jarWidth - 16, 170, [10, 10, 4, 4]);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner conductive foil lining
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(jarX + 16, jarY + 85, jarWidth - 32, 80);
+
+            // Charges on internal foil (+)
+            if (chargeLevel > 0) {
+                ctx.fillStyle = '#f87171';
+                ctx.font = '11px sans-serif';
+                for (let i = 0; i < Math.floor(chargeLevel / 20) + 1; i++) {
+                    ctx.fillText('+', jarX + 25 + (i * 20), jarY + 115);
+                    ctx.fillText('+', jarX + 25 + (i * 20), jarY + 145);
+                }
+            }
+
+            // Wooden/plastic lid disk inside glass mouth
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(jarX + 12, jarY + 75, jarWidth - 24, 10);
+
+            // Central metal rod
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx, jarY + 75);
+            ctx.lineTo(cx, jarY + 20);
+            ctx.stroke();
+
+            // Top conductive sphere
+            const sphereRadius = 14;
+            const sphereY = jarY + 12;
+            const sphereGrad = ctx.createRadialGradient(cx - 4, sphereY - 4, 2, cx, sphereY, sphereRadius);
+            sphereGrad.addColorStop(0, '#f8fafc');
+            sphereGrad.addColorStop(0.5, '#94a3b8');
+            sphereGrad.addColorStop(1, '#334155');
+
+            ctx.fillStyle = sphereGrad;
+            ctx.beginPath();
+            ctx.arc(cx, sphereY, sphereRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Charging effect beam from generator if active
+            if (isCharging) {
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(cx - 80, sphereY - 30);
+                ctx.lineTo(cx, sphereY - sphereRadius);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Sparkles at sphere
+                ctx.fillStyle = '#bae6fd';
+                ctx.beginPath();
+                ctx.arc(cx + (Math.random() * 16 - 8), sphereY + (Math.random() * 16 - 8), 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Discharge Spark Animation Effect
+            if (sparkActive && sparkAnimProgress > 0) {
+                ctx.strokeStyle = '#60a5fa';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#3b82f6';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.moveTo(cx, sphereY);
+                // Draw jagged lightning arc to external can base or side
+                ctx.lineTo(cx + 40, sphereY + 40);
+                ctx.lineTo(cx + 10, sphereY + 90);
+                ctx.lineTo(cx + jarWidth/2, jarY + 120);
+                ctx.stroke();
+                ctx.shadowBlur = 0; // reset
+
+                sparkAnimProgress -= 0.04;
+                if (sparkAnimProgress <= 0) {
+                    sparkActive = false;
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start loop on load
+        window.onload = function() {
+            updateStatusDisplay();
+            animate();
+        };
+    </script>
+</body>
+</html>
