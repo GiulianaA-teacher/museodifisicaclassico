@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore Bobina a Corrente Elevata</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        input[type=range] {
+            accent-color: #f59e0b;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden selection:bg-amber-500 selection:text-white">
+
+    <!-- Header dell'applicazione -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md shrink-0">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <i class="fa-solid fa-bolt text-white text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base tracking-tight text-white leading-tight">Bobina a Corrente Elevata</h1>
+                <p class="text-xs text-slate-400">Elettromagnetismo & Effetto Joule</p>
+            </div>
+        </div>
+        <button onclick="toggleInfoModal(true)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition active:scale-95 border border-slate-700">
+            <i class="fa-solid fa-circle-info text-sm text-amber-400"></i>
+        </button>
+    </header>
+
+    <!-- Contenitore Principale Scrollabile in Portrait -->
+    <main class="flex-1 overflow-y-auto px-4 py-3 space-y-4 max-w-lg mx-auto w-full">
+
+        <!-- Sezione Grafica / Canvas Animato -->
+        <section class="glass-panel rounded-2xl p-3 shadow-xl relative overflow-hidden flex flex-col items-center">
+            <div class="w-full flex justify-between items-center mb-2 px-1">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <span id="statusIndicator" class="w-2 h-2 rounded-full bg-slate-500"></span> Vista Apparecchio
+                </span>
+                <button id="powerBtn" onclick="togglePower()" class="text-xs px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 active:scale-95">
+                    <i class="fa-solid fa-power-off text-slate-400"></i> <span id="powerBtnText">SPENTO</span>
+                </button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="relative w-full aspect-[4/3] max-h-[260px] bg-slate-900/90 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                <canvas id="coilCanvas" class="w-full h-full"></canvas>
+            </div>
+        </section>
+
+        <!-- Pannello di Controllo Interattivo -->
+        <section class="glass-panel rounded-2xl p-4 shadow-xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-400"></i> Parametri Circuito
+                </h2>
+                <button onclick="resetValues()" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700 active:scale-95">
+                    <i class="fa-solid fa-rotate-left"></i> Reset
+                </button>
+            </div>
+
+            <!-- Slider Corrente I -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-300 font-medium">Intensità di Corrente (<span class="italic">I</span>)</span>
+                    <span id="valCurrent" class="font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">50 A</span>
+                </div>
+                <input type="range" id="currentRange" min="0" max="200" value="50" step="5" 
+                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Slider Numero di Spire n -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-300 font-medium">Numero di Spire (<span class="italic">n</span>)</span>
+                    <span id="valTurns" class="font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">5 spire</span>
+                </div>
+                <input type="range" id="turnsRange" min="3" max="10" value="5" step="1" 
+                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+            </div>
+        </section>
+
+        <!-- Tabella Dati in Tempo Reale -->
+        <section class="glass-panel rounded-2xl p-4 shadow-xl space-y-3">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-table-cells text-emerald-400"></i> Risultati in Tempo Reale
+            </h2>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+                    <span class="text-xs text-slate-400">Campo Magnetico (B)</span>
+                    <span id="resMagneticField" class="font-bold text-amber-400 text-base mt-1">3.14 mT</span>
+                </div>
+                <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+                    <span class="text-xs text-slate-400">Potenza Dissipata (P)</span>
+                    <span id="resPower" class="font-bold text-red-400 text-base mt-1">25.0 W</span>
+                </div>
+                <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+                    <span class="text-xs text-slate-400">Temperatura Stimata</span>
+                    <span id="resTemp" class="font-bold text-slate-100 text-base mt-1">24.5 °C</span>
+                </div>
+                <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+                    <span class="text-xs text-slate-400">Resistenza Bobina (R)</span>
+                    <span id="resResistance" class="font-bold text-blue-400 text-base mt-1">0.010 Ω</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pannello Formule e Teoria (Render pulito senza LaTeX) -->
+        <section class="glass-panel rounded-2xl p-4 shadow-xl space-y-3 mb-6">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-atom text-purple-400"></i> Leggi Fisiche
+            </h2>
+            
+            <div class="space-y-3 text-xs text-slate-300">
+                <!-- Legge del Campo Magnetico -->
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                    <div class="font-semibold text-slate-200 mb-1 flex items-center justify-between">
+                        <span>Campo Magnetico nel Solenoide</span>
+                        <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">Ampère</span>
+                    </div>
+                    <div class="py-2 text-center text-sm font-medium tracking-wide text-amber-300 bg-slate-950/60 rounded-lg my-1 border border-slate-800/50">
+                        B = &mu;<sub>0</sub> · n · I / L
+                    </div>
+                    <p class="text-slate-400 leading-relaxed">
+                        Il campo magnetico all'interno delle spire spesse di rame è direttamente proporzionale all'intensità di corrente <span class="italic">I</span> e al numero di spire per unità di lunghezza.
+                    </p>
+                </div>
+
+                <!-- Effetto Joule e Potenza -->
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                    <div class="font-semibold text-slate-200 mb-1 flex items-center justify-between">
+                        <span>Potenza Termica Dissipata</span>
+                        <span class="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded border border-red-500/30">Effetto Joule</span>
+                    </div>
+                    <div class="py-2 text-center text-sm font-medium tracking-wide text-red-300 bg-slate-950/60 rounded-lg my-1 border border-slate-800/50">
+                        P = R · I<sup>2</sup>
+                    </div>
+                    <p class="text-slate-400 leading-relaxed">
+                        A causa delle elevate correnti (decine o centinaia di Ampere) che scorrono nelle spire spesse, la potenza termica cresce con il quadrato della corrente, richiedendo manici isolati in legno per la manipolazione in sicurezza.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modale Informazioni -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-xl bg-amber-600/20 flex items-center justify-center text-amber-400 border border-amber-500/30">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                    <h3 class="font-bold text-base text-white">Informazioni Apparecchio</h3>
+                </div>
+                <button onclick="toggleInfoModal(false)" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    La <strong>bobina a corrente elevata</strong> (visibile nella foto di riferimento con manici in legno tornito, aste metalliche di supporto e spire spesse di rame) è un classico strumento dimostrativo da laboratorio didattico.
+                </p>
+                <p>
+                    Viene utilizzata per mostrare gli effetti termici della corrente (effetto Joule) e la generazione di forti campi magnetici capaci di attrarre piccoli nuclei o indurre correnti parassite.
+                </p>
+                <p class="text-amber-300 font-medium bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i> <strong>Istruzioni:</strong> Attiva l'interruttore e regola lo slider della corrente per osservare l'intensità del campo magnetico e l'aumento termico delle spire.
+                </p>
+            </div>
+            <button onclick="toggleInfoModal(false)" class="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-600/30 transition active:scale-98">
+                Ho capito, procedi
+            </button>
+        </div>
+    </div>
+
+    <!-- Script Logica di Simulazione e Canvas -->
+    <script>
+        const canvas = document.getElementById('coilCanvas');
+        const ctx = canvas.getContext('2d');
+        const currentRange = document.getElementById('currentRange');
+        const turnsRange = document.getElementById('turnsRange');
+        const valCurrent = document.getElementById('valCurrent');
+        const valTurns = document.getElementById('valTurns');
+        
+        const resMagneticField = document.getElementById('resMagneticField');
+        const resPower = document.getElementById('resPower');
+        const resTemp = document.getElementById('resTemp');
+        const resResistance = document.getElementById('resResistance');
+        const powerBtn = document.getElementById('powerBtn');
+        const powerBtnText = document.getElementById('powerBtnText');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const infoModal = document.getElementById('infoModal');
+
+        let isPoweredOn = false;
+        let animationFrameId;
+        let pulsePhase = 0;
+        let currentTemp = 20.0;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawSimulation();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function togglePower() {
+            isPoweredOn = !isPoweredOn;
+            if (isPoweredOn) {
+                powerBtn.className = "text-xs px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 border border-amber-400 active:scale-95";
+                powerBtnText.textContent = "ATTIVO";
+                statusIndicator.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+            } else {
+                powerBtn.className = "text-xs px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 active:scale-95";
+                powerBtnText.textContent = "SPENTO";
+                statusIndicator.className = "w-2 h-2 rounded-full bg-slate-500";
+            }
+            drawSimulation();
+        }
+
+        function calculatePhysics() {
+            const I = parseFloat(currentRange.value);
+            const n = parseInt(turnsRange.value);
+            const R = 0.01 * (n / 5); // Resistenza approssimativa in ohm
+            const L_solenoide = 0.12; // metri
+            const mu_0 = 4 * Math.PI * 1e-7;
+
+            // B = mu_0 * n * I / L
+            const B = (mu_0 * n * I) / L_solenoide; // Tesla
+            const B_mT = B * 1000;
+
+            // Potenza P = R * I^2
+            const P = R * (I * I);
+
+            // Incremento temperatura stimato
+            let targetTemp = 20.0 + (isPoweredOn ? (P * 0.15) : 0);
+            if (targetTemp > 95) targetTemp = 95; // limite termico
+
+            return { I, n, B_mT, P, R, targetTemp };
+        }
+
+        function drawSimulation() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const data = calculatePhysics();
+            valCurrent.textContent = data.I + ' A';
+            valTurns.textContent = data.n + ' spire';
+            resMagneticField.textContent = data.B_mT.toFixed(2) + ' mT';
+            resPower.textContent = data.P.toFixed(1) + ' W';
+            resResistance.textContent = data.R.toFixed(3) + ' Ω';
+
+            // Graduale transizione temperatura
+            currentTemp += (data.targetTemp - currentTemp) * 0.1;
+            resTemp.textContent = currentTemp.toFixed(1) + ' °C';
+
+            // --- DISEGNO APPARECCHIO ---
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // 1. Linee di campo magnetico pulsanti (se alimentato)
+            if (isPoweredOn && data.I > 0) {
+                pulsePhase += 0.05;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+                for (let r = 50; r < 140; r += 30) {
+                    let offset = (pulsePhase * 10) % 30;
+                    ctx.beginPath();
+                    ctx.ellipse(centerX, centerY - 25, r + offset, r * 0.5, 0, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // 2. Supporti Verticali (astine metalliche)
+            const coilWidth = 140;
+            const leftX = centerX - coilWidth / 2 + 15;
+            const rightX = centerX + coilWidth / 2 - 15;
+
+            ctx.save();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            // Asta sinistra
+            ctx.beginPath();
+            ctx.moveTo(leftX, centerY - 20);
+            ctx.lineTo(leftX, centerY + 60);
+            ctx.stroke();
+            // Asta destra
+            ctx.beginPath();
+            ctx.moveTo(rightX, centerY - 20);
+            ctx.lineTo(rightX, centerY + 60);
+            ctx.stroke();
+            ctx.restore();
+
+            // 3. Manici in legno inferiore (caratteristici dell'apparecchio)
+            const handleWidth = 24;
+            const handleHeight = 55;
+            const handleY = centerY + 60;
+
+            // Colore legno con sfumatura termica se surriscaldato
+            let woodColor = '#d97706';
+            if (currentTemp > 50) woodColor = '#b45309';
+            if (currentTemp > 75) woodColor = '#991b1b';
+
+            ctx.save();
+            // Manico sinistro
+            ctx.fillStyle = woodColor;
+            ctx.beginPath();
+            ctx.roundRect(leftX - handleWidth/2, handleY, handleWidth, handleHeight, 10);
+            ctx.fill();
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Manico destro
+            ctx.beginPath();
+            ctx.roundRect(rightX - handleWidth/2, handleY, handleWidth, handleHeight, 10);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // Morsetti di collegamento centrali sulle aste
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(leftX - 6, centerY + 25, 12, 10);
+            ctx.fillRect(rightX - 6, centerY + 25, 12, 10);
+
+            // 4. Cilindro di supporto centrale (nucleo)
+            ctx.save();
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            ctx.roundRect(centerX - coilWidth/2, centerY - 45, coilWidth, 40, 6);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+
+            // 5. Spire spesse di metallo avvolte attorno al cilindro
+            const numSpire = data.n;
+            const stepSpira = coilWidth / (numSpire + 1);
+
+            for (let i = 1; i <= numSpire; i++) {
+                let spiraX = (centerX - coilWidth/2) + i * stepSpira;
+                
+                ctx.save();
+                // Colore delle spire: se alimentato, assume riflessi incandescenti in base alla temperatura
+                let spiraColor = '#94a3b8';
+                if (isPoweredOn && data.I > 0) {
+                    let glowFactor = Math.min(1, currentTemp / 80);
+                    spiraColor = glowFactor > 0.5 ? '#ef4444' : '#f59e0b';
+                    ctx.shadowColor = spiraColor;
+                    ctx.shadowBlur = 12 * glowFactor;
+                }
+
+                ctx.strokeStyle = spiraColor;
+                ctx.lineWidth = 7;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(spiraX, centerY - 25, 22, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // Loop di animazione continuo per le linee di campo e l'effetto termico
+        function animationLoop() {
+            if (isPoweredOn) {
+                drawSimulation();
+            }
+            animationFrameId = requestAnimationFrame(animationLoop);
+        }
+
+        // Event listener controlli
+        currentRange.addEventListener('input', drawSimulation);
+        turnsRange.addEventListener('input', drawSimulation);
+
+        function resetValues() {
+            currentRange.value = 50;
+            turnsRange.value = 5;
+            isPoweredOn = false;
+            currentTemp = 20.0;
+            powerBtn.className = "text-xs px-3 py-1 rounded-full font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 active:scale-95";
+            powerBtnText.textContent = "SPENTO";
+            statusIndicator.className = "w-2 h-2 rounded-full bg-slate-500";
+            drawSimulation();
+        }
+
+        function toggleInfoModal(show) {
+            if (show) {
+                infoModal.classList.remove('hidden');
+            } else {
+                infoModal.classList.add('hidden');
+            }
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            animationLoop();
+        };
+    </script>
+</body>
+</html>
