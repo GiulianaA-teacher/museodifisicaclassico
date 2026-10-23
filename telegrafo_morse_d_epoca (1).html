@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Tasto Telegrafico d'Epoca</title>
+    <!-- Tailwind CSS per interfaccia -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js per 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@600;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #e6dfd3;
+            color: #2b2520;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+        }
+
+        .vintage-title {
+            font-family: 'Cinzel', serif;
+        }
+
+        .monospaced {
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .wood-card {
+            background: linear-gradient(145deg, #f0e7d8 0%, #dcd1be 100%);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12), inset 0 0 2px rgba(255,255,255,0.8);
+            border: 1px solid #bdae98;
+        }
+
+        .brass-accent {
+            border: 1px solid #b38b4d;
+            background: linear-gradient(135deg, #dfbc77 0%, #b88e4c 50%, #8c6328 100%);
+        }
+
+        .brass-text {
+            background: linear-gradient(135deg, #8a6428 0%, #4a320d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Input Range styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #beaf9a;
+            height: 6px;
+            border-radius: 3px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #dfbc77 0%, #8c6328 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            border: 1px solid #5e4113;
+        }
+
+        #canvasContainer {
+            width: 100%;
+            height: 420px;
+            cursor: grab;
+            touch-action: none;
+        }
+        #canvasContainer:active {
+            cursor: grabbing;
+        }
+
+        .bulb-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #551e12;
+            border: 1px solid #3d120a;
+            transition: background-color 0.05s, box-shadow 0.05s;
+        }
+        .bulb-indicator.active {
+            background-color: #ff3b19;
+            box-shadow: 0 0 12px #ff3b19, 0 0 20px #ff7700;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-6">
+
+    <!-- Header -->
+    <header class="text-center mb-4">
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-black vintage-title brass-text tracking-wide uppercase drop-shadow-sm">
+            Telegrafo Elettrico Morse
+        </h1>
+        <p class="text-xs sm:text-sm text-stone-600 tracking-widest uppercase font-medium mt-1">
+            Simulazione e Guida al Funzionamento Elettromeccanico
+        </p>
+    </header>
+
+    <!-- Layout Principale -->
+    <main class="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Colonna Sinistra: Viewport 3D -->
+        <section class="lg:col-span-7 flex flex-col items-center w-full">
+            <div class="wood-card p-2 sm:p-4 rounded-2xl w-full relative overflow-hidden flex flex-col items-center border border-amber-900/20">
+                
+                <!-- Spia Stato Circuito -->
+                <div class="absolute top-4 left-5 flex items-center space-x-2 bg-amber-100/90 px-3 py-1 rounded-full border border-amber-800/30 shadow-sm z-10">
+                    <div id="statusBulb" class="bulb-indicator"></div>
+                    <span id="circuitText" class="text-xs font-mono text-stone-800 uppercase tracking-wider font-bold">Circuito Aperto</span>
+                </div>
+
+                <!-- Canvas Three.js -->
+                <div id="canvasContainer" class="rounded-xl overflow-hidden shadow-inner bg-gradient-to-b from-stone-200 to-stone-300"></div>
+
+                <!-- Controlli Interattivi sotto il Canvas -->
+                <div class="w-full flex flex-wrap justify-between items-center gap-2 text-xs text-stone-700 font-mono mt-3 px-2">
+                    <button id="simAutoBtn" class="bg-amber-800 hover:bg-amber-900 text-amber-50 px-4 py-2 rounded-lg font-sans font-bold shadow transition flex items-center gap-2">
+                        <span>▶</span> Dimostrazione Automatica (SOS)
+                    </button>
+                    <span class="text-[11px] text-stone-600">• Tieni premuto [SPAZIO] o clicca il pomello</span>
+                </div>
+            </div>
+
+            <!-- Regolazioni Audio -->
+            <div class="wood-card p-4 rounded-xl w-full mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 border border-amber-900/20">
+                <div class="flex flex-col items-center">
+                    <label for="freqControl" class="text-xs font-bold text-amber-900 uppercase mb-1">Tono (Hz)</label>
+                    <input type="range" id="freqControl" min="400" max="900" value="650" class="w-full">
+                    <span id="freqValue" class="text-xs font-mono text-stone-600 mt-1">650 Hz</span>
+                </div>
+
+                <div class="flex flex-col items-center">
+                    <label for="volumeControl" class="text-xs font-bold text-amber-900 uppercase mb-1">Volume</label>
+                    <input type="range" id="volumeControl" min="0" max="100" value="70" class="w-full">
+                    <span id="volumeValue" class="text-xs font-mono text-stone-600 mt-1">70%</span>
+                </div>
+
+                <div class="flex flex-col items-center">
+                    <label for="wpmControl" class="text-xs font-bold text-amber-900 uppercase mb-1">Velocità Decodifica</label>
+                    <input type="range" id="wpmControl" min="8" max="35" value="15" class="w-full">
+                    <span id="wpmValue" class="text-xs font-mono text-stone-600 mt-1">15 WPM</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Colonna Destra: Come Funziona + Ricevitore -->
+        <section class="lg:col-span-5 flex flex-col space-y-4 w-full">
+            
+            <!-- Spiegazione Funzionamento Meccanico ed Elettrico -->
+            <div class="wood-card p-5 rounded-2xl border border-amber-900/20 shadow-sm">
+                <h2 class="text-sm font-bold text-amber-950 uppercase tracking-wider mb-2 flex items-center gap-2 border-b border-amber-900/20 pb-2">
+                    <span>⚡</span> Come Funziona lo Strumento
+                </h2>
+                <div class="text-xs text-stone-800 space-y-2 leading-relaxed">
+                    <p>
+                        <strong>1. Il Principio della Leva:</strong> Premendo il pomello in legno scuro, la leva principale in ottone ruota attorno al perno centrale con vite d'arresto.
+                    </p>
+                    <p>
+                        <strong>2. Chiusura del Circuito:</strong> L'abbassamento della leva fa toccare il piattello di contatto in ottone anteriore, chiudendo il circuito elettrico alimentato dai morsetti laterali.
+                    </p>
+                    <p>
+                        <strong>3. Generazione del Segnale:</strong> La chiusura del contatto invia una scarica di corrente (scintilla) lungo la linea telegrafica, emettendo un segnale acustico ed elettrico coordinato.
+                    </p>
+                    <p>
+                        <strong>4. Ritorno a Molla:</strong> Rilasciando il pomello, la molla laminata posta al centro e la vite di regolazione posteriore riportano immediatamente la leva nella posizione di riposo (circuito aperto).
+                    </p>
+                </div>
+            </div>
+
+            <!-- Schermo Decodificatore Morse -->
+            <div class="wood-card p-5 rounded-2xl flex flex-col h-56 border border-amber-900/20 shadow-sm relative">
+                <div class="flex justify-between items-center mb-2 border-b border-stone-300 pb-2">
+                    <h2 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+                        <span>📜</span> Ricevitore e Traduttore Morse
+                    </h2>
+                    <button id="clearBtn" class="text-xs bg-stone-300 hover:bg-stone-400 text-stone-800 px-3 py-1 rounded border border-stone-400 font-medium transition">
+                        Cancella
+                    </button>
+                </div>
+
+                <div class="text-[11px] text-stone-500 font-mono mb-1">Segnali Morse (Punti e Linee):</div>
+                <div id="morseBuffer" class="h-9 bg-stone-900 rounded-lg p-2 text-amber-400 font-mono text-lg flex items-center overflow-x-auto tracking-widest border border-stone-800 shadow-inner">
+                    <span class="animate-pulse text-amber-600">_</span>
+                </div>
+
+                <div class="text-[11px] text-stone-500 font-mono mt-3 mb-1">Testo Tradotto:</div>
+                <div id="decodedText" class="flex-1 bg-amber-50/80 rounded-lg p-3 text-stone-900 monospaced text-base overflow-y-auto break-words border border-stone-300 shadow-inner leading-relaxed">
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-6 text-center text-xs text-stone-500 font-mono">
+        Simulatore di Telegrafia Elettromeccanica d'Epoca • Web Audio API & Three.js 3D Engine
+    </footer>
+
+    <!-- Logic Script -->
+    <script>
+        // --- MORSE DICTIONARY ---
+        const MORSE_MAP = {
+            '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+            '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+            '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+            '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+            '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+            '--..': 'Z', '-----': '0', '.----': '1', '..---': '2', '...--': '3',
+            '....-': '4', '.....': '5', '-....': '6', '--...': '7', '---..': '8',
+            '----.': '9', '.-.-.-': '.', '--..--': ','
+        };
+
+        // --- AUDIO SYNTHESIS (Web Audio API) ---
+        let audioCtx = null;
+        let oscillator = null;
+        let gainNode = null;
+        let isAudioPlaying = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playMechanicalClick(isDown) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const bufferSize = audioCtx.sampleRate * 0.015;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+            }
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = isDown ? 1200 : 1800;
+            filter.Q.value = 3.0;
+
+            const clickGain = audioCtx.createGain();
+            const vol = (parseInt(document.getElementById('volumeControl').value) / 100) * 0.4;
+            clickGain.gain.setValueAtTime(vol, now);
+            clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+
+            noise.connect(filter);
+            filter.connect(clickGain);
+            clickGain.connect(audioCtx.destination);
+
+            noise.start(now);
+        }
+
+        function startTone() {
+            initAudio();
+            if (isAudioPlaying) return;
+
+            const freq = parseInt(document.getElementById('freqControl').value);
+            const vol = parseInt(document.getElementById('volumeControl').value) / 100;
+
+            if (vol > 0) {
+                oscillator = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(vol * 0.3, audioCtx.currentTime + 0.005);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                isAudioPlaying = true;
+            }
+
+            playMechanicalClick(true);
+        }
+
+        function stopTone() {
+            if (isAudioPlaying && gainNode) {
+                const now = audioCtx.currentTime;
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.005);
+                setTimeout(() => {
+                    if (oscillator) {
+                        oscillator.stop();
+                        oscillator.disconnect();
+                        oscillator = null;
+                    }
+                    isAudioPlaying = false;
+                }, 10);
+            }
+            playMechanicalClick(false);
+        }
+
+        // --- THREE.JS 3D TELEGRAPH MODEL ---
+        let scene, camera, renderer;
+        let leverGroup, leverArm, knob, rearScrew;
+        let sparkParticles = [];
+        let isKeyPressed = false;
+        let targetRotation = 0;
+        let currentRotation = 0;
+
+        function init3D() {
+            const container = document.getElementById('canvasContainer');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe6dfd3);
+
+            camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 1000);
+            camera.position.set(0, 14, 22);
+            camera.lookAt(0, 2, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.9);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+            dirLight.position.set(10, 20, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0xd4e3ff, 0.4);
+            fillLight.position.set(-10, 10, -10);
+            scene.add(fillLight);
+
+            // Materials
+            const woodMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4a2a18,
+                roughness: 0.4,
+                metalness: 0.1
+            });
+
+            const brassMaterial = new THREE.MeshStandardMaterial({
+                color: 0xcc9e43,
+                roughness: 0.35,
+                metalness: 0.85
+            });
+
+            const darkWoodMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1f140e,
+                roughness: 0.5,
+                metalness: 0.1
+            });
+
+            // 1. BASE WOODEN BLOCK
+            const baseGroup = new THREE.Group();
+            
+            // Lower Base
+            const baseBottomGeo = new THREE.BoxGeometry(16, 1.2, 9);
+            const baseBottom = new THREE.Mesh(baseBottomGeo, woodMaterial);
+            baseBottom.position.y = 0.6;
+            baseBottom.receiveShadow = true;
+            baseBottom.castShadow = true;
+            baseGroup.add(baseBottom);
+
+            // Upper Molded Base
+            const baseTopGeo = new THREE.BoxGeometry(14.8, 0.6, 7.8);
+            const baseTop = new THREE.Mesh(baseTopGeo, woodMaterial);
+            baseTop.position.y = 1.5;
+            baseTop.receiveShadow = true;
+            baseTop.castShadow = true;
+            baseGroup.add(baseTop);
+
+            // 2. BRASS SUPPORTS & TERMINALS
+            // Central Fulcrum Posts
+            const postGeo = new THREE.CylinderGeometry(0.4, 0.6, 2.2, 16);
+            const postLeft = new THREE.Mesh(postGeo, brassMaterial);
+            postLeft.position.set(0, 2.9, 1.6);
+            postLeft.castShadow = true;
+            baseGroup.add(postLeft);
+
+            const postRight = new THREE.Mesh(postGeo, brassMaterial);
+            postRight.position.set(0, 2.9, -1.6);
+            postRight.castShadow = true;
+            baseGroup.add(postRight);
+
+            // Cross Axis Pin
+            const axisGeo = new THREE.CylinderGeometry(0.2, 0.2, 3.6, 16);
+            axisGeo.rotateX(Math.PI / 2);
+            const axisPin = new THREE.Mesh(axisGeo, brassMaterial);
+            axisPin.position.set(0, 3.4, 0);
+            baseGroup.add(axisPin);
+
+            // Front Contact Pad (under front lever)
+            const contactPadGeo = new THREE.CylinderGeometry(0.8, 0.9, 0.4, 32);
+            const contactPad = new THREE.Mesh(contactPadGeo, brassMaterial);
+            contactPad.position.set(4.5, 2.0, 0);
+            contactPad.castShadow = true;
+            baseGroup.add(contactPad);
+
+            // Rear Contact Screw Base
+            const rearBaseGeo = new THREE.CylinderGeometry(0.7, 0.8, 0.4, 32);
+            const rearBase = new THREE.Mesh(rearBaseGeo, brassMaterial);
+            rearBase.position.set(-5.0, 2.0, 0);
+            rearBase.castShadow = true;
+            baseGroup.add(rearBase);
+
+            // Side Wire Terminals (3 Screws)
+            for (let i = -1; i <= 1; i++) {
+                const termGeo = new THREE.CylinderGeometry(0.3, 0.35, 0.6, 16);
+                const term = new THREE.Mesh(termGeo, brassMaterial);
+                term.position.set(-7.0, 2.1, i * 1.8);
+                term.castShadow = true;
+                baseGroup.add(term);
+            }
+
+            scene.add(baseGroup);
+
+            // 3. ROTATING LEVER ASSEMBLY
+            leverGroup = new THREE.Group();
+            leverGroup.position.set(0, 3.4, 0); // Rotation axis at fulcrum
+
+            // Brass Main Lever Bar
+            const leverGeo = new THREE.BoxGeometry(11, 0.7, 0.8);
+            leverArm = new THREE.Mesh(leverGeo, brassMaterial);
+            leverArm.castShadow = true;
+            leverGroup.add(leverArm);
+
+            // Front Knob Assembly (Wood + Brass)
+            const knobStemGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.8, 16);
+            const knobStem = new THREE.Mesh(knobStemGeo, brassMaterial);
+            knobStem.position.set(4.5, 0.6, 0);
+            leverGroup.add(knobStem);
+
+            const knobGeo = new THREE.CylinderGeometry(1.0, 0.5, 1.4, 32);
+            knob = new THREE.Mesh(knobGeo, darkWoodMaterial);
+            knob.position.set(4.5, 1.5, 0);
+            knob.castShadow = true;
+            leverGroup.add(knob);
+
+            // Rear Adjustment Screw & Knurled Nut
+            const screwGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.6, 16);
+            rearScrew = new THREE.Mesh(screwGeo, brassMaterial);
+            rearScrew.position.set(-5.0, 0.2, 0);
+            leverGroup.add(rearScrew);
+
+            const nutGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.3, 32);
+            const nut = new THREE.Mesh(nutGeo, brassMaterial);
+            nut.position.set(-5.0, 0.7, 0);
+            leverGroup.add(nut);
+
+            scene.add(leverGroup);
+
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize);
+
+            // Mouse / Touch Interaction on Canvas
+            const canvasEl = renderer.domElement;
+            
+            const handlePressStart = (e) => {
+                e.preventDefault();
+                pressKey();
+            };
+
+            const handlePressEnd = (e) => {
+                e.preventDefault();
+                releaseKey();
+            };
+
+            canvasEl.addEventListener('mousedown', handlePressStart);
+            canvasEl.addEventListener('mouseup', handlePressEnd);
+            canvasEl.addEventListener('mouseleave', handlePressEnd);
+
+            canvasEl.addEventListener('touchstart', handlePressStart);
+            canvasEl.addEventListener('touchend', handlePressEnd);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvasContainer');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function createSparks() {
+            const sparkGeo = new THREE.BufferGeometry();
+            const count = 12;
+            const positions = new Float32Array(count * 3);
+            
+            for(let i = 0; i < count * 3; i += 3) {
+                positions[i] = 4.5 + (Math.random() - 0.5) * 0.3;
+                positions[i+1] = 2.1 + Math.random() * 0.3;
+                positions[i+2] = (Math.random() - 0.5) * 0.3;
+            }
+
+            sparkGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const sparkMat = new THREE.PointsMaterial({
+                color: 0xffaa33,
+                size: 0.2,
+                transparent: true,
+                opacity: 1.0
+            });
+
+            const pSystem = new THREE.Points(sparkGeo, sparkMat);
+            scene.add(pSystem);
+            sparkParticles.push({ system: pSystem, age: 0 });
+        }
+
+        function updateSparks() {
+            for (let i = sparkParticles.length - 1; i >= 0; i--) {
+                const item = sparkParticles[i];
+                item.age += 0.05;
+                item.system.material.opacity = 1.0 - item.age;
+                if (item.age >= 1.0) {
+                    scene.remove(item.system);
+                    sparkParticles.splice(i, 1);
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth mechanical lever tilt (Rotation on Z)
+            currentRotation += (targetRotation - currentRotation) * 0.35;
+            if (leverGroup) {
+                leverGroup.rotation.z = currentRotation;
+            }
+
+            updateSparks();
+            renderer.render(scene, camera);
+        }
+
+        // --- KEY PRESS LOGIC & DECODER ---
+        let pressStartTime = 0;
+        let lastReleaseTime = 0;
+        let morseBufferStr = "";
+        let letterTimeout = null;
+        let wordTimeout = null;
+
+        const statusBulb = document.getElementById('statusBulb');
+        const circuitText = document.getElementById('circuitText');
+        const morseBufferDisplay = document.getElementById('morseBuffer');
+        const decodedTextDisplay = document.getElementById('decodedText');
+
+        function pressKey() {
+            if (isKeyPressed) return;
+            isKeyPressed = true;
+            targetRotation = -0.04; // Tilt down at front
+            
+            statusBulb.classList.add('active');
+            circuitText.textContent = "Circuito Chiuso";
+            circuitText.classList.add('text-amber-900');
+
+            startTone();
+            createSparks();
+
+            pressStartTime = Date.now();
+            clearTimeout(letterTimeout);
+            clearTimeout(wordTimeout);
+        }
+
+        function releaseKey() {
+            if (!isKeyPressed) return;
+            isKeyPressed = false;
+            targetRotation = 0;
+
+            statusBulb.classList.remove('active');
+            circuitText.textContent = "Circuito Aperto";
+            circuitText.classList.remove('text-amber-900');
+
+            stopTone();
+
+            const duration = Date.now() - pressStartTime;
+            const wpm = parseInt(document.getElementById('wpmControl').value);
+            const dotDuration = 1200 / wpm; // Standard WPM timing formula
+
+            // Distinguish Dot vs Dash
+            if (duration < dotDuration * 2) {
+                morseBufferStr += '.';
+            } else {
+                morseBufferStr += '-';
+            }
+
+            updateMorseDisplay();
+
+            // Setup timeouts for Letter and Word spaces
+            letterTimeout = setTimeout(decodeLetter, dotDuration * 3);
+            wordTimeout = setTimeout(decodeWordSpace, dotDuration * 7);
+        }
+
+        function updateMorseDisplay() {
+            morseBufferDisplay.textContent = morseBufferStr || '_';
+        }
+
+        function decodeLetter() {
+            if (!morseBufferStr) return;
+            const char = MORSE_MAP[morseBufferStr] || '?';
+            decodedTextDisplay.textContent += char;
+            morseBufferStr = "";
+            updateMorseDisplay();
+            decodedTextDisplay.scrollTop = decodedTextDisplay.scrollHeight;
+        }
+
+        function decodeWordSpace() {
+            if (decodedTextDisplay.textContent && !decodedTextDisplay.textContent.endsWith(' ')) {
+                decodedTextDisplay.textContent += ' ';
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat) {
+                e.preventDefault();
+                pressKey();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                releaseKey();
+            }
+        });
+
+        // Sliders updates
+        document.getElementById('freqControl').addEventListener('input', (e) => {
+            document.getElementById('freqValue').textContent = e.target.value + ' Hz';
+        });
+
+        document.getElementById('volumeControl').addEventListener('input', (e) => {
+            document.getElementById('volumeValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('wpmControl').addEventListener('input', (e) => {
+            document.getElementById('wpmValue').textContent = e.target.value + ' WPM';
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            morseBufferStr = "";
+            updateMorseDisplay();
+            decodedTextDisplay.textContent = "";
+        });
+
+        // Automatic SOS Demo
+        document.getElementById('simAutoBtn').addEventListener('click', () => {
+            const sosSequence = [
+                { type: 'dot' }, { type: 'dot' }, { type: 'dot' },
+                { type: 'pause' },
+                { type: 'dash' }, { type: 'dash' }, { type: 'dash' },
+                { type: 'pause' },
+                { type: 'dot' }, { type: 'dot' }, { type: 'dot' }
+            ];
+
+            let delay = 0;
+            const dotTime = 100;
+            const dashTime = 300;
+            const spaceTime = 120;
+
+            sosSequence.forEach(item => {
+                setTimeout(() => {
+                    if (item.type === 'dot') {
+                        pressKey();
+                        setTimeout(releaseKey, dotTime);
+                    } else if (item.type === 'dash') {
+                        pressKey();
+                        setTimeout(releaseKey, dashTime);
+                    }
+                }, delay);
+
+                if (item.type === 'dot') delay += dotTime + spaceTime;
+                else if (item.type === 'dash') delay += dashTime + spaceTime;
+                else if (item.type === 'pause') delay += spaceTime * 3;
+            });
+        });
+
+        // Initial launch
+        window.onload = function() {
+            init3D();
+            animate();
+        };
+    </script>
+</body>
+</html>
