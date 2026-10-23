@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Cilindro di Torricelli</title>
+    <!-- Tailwind CSS per un design pulito, moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome per le icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- KaTeX per il rendering delle formule matematiche senza mostrare codice grezzo -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        /* Personalizzazione scrollbar e container */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Header dell'applicazione -->
+    <header class="w-full bg-white shadow-sm px-4 py-3 flex items-center justify-between border-b border-slate-100 z-10">
+        <div class="flex items-center space-x-2">
+            <div class="bg-blue-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-flask-vial text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base text-slate-800 leading-tight">Legge di Torricelli</h1>
+                <p class="text-xs text-slate-500">Fluidodinamica Interattiva</p>
+            </div>
+        </div>
+        <button id="info-btn" onclick="toggleModal(true)" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+            <i class="fa-solid fa-circle-question text-base"></i>
+        </button>
+    </header>
+
+    <!-- Area Principale (Ottimizzata per Smartphone Portrait) -->
+    <main class="flex-1 w-full max-w-md mx-auto p-4 flex flex-col space-y-4">
+
+        <!-- Pannello Canvas / Visualizzazione Esperimento -->
+        <div class="relative w-full bg-slate-900 rounded-3xl shadow-xl overflow-hidden flex flex-col items-center justify-center border border-slate-800" style="height: 340px;">
+            <canvas id="torricelliCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            
+            <!-- Badge stato in overlay -->
+            <div class="absolute top-3 left-3 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium flex items-center space-x-2 border border-white/10 shadow-lg">
+                <span id="valve-status-indicator" class="w-2.5 h-2.5 rounded-full bg-rose-500 transition-colors"></span>
+                <span id="valve-status-text">Rubinetto Chiuso</span>
+            </div>
+
+            <div class="absolute top-3 right-3 bg-black/40 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium border border-white/10 shadow-lg">
+                <span>Tempo: <strong id="time-display" class="font-mono">0.0</strong> s</span>
+            </div>
+
+            <!-- Hint rapido sul canvas -->
+            <div class="absolute bottom-3 inset-x-4 text-center pointer-events-none">
+                <span class="bg-black/60 backdrop-blur-md text-slate-200 px-3 py-1 rounded-full text-[11px] border border-white/10">
+                    <i class="fa-solid fa-hand-pointer mr-1"></i> Trascina il foro lungo il cilindro o usa i cursori
+                </span>
+            </div>
+        </div>
+
+        <!-- Pannello Formule in Tempo Reale (Render KaTeX) -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <span>Calcoli in tempo reale</span>
+                <span class="text-blue-600 lowercase font-normal">Teorema di Torricelli</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3 pt-1">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col justify-center">
+                    <span class="text-[11px] text-slate-500 mb-1">Velocità di efflusso ($v$)</span>
+                    <div id="formula-velocity" class="text-slate-800 font-semibold text-sm"></div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col justify-center">
+                    <span class="text-[11px] text-slate-500 mb-1">Gittata teorica ($R$)</span>
+                    <div id="formula-range" class="text-slate-800 font-semibold text-sm"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controlli e Slider Interattivi -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col space-y-4">
+            
+            <!-- Pulsante Principale Avvio / Stop Flusso -->
+            <button id="toggle-flow-btn" onclick="toggleFlow()" class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center space-x-2 transition-all">
+                <i id="btn-icon" class="fa-solid fa-play"></i>
+                <span id="btn-text">Apri Rubinetto & Avvia</span>
+            </button>
+
+            <!-- Slider: Altezza del Foro (h) -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs font-medium">
+                    <span class="text-slate-600 flex items-center"><i class="fa-solid fa-location-dot text-blue-500 mr-1.5"></i> Altezza foro ($h$)</span>
+                    <span id="val-h" class="font-mono text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-md">25 cm</span>
+                </div>
+                <input type="range" id="slider-h" min="5" max="65" value="25" step="1" oninput="updateH(this.value)" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            </div>
+
+            <!-- Slider: Livello dell'Acqua (H) -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs font-medium">
+                    <span class="text-slate-600 flex items-center"><i class="fa-solid fa-water text-cyan-500 mr-1.5"></i> Livello acqua ($H$)</span>
+                    <span id="val-H" class="font-mono text-cyan-600 font-semibold bg-cyan-50 px-2 py-0.5 rounded-md">75 cm</span>
+                </div>
+                <input type="range" id="slider-H" min="20" max="80" value="75" step="1" oninput="updateWaterLevel(this.value)" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            </div>
+
+            <!-- Pulsante Reset -->
+            <div class="pt-1 flex space-x-2">
+                <button onclick="resetSimulation()" class="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-xs flex items-center justify-center space-x-1.5 transition-colors">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Ripristina Livello</span>
+                </button>
+                <button onclick="fillCylinder()" class="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-xs flex items-center justify-center space-x-1.5 transition-colors">
+                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                    <span>Riempi Cilindro</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer pulito -->
+    <footer class="w-full py-3 text-center text-xs text-slate-400 bg-white border-t border-slate-100">
+        Simulazione Fisica • Teorema di Torricelli $v = \sqrt{2gh}$
+    </footer>
+
+    <!-- Modale Informazioni e Spiegazione Scientifica -->
+    <div id="info-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar transform scale-95 transition-transform duration-300" id="modal-content">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center">
+                    <i class="fa-solid fa-book-open text-blue-600 mr-2"></i> Guida all'Esperimento
+                </h3>
+                <button onclick="toggleModal(false)" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="text-xs text-slate-600 space-y-3 leading-relaxed">
+                <p>
+                    Il <strong>Teorema di Torricelli</strong> stabilisce che la velocità $v$ con cui un liquido fuoriesce da un foro situato a una certa profondità sotto la superficie libera è identica a quella che un corpo cadrebbe liberamente nel vuoto dalla stessa altezza.
+                </p>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center space-y-1">
+                    <div id="modal-formula-1" class="text-slate-800 font-medium"></div>
+                    <div id="modal-formula-2" class="text-slate-800 font-medium"></div>
+                </div>
+                <p>
+                    <strong>Come interagire:</strong>
+                </p>
+                <ul class="list-disc pl-4 space-y-1 text-slate-500">
+                    <li>Premi <strong>Apri Rubinetto</strong> per avviare il flusso d'acqua.</li>
+                    <li>Sposta lo slider o trascina direttamente sul cilindro l'altezza del foro.</li>
+                    <li>Osserva come varia la gittata del getto parabolico in base alla pressione idrostatica.</li>
+                </ul>
+            </div>
+            <button onclick="toggleModal(false)" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-blue-500/20">
+                Ho capito, procedi
+            </button>
+        </div>
+    </div>
+
+    <!-- Script della simulazione fisica e grafica -->
+    <script>
+        // Riferimenti elementi DOM
+        const canvas = document.getElementById('torricelliCanvas');
+        const ctx = canvas.getContext('2d');
+        const timeDisplay = document.getElementById('time-display');
+        const valveStatusIndicator = document.getElementById('valve-status-indicator');
+        const valveStatusText = document.getElementById('valve-status-text');
+        const toggleFlowBtn = document.getElementById('toggle-flow-btn');
+        const btnIcon = document.getElementById('btn-icon');
+        const btnText = document.getElementById('btn-text');
+        const sliderH = document.getElementById('slider-h');
+        const sliderWaterH = document.getElementById('slider-H');
+        const valH = document.getElementById('val-h');
+        const valWaterH = document.getElementById('val-H');
+
+        // Parametri fisici e geometrici (in cm convertiti in pixel logici)
+        let maxTankHeightCm = 90; // altezza totale fisica del cilindro
+        let h_cm = 25;   // altezza del foro da terra (cm)
+        let H_cm = 75;   // livello attuale dell'acqua nel cilindro (cm)
+        let initialH_cm = 75;
+
+        let isRunning = false;
+        let simulationTime = 0.0;
+        let animationFrameId = null;
+        let isDraggingH = false;
+
+        // Inizializzazione KaTeX formule (senza mostrare codice grezzo)
+        function renderFormulas() {
+            // Calcoli istantanei per le formule
+            let deltaH = Math.max(0, H_cm - h_cm);
+            let g = 9.81;
+            let v = Math.sqrt(2 * g * (deltaH / 100)); // m/s
+            let range = 2 * Math.sqrt((deltaH / 100) * (h_cm / 100)) * 100; // cm
+
+            katex.render("v = \\sqrt{2g(H - h)} \\approx " + v.toFixed(2) + " \\text{ m/s}", document.getElementById('formula-velocity'), { throwOnError: false });
+            katex.render("R = 2\\sqrt{h(H - h)} \\approx " + range.toFixed(0) + " \\text{ cm}", document.getElementById('formula-range'), { throwOnError: false });
+
+            katex.render("v = \\sqrt{2g\\Delta h}", document.getElementById('modal-formula-1'), { throwOnError: false });
+            katex.render("R = 2\\sqrt{h \\cdot (H-h)}", document.getElementById('modal-formula-2'), { throwOnError: false });
+        }
+
+        // Ridimensionamento responsivo del Canvas
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth * window.devicePixelRatio;
+            canvas.height = container.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawScene();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Disegno dell'intera scena (Cilindro, Tavolo, Acqua, Getto parabolico, Becher)
+        function drawScene() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Coordinate logiche del cilindro nel canvas
+            const tankWidth = 80;
+            const tankHeightMax = 240;
+            const tankX = width / 2 - 40;
+            const tankY = height - 290;
+            const tableY = height - 50;
+
+            // 1. Tavolo di appoggio
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(20, tableY, width - 40, 12);
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(tankX - 30, tableY + 12, 16, 38);
+            ctx.fillRect(tankX + tankWidth + 14, tableY + 12, 16, 38);
+
+            // 2. Acqua all'interno del cilindro
+            const waterPixelHeight = (H_cm / maxTankHeightCm) * tankHeightMax;
+            const waterY = tankY + tankHeightMax - waterPixelHeight;
+
+            if (H_cm > 0) {
+                // Sfumatura realistica acqua
+                let waterGradient = ctx.createLinearGradient(tankX, waterY, tankX + tankWidth, tankY + tankHeightMax);
+                waterGradient.addColorStop(0, 'rgba(6, 182, 212, 0.75)');
+                waterGradient.addColorStop(1, 'rgba(14, 116, 144, 0.85)');
+                
+                ctx.fillStyle = waterGradient;
+                ctx.fillRect(tankX + 2, waterY, tankWidth - 4, waterPixelHeight - 2);
+
+                // Superficie libera dell'acqua (menisco)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.beginPath();
+                ctx.ellipse(tankX + tankWidth / 2, waterY, (tankWidth - 4) / 2, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3. Struttura del Cilindro (trasparente con riflessi metallici)
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            // Corpo cilindro (aperto sopra, chiuso sotto)
+            ctx.moveTo(tankX, tankY);
+            ctx.lineTo(tankX, tankY + tankHeightMax);
+            ctx.lineTo(tankX + tankWidth, tankY + tankHeightMax);
+            ctx.lineTo(tankX + tankWidth, tankY);
+            ctx.stroke();
+
+            // Bordo superiore ellittico
+            ctx.beginPath();
+            ctx.ellipse(tankX + tankWidth / 2, tankY, tankWidth / 2, 5, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.stroke();
+
+            // 4. Posizione del Foro (h)
+            // h_cm va da 0 a maxTankHeightCm
+            const holePixelYFromBottom = (h_cm / maxTankHeightCm) * tankHeightMax;
+            const holeY = tankY + tankHeightMax - holePixelYFromBottom;
+            const holeX = tankX + tankWidth;
+
+            // Disegno rubinetto / ugello
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(holeX, holeY - 5, 12, 10);
+            ctx.beginPath();
+            ctx.arc(holeX + 12, holeY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = isRunning ? '#22c55e' : '#ef4444';
+            ctx.fill();
+
+            // Indicatore altezza foro h trascinabile visivo
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.beginPath();
+            ctx.arc(holeX, holeY, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 5. Getto d'acqua parabolico (se rubinetto aperto e acqua sopra il foro)
+            let deltaH = H_cm - h_cm;
+            if (isRunning && deltaH > 0) {
+                // Fisica del getto: y(x) = h - (x^2) / (4 * deltaH) orientato dal foro
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+
+                ctx.moveTo(holeX + 12, holeY);
+
+                // Calcolo gittata teorica in pixel
+                const scaleFactor = tankHeightMax / maxTankHeightCm;
+                let rangeCm = 2 * Math.sqrt((deltaH / 100) * (h_cm / 100)) * 100;
+                let rangePx = rangeCm * scaleFactor;
+
+                let impactX = holeX + 12 + rangePx;
+                let impactY = tableY; // batte sul pavimento/tavolo
+
+                // Disegno della traiettoria parabolica precisa
+                for (let px = 0; px <= rangePx; px += 2) {
+                    let xMeters = px / scaleFactor / 100;
+                    let hMeters = deltaH / 100;
+                    // Equazione parabola: y = h_foro - (x^2) / (4 * deltaH)
+                    let dropMeters = (xMeters * xMeters) / (4 * hMeters);
+                    let dropPx = dropMeters * 100 * scaleFactor;
+                    
+                    let currX = holeX + 12 + px;
+                    let currY = holeY + dropPx;
+
+                    if (currY >= tableY) {
+                        currY = tableY;
+                        ctx.lineTo(currY, tableY);
+                        break;
+                    }
+                    ctx.lineTo(currX, currY);
+                }
+                ctx.stroke();
+
+                // Punto di impatto e piccolo accumulo / becher a terra
+                let beakerX = holeX + 12 + rangePx;
+                if (beakerX > width - 30) beakerX = width - 30;
+                
+                // Disegno becher sul pavimento
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(beakerX - 12, tableY - 25, 24, 25);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+                ctx.fillRect(beakerX - 10, tableY - 18, 20, 18);
+            }
+        }
+
+        // Loop di animazione e aggiornamento fisico
+        function updateSimulation(timestamp) {
+            if (!isRunning) return;
+
+            // Abbassamento del livello dell'acqua proporzionale alla velocità di efflusso
+            let deltaH = H_cm - h_cm;
+            if (deltaH > 0) {
+                let g = 9.81;
+                let v = Math.sqrt(2 * g * (deltaH / 100)); // m/s
+                // Fattore di svuotamento proporzionale alla sezione del foro rispetto al cilindro
+                let drainRate = v * 0.12; 
+                H_cm = Math.max(h_cm, H_cm - drainRate);
+                
+                simulationTime += 0.05;
+                timeDisplay.textContent = simulationTime.toFixed(1);
+
+                // Aggiornamento slider UI
+                sliderWaterH.value = H_cm.toFixed(0);
+                valH.textContent = h_cm + " cm";
+                valWaterH.textContent = H_cm.toFixed(0) + " cm";
+
+                renderFormulas();
+                drawScene();
+
+                if (H_cm <= h_cm + 0.1) {
+                    stopFlow();
+                    valveStatusText.textContent = "Acqua esaurita al livello del foro";
+                }
+
+                animationFrameId = requestAnimationFrame(updateSimulation);
+            } else {
+                stopFlow();
+            }
+        }
+
+        function toggleFlow() {
+            if (isRunning) {
+                stopFlow();
+            } else {
+                if (H_cm <= h_cm) {
+                    alertBox("Il livello dell'acqua deve essere superiore all'altezza del foro!");
+                    return;
+                }
+                startFlow();
+            }
+        }
+
+        function startFlow() {
+            isRunning = true;
+            valveStatusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse transition-colors";
+            valveStatusText.textContent = "Rubinetto Aperto (In flusso)";
+            toggleFlowBtn.className = "w-full py-3.5 px-4 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-semibold rounded-xl shadow-lg shadow-rose-500/25 flex items-center justify-center space-x-2 transition-all";
+            btnIcon.className = "fa-solid fa-stop";
+            btnText.textContent = "Chiudi Rubinetto";
+            
+            requestAnimationFrame(updateSimulation);
+        }
+
+        function stopFlow() {
+            isRunning = false;
+            cancelAnimationFrame(animationFrameId);
+            valveStatusIndicator.className = "w-2.5 h-2.5 rounded-full bg-rose-500 transition-colors";
+            valveStatusText.textContent = "Rubinetto Chiuso";
+            toggleFlowBtn.className = "w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center space-x-2 transition-all";
+            btnIcon.className = "fa-solid fa-play";
+            btnText.textContent = "Apri Rubinetto & Avvia";
+            drawScene();
+        }
+
+        function updateH(val) {
+            h_cm = parseInt(val);
+            valH.textContent = h_cm + " cm";
+            if (h_cm >= H_cm) {
+                H_cm = h_cm + 2;
+                sliderWaterH.value = H_cm;
+                valWaterH.textContent = H_cm.toFixed(0) + " cm";
+            }
+            renderFormulas();
+            drawScene();
+        }
+
+        function updateWaterLevel(val) {
+            H_cm = parseInt(val);
+            if (H_cm < h_cm) {
+                H_cm = h_cm;
+                sliderWaterH.value = H_cm;
+            }
+            valWaterH.textContent = H_cm.toFixed(0) + " cm";
+            renderFormulas();
+            drawScene();
+        }
+
+        function resetSimulation() {
+            stopFlow();
+            H_cm = initialH_cm;
+            sliderWaterH.value = H_cm;
+            valWaterH.textContent = H_cm.toFixed(0) + " cm";
+            simulationTime = 0.0;
+            timeDisplay.textContent = "0.0";
+            valveStatusText.textContent = "Rubinetto Chiuso";
+            renderFormulas();
+            drawScene();
+        }
+
+        function fillCylinder() {
+            stopFlow();
+            H_cm = maxTankHeightCm;
+            initialH_cm = maxTankHeightCm;
+            sliderWaterH.value = H_cm;
+            valWaterH.textContent = H_cm.toFixed(0) + " cm";
+            simulationTime = 0.0;
+            timeDisplay.textContent = "0.0";
+            renderFormulas();
+            drawScene();
+        }
+
+        // Gestione interazione touch/mouse sul canvas per trascinare l'altezza del foro
+        function getCanvasYCoord(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const yPosInCanvas = clientY - rect.top;
+            
+            const tankHeightMax = 240;
+            const tankY = canvas.clientHeight - 290;
+            
+            // Inverti coordinata y in cm dal fondo
+            let pixelFromBottom = (tankY + tankHeightMax) - yPosInCanvas;
+            let scale = maxTankHeightCm / tankHeightMax;
+            let calculatedH = Math.round(pixelFromBottom * scale);
+            
+            if (calculatedH < 5) calculatedH = 5;
+            if (calculatedH > 85) calculatedH = 85;
+            return calculatedH;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDraggingH = true;
+            h_cm = getCanvasYCoord(e);
+            sliderH.value = h_cm;
+            updateH(h_cm);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingH) return;
+            h_cm = getCanvasYCoord(e);
+            sliderH.value = h_cm;
+            updateH(h_cm);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingH = false;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            isDraggingH = true;
+            h_cm = getCanvasYCoord(e);
+            sliderH.value = h_cm;
+            updateH(h_cm);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDraggingH) return;
+            h_cm = getCanvasYCoord(e);
+            sliderH.value = h_cm;
+            updateH(h_cm);
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            isDraggingH = false;
+        });
+
+        // Gestione modale info
+        function toggleModal(show) {
+            const modal = document.getElementById('info-modal');
+            const content = document.getElementById('modal-content');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    content.classList.remove('scale-95');
+                }, 10);
+            } else {
+                modal.classList.add('opacity-0');
+                content.classList.add('scale-95');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        // Funzione personalizzata di alert non intrusiva
+        function alertBox(msg) {
+            valveStatusText.textContent = msg;
+            setTimeout(() => {
+                if (!isRunning) valveStatusText.textContent = "Rubinetto Chiuso";
+            }, 3500);
+        }
+
+        // Avvio iniziale all'onload della pagina
+        window.onload = function() {
+            resizeCanvas();
+            renderFormulas();
+        };
+    </script>
+</body>
+</html>
