@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Interattiva: Pila di Volta</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4B5563;
+            border-radius: 4px;
+        }
+        .glow-green {
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+        }
+        .glow-amber {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col min-h-screen overflow-x-hidden">
+
+    <!-- Header Section -->
+    <header class="bg-slate-900 border-b border-slate-800 p-3 sticky top-0 z-50 flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 font-bold text-sm">
+                ⚡
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-slate-100 leading-tight">Pila di Volta</h1>
+                <p class="text-xs text-slate-400">Simulatore Elettrochimico</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <span class="inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider font-semibold rounded bg-slate-800 text-slate-300 border border-slate-700">
+                1799 • A. Volta
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Mobile Layout Container -->
+    <main class="flex-1 flex flex-col p-3 space-y-3 max-w-md mx-auto w-full">
+
+        <!-- Simulation Canvas Container -->
+        <div class="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+            
+            <!-- Real-time Digital HUD / Meters -->
+            <div class="grid grid-cols-2 gap-2 p-3 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 z-10">
+                <!-- Voltmeter -->
+                <div class="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-2.5 flex flex-col items-center justify-center text-center">
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80 mb-0.5">Tensione (V)</span>
+                    <span id="voltmeter-display" class="text-xl font-mono font-bold text-emerald-400">0.00 V</span>
+                </div>
+                <!-- Ammeter -->
+                <div class="bg-slate-900/90 border border-cyan-500/30 rounded-xl p-2.5 flex flex-col items-center justify-center text-center">
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-cyan-400/80 mb-0.5">Corrente (mA)</span>
+                    <span id="ammeter-display" class="text-xl font-mono font-bold text-cyan-400">0.0 mA</span>
+                </div>
+            </div>
+
+            <!-- Canvas Viewport -->
+            <div class="relative w-full h-[280px] bg-gradient-to-b from-slate-950 to-slate-900 flex items-center justify-center overflow-hidden">
+                <canvas id="voltaCanvas" class="w-full h-full block"></canvas>
+                
+                <!-- Circuit Switch Button Overlay -->
+                <button id="switchBtn" class="absolute bottom-3 right-3 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold px-4 py-2 rounded-xl shadow-lg border border-red-400/30 flex items-center space-x-2 transition-all">
+                    <span id="switchIcon" class="w-2.5 h-2.5 rounded-full bg-red-200 animate-pulse"></span>
+                    <span id="switchLabel" class="text-xs uppercase tracking-wider">Circuito Aperto</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-lg">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">
+                Parametri di Controllo
+            </h2>
+
+            <!-- Control 1: Cell Count -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="cellSlider" class="font-medium text-slate-300">Numero di Elementi (Coppie):</label>
+                    <span id="cellValue" class="font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">4</span>
+                </div>
+                <input type="range" id="cellSlider" min="1" max="8" value="4" step="1" 
+                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                    <span>1 (0.76V)</span>
+                    <span>4 (3.04V)</span>
+                    <span>8 (6.08V)</span>
+                </div>
+            </div>
+
+            <!-- Control 2: Electrolyte Concentration -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="concSlider" class="font-medium text-slate-300">Concentrazione Elettrolita (Acido):</label>
+                    <span id="concValue" class="font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30">50%</span>
+                </div>
+                <input type="range" id="concSlider" min="10" max="100" value="50" step="5" 
+                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            </div>
+
+            <!-- Control 3: Load Resistor -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="loadSlider" class="font-medium text-slate-300">Resistenza del Carico (Lampedina):</label>
+                    <span id="loadValue" class="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">50 Ω</span>
+                </div>
+                <input type="range" id="loadSlider" min="10" max="200" value="50" step="10" 
+                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            </div>
+        </div>
+
+        <!-- Scientific & Electrochemical Equations Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">
+                Reazioni Redox (Ossidoriduzione)
+            </h2>
+
+            <div class="grid grid-cols-1 gap-2.5 text-xs">
+                <!-- Anode Reaction -->
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex flex-col space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-300">Anodo (-) Ossidazione (Zinco)</span>
+                        <span class="text-[10px] text-slate-500 font-mono">E° = -0.76 V</span>
+                    </div>
+                    <div class="text-center py-1 font-mono text-amber-300/90 text-sm overflow-x-auto">
+                        $$\text{Zn} \rightarrow \text{Zn}^{2+} + 2e^-$$
+                    </div>
+                </div>
+
+                <!-- Cathode Reaction -->
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex flex-col space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-300">Catodo (+) Riduzione (Rame)</span>
+                        <span class="text-[10px] text-slate-500 font-mono">E° = +0.34 V / +0.00 V</span>
+                    </div>
+                    <div class="text-center py-1 font-mono text-orange-300/90 text-sm overflow-x-auto">
+                        $$2\text{H}^+ + 2e^- \rightarrow \text{H}_2 \uparrow$$
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Explanation Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2 text-xs text-slate-300 shadow-lg leading-relaxed">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center justify-between">
+                <span>Guida Didattica</span>
+                <span>🏛️ Museo</span>
+            </h2>
+            <p>
+                La **Pila di Volta** è formata da elementi sovrapposti composed di un disco di **Zinco (Zn)**, un disco imbevuto di **soluzione acida** e un disco di **Rame (Cu)**.
+            </p>
+            <p>
+                Chiudendo il circuito, lo zinco tende a cedere elettroni (ossidazione). Gli elettroni attraversano il filo conduttore esterno illuminando la lampadina e giungono al rame, dove riducono gli ioni idrogeno della soluzione acida sviluppando bolle di idrogeno.
+            </p>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center p-4 text-[10px] text-slate-500 border-t border-slate-900 mt-auto">
+        Simulazione Fisica & Elettrochimica • Scheda Museo N. 53
+    </footer>
+
+    <!-- Interactive Logic & Physics Script -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            // UI Element References
+            const canvas = document.getElementById('voltaCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const cellSlider = document.getElementById('cellSlider');
+            const concSlider = document.getElementById('concSlider');
+            const loadSlider = document.getElementById('loadSlider');
+
+            const cellValueDisplay = document.getElementById('cellValue');
+            const concValueDisplay = document.getElementById('concValue');
+            const loadValueDisplay = document.getElementById('loadValue');
+
+            const voltmeterDisplay = document.getElementById('voltmeter-display');
+            const ammeterDisplay = document.getElementById('ammeter-display');
+
+            const switchBtn = document.getElementById('switchBtn');
+            const switchIcon = document.getElementById('switchIcon');
+            const switchLabel = document.getElementById('switchLabel');
+
+            // State variables
+            let numCells = parseInt(cellSlider.value);
+            let electrolyteConc = parseInt(concSlider.value); // percentage
+            let loadResistance = parseInt(loadSlider.value); // ohms
+            let isCircuitClosed = false;
+
+            // Particles array for animation
+            let particles = [];
+
+            // Standard cell potential for Zinc-Copper in acid (~0.76 V per cell effectively)
+            const CELL_VOLTAGE = 0.76; 
+            const INTERNAL_RESISTANCE_BASE = 5.0; // Ohms per cell at 100% conc
+
+            // Resize Canvas dynamically
+            function resizeCanvas() {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Toggle Circuit State
+            switchBtn.addEventListener('click', () => {
+                isCircuitClosed = !isCircuitClosed;
+                if (isCircuitClosed) {
+                    switchBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
+                    switchBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'glow-green');
+                    switchIcon.classList.remove('bg-red-200');
+                    switchIcon.classList.add('bg-emerald-200');
+                    switchLabel.textContent = 'Circuito Chiuso';
+                } else {
+                    switchBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'glow-green');
+                    switchBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+                    switchIcon.classList.remove('bg-emerald-200');
+                    switchIcon.classList.add('bg-red-200');
+                    switchLabel.textContent = 'Circuito Aperto';
+                }
+            });
+
+            // Input Event Listeners
+            cellSlider.addEventListener('input', (e) => {
+                numCells = parseInt(e.target.value);
+                cellValueDisplay.textContent = numCells;
+            });
+
+            concSlider.addEventListener('input', (e) => {
+                electrolyteConc = parseInt(e.target.value);
+                concValueDisplay.textContent = `${electrolyteConc}%`;
+            });
+
+            loadSlider.addEventListener('input', (e) => {
+                loadResistance = parseInt(e.target.value);
+                play.textContent = `${loadResistance} Ω`;
+            });
+
+            // Initialize Particles
+            function initParticles() {
+                particles = [];
+                for (let i = 0; i < 30; i++) {
+                    particles.push({
+                        progress: Math.random(), // 0 to 1 along circuit wire
+                        speed: 0.002 + Math.random() * 0.002
+                    });
+                }
+            }
+            initParticles();
+
+            // Drawing Functions
+            function drawPile(cx, bottomY, numLayers) {
+                const discWidth = 100;
+                const discHeight = 12;
+                const feltHeight = 8;
+                
+                let currentY = bottomY;
+
+                // Base support
+                ctx.fillStyle = '#334155';
+                ctx.beginPath();
+                ctx.roundRect(cx - discWidth/2 - 10, currentY, discWidth + 20, 12, 4);
+                ctx.fill();
+
+                currentY -= discHeight;
+
+                for (let i = 0; i < numLayers; i++) {
+                    // 1. Zinc Disc (Anode) - Grey Metallic
+                    ctx.fillStyle = '#94A3B8';
+                    ctx.beginPath();
+                    ctx.roundRect(cx - discWidth/2, currentY, discWidth, discHeight, 3);
+                    ctx.fill();
+                    ctx.strokeStyle = '#64748B';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Label Zinc on bottom disc
+                    if (i === 0) {
+                        ctx.fillStyle = '#0F172A';
+                        ctx.font = 'bold 9px sans-serif';
+                        ctx.fillText('Zinco (Zn)', cx - 22, currentY + 9);
+                    }
+
+                    currentY -= feltHeight;
+
+                    // 2. Felt/Cardboard Disc (Electrolyte) - Wet Cloth style
+                    const alpha = 0.4 + (electrolyteConc / 100) * 0.5;
+                    ctx.fillStyle = `rgba(14, 165, 233, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.roundRect(cx - (discWidth-6)/2, currentY, discWidth - 6, feltHeight, 2);
+                    ctx.fill();
+
+                    currentY -= discHeight;
+
+                    // 3. Copper Disc (Cathode) - Copper/Amber Metallic
+                    ctx.fillStyle = '#D97706';
+                    ctx.beginPath();
+                    ctx.roundRect(cx - discWidth/2, currentY, discWidth, discHeight, 3);
+                    ctx.fill();
+                    ctx.strokeStyle = '#B45309';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Label Copper on top disc
+                    if (i === numLayers - 1) {
+                        ctx.fillStyle = '#FFF8F0';
+                        ctx.font = 'bold 9px sans-serif';
+                        ctx.fillText('Rame (Cu)', cx - 22, currentY + 9);
+                    }
+
+                    currentY -= discHeight;
+                }
+
+                // Top wooden cap
+                ctx.fillStyle = '#334155';
+                ctx.beginPath();
+                ctx.roundRect(cx - discWidth/2 - 10, currentY + discHeight - 6, discWidth + 20, 10, 4);
+                ctx.fill();
+
+                return {
+                    topTerminal: { x: cx, y: currentY + discHeight - 6 },
+                    bottomTerminal: { x: cx, y: bottomY }
+                };
+            }
+
+            function drawCircuitWire(terminals, currentmA) {
+                const width = canvas.width;
+                const topY = terminals.topTerminal.y;
+                const bottomY = terminals.bottomTerminal.y;
+                
+                const leftWireX = terminals.topTerminal.x - 70;
+                const rightWireX = terminals.topTerminal.x + 70;
+
+                const bulbX = width / 2 + 70;
+                const bulbY = (topY + bottomY) / 2;
+
+                ctx.strokeStyle = isCircuitClosed ? '#F59E0B' : '#64748B';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+
+                // Path 1: Top Copper (+) to Bulb
+                ctx.beginPath();
+                ctx.moveTo(terminals.topTerminal.x, topY);
+                ctx.lineTo(bulbX, topY);
+                ctx.lineTo(bulbX, bulbY - 20);
+                ctx.stroke();
+
+                // Path 2: Bottom Zinc (-) to Bulb
+                ctx.beginPath();
+                ctx.moveTo(terminals.bottomTerminal.x, bottomY);
+                ctx.lineTo(bulbX, bottomY);
+                ctx.lineTo(bulbX, bulbY + 20);
+                ctx.stroke();
+
+                // Draw Lightbulb (Load)
+                ctx.save();
+                ctx.translate(bulbX, bulbY);
+
+                // Bulb Base
+                ctx.fillStyle = '#64748B';
+                ctx.fillRect(-8, -10, 16, 20);
+
+                // Bulb Glass
+                const brightness = isCircuitClosed ? Math.min(1, currentmA / 60) : 0;
+                ctx.fillStyle = isCircuitClosed && brightness > 0.05 
+                    ? `rgba(253, 224, 71, ${0.3 + brightness * 0.7})` 
+                    : 'rgba(100, 116, 139, 0.3)';
+                ctx.strokeStyle = isCircuitClosed && brightness > 0.05 ? '#FDE047' : '#94A3B8';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Glow effect if circuit is closed
+                if (isCircuitClosed && brightness > 0.1) {
+                    ctx.shadowColor = '#FDE047';
+                    ctx.shadowBlur = 20 * brightness;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(253, 224, 71, ${brightness})`;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+
+                // Electron movement animation along wire
+                if (isCircuitClosed && currentmA > 0) {
+                    ctx.fillStyle = '#38BDF8'; // Electron Blue color
+                    
+                    // Wire total length approximation
+                    const speedMultiplier = 0.001 + (currentmA / 100) * 0.008;
+
+                    particles.forEach(p => {
+                        p.progress = (p.progress + speedMultiplier) % 1;
+                        
+                        // Calculate coordinate along circuit path (bottom -> bulb -> top)
+                        let pt = getCircuitPoint(p.progress, terminals.bottomTerminal, terminals.topTerminal, bulbX, bulbY);
+                        
+                        ctx.beginPath();
+                        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                }
+            }
+
+            // Helper to interpolate electron position along wire
+            function getCircuitPoint(t, bottomTerm, topTerm, bulbX, bulbY) {
+                // 4 segments: Bottom to Bulb, Bulb through top, etc.
+                if (t < 0.5) {
+                    // Segment 1: Bottom -> Right -> Bulb Bottom
+                    let localT = t / 0.5;
+                    if (localT < 0.5) {
+                        return {
+                            x: bottomTerm.x + (bulbX - bottomTerm.x) * (localT * 2),
+                            y: bottomTerm.y
+                        };
+                    } else {
+                        return {
+                            x: bulbX,
+                            y: bottomTerm.y + (bulbY + 20 - bottomTerm.y) * ((localT - 0.5) * 2)
+                        };
+                    }
+                } else {
+                    // Segment 2: Bulb Top -> Right Top -> Top Terminal
+                    let localT = (t - 0.5) / 0.5;
+                    if (localT < 0.5) {
+                        return {
+                            x: bulbX,
+                            y: (bulbY - 20) + (topTerm.y - (bulbY - 20)) * (localT * 2)
+                        };
+                    } else {
+                        return {
+                            x: bulbX + (topTerm.x - bulbX) * ((localT - 0.5) * 2),
+                            y: topTerm.y
+                        };
+                    }
+                }
+            }
+
+            // Main Animation & Physics Loop
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Calculations
+                const openCircuitVoltage = numCells * CELL_VOLTAGE; // Total V
+                
+                // Internal resistance decreases with higher concentration
+                const internalR = (numCells * INTERNAL_RESISTANCE_BASE) * (100 / (electrolyteConc + 10)); 
+                const totalR = loadResistance + internalR;
+
+                let currentmA = 0;
+                let actualVoltage = openCircuitVoltage;
+
+                if (isCircuitClosed) {
+                    // Ohm's Law: I = V / R
+                    const currentA = openCircuitVoltage / totalR;
+                    currentmA = currentA * 1000;
+                    actualVoltage = currentA * loadResistance; // Voltage under load
+                }
+
+                // Update HUD Displays
+                voltmeterDisplay.textContent = `${actualVoltage.toFixed(2)} V`;
+                ammeterDisplay.textContent = `${currentmA.toFixed(1)} mA`;
+
+                // Draw Pile in center-left
+                const pileCenterX = canvas.width / 2 - 40;
+                const pileBottomY = canvas.height - 40;
+                
+                const terminals = drawPile(pileCenterX, pileBottomY, numCells);
+
+                // Draw Connecting Circuit Wire & Electrons
+                drawCircuitWire(terminals, currentmA);
+
+                requestAnimationFrame(animate);
+            }
+
+            // Start animation loop
+            animate();
+        });
+    </script>
+</body>
+</html>
