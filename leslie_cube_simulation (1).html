@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulazione Cubo di Leslie - Termografia IR</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#090A0F',
+                        cardBg: '#13151E',
+                        cardBorder: '#232736',
+                        irYellow: '#FFE600',
+                        irOrange: '#FF6B00',
+                        irRed: '#DC2626',
+                        irPurple: '#6B21A8',
+                        irDarkBlue: '#1E1B4B'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- KaTeX for rendered math formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+    <!-- Three.js for 3D graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Chart.js for comparative graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #090A0F;
+            color: #E2E8F0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        canvas { touch-action: none; }
+        .tab-btn.active {
+            border-bottom: 2px solid #FF6B00;
+            color: #FF6B00;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-gray-100 flex flex-col min-h-screen max-w-md mx-auto relative border-x border-cardBorder shadow-2xl">
+
+    <!-- Header Navigation -->
+    <header class="p-3 bg-cardBg/95 backdrop-blur border-b border-cardBorder sticky top-0 z-50 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-irPurple via-irRed to-irOrange flex items-center justify-center text-white font-black text-xs shadow-md">
+                LC
+            </div>
+            <div>
+                <h1 class="text-sm font-bold leading-tight text-white">Cubo di Leslie</h1>
+                <p class="text-[10px] text-gray-400">Paradosso Visibile vs Infrarosso</p>
+            </div>
+        </div>
+        
+        <!-- Mode Switch: Visible vs Thermal -->
+        <div class="flex items-center bg-gray-900/90 p-1 rounded-xl border border-gray-800">
+            <button id="btnVisMode" onclick="setRenderMode(false)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all bg-gray-800 text-white shadow-sm flex items-center space-x-1">
+                <i class="fa-solid fa-eye text-amber-400"></i>
+                <span>Visibile</span>
+            </button>
+            <button id="btnIrMode" onclick="setRenderMode(true)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all text-gray-400 hover:text-white flex items-center space-x-1">
+                <i class="fa-solid fa-temperature-arrow-up text-red-500"></i>
+                <span>Termico IR</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Responsive Body -->
+    <main class="flex-1 flex flex-col p-3 space-y-3 overflow-y-auto no-scrollbar">
+
+        <!-- Paradox Banner Alert -->
+        <div id="paradoxNotice" class="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl p-2.5 flex items-start space-x-2.5 text-xs">
+            <i class="fa-solid fa-circle-info text-irOrange text-base mt-0.5 shrink-0"></i>
+            <div class="text-[11px] leading-tight text-gray-300">
+                <strong class="text-amber-400 font-semibold block mb-0.5">Il Paradosso di Leslie:</strong>
+                <span id="paradoxNoticeText">In <b>Luce Visibile</b> le 4 facce sono ben distinguibili. In <b>Infrarosso (IR)</b> bianco e nero emettono quasi lo stesso calore ($\varepsilon \approx 0.93 \text{ vs } 0.96$)!</span>
+            </div>
+        </div>
+
+        <!-- 3D Viewport Container -->
+        <div class="relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-cardBorder shadow-2xl flex flex-col">
+            <div id="canvas3d" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+            
+            <!-- Live Active Surface Indicator -->
+            <div class="absolute top-2.5 left-2.5 bg-cardBg/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-gray-700/60 flex items-center space-x-2 shadow-lg">
+                <span id="faceColorDot" class="w-3 h-3 rounded-full bg-neutral-900 border border-white/40"></span>
+                <div class="flex flex-col">
+                    <span id="activeFaceName" class="text-xs font-bold text-white leading-none">Nero Opaco</span>
+                    <span id="activeFaceEps" class="text-[10px] text-irOrange font-mono font-bold mt-0.5">&epsilon; = 0.96 (Alta Emissione)</span>
+                </div>
+            </div>
+
+            <!-- Thermal Palette Bar (Visible only in IR Mode) -->
+            <div id="irPaletteBar" class="hidden absolute left-2.5 bottom-2.5 right-2.5 bg-cardBg/90 backdrop-blur-md p-1.5 rounded-xl border border-gray-700/60 flex flex-col space-y-1">
+                <div class="flex justify-between text-[9px] font-mono text-gray-300 px-1">
+                    <span>Freddo / Riflesso</span>
+                    <span>Scala Termografica Ironbow</span>
+                    <span>Caldo / Radiante</span>
+                </div>
+                <div class="h-2.5 w-full rounded-md bg-gradient-to-r from-irDarkBlue via-irPurple via-irRed via-irOrange via-irYellow border border-white/20"></div>
+            </div>
+
+            <!-- Water Temperature Indicator -->
+            <div class="absolute top-2.5 right-2.5 bg-cardBg/85 backdrop-blur-md px-2.5 py-1 rounded-xl border border-gray-700/60 font-mono text-xs text-irYellow font-bold shadow-lg">
+                <i class="fa-solid fa-thermometer-half text-irRed mr-1"></i><span id="cubeTempDisp">80</span>°C
+            </div>
+
+            <!-- Touch Rotation Helper -->
+            <div class="absolute bottom-2.5 left-1/2 -translate-x-1/2 pointer-events-none bg-black/60 backdrop-blur-sm px-2.5 py-0.5 rounded-full text-[9px] text-gray-400 border border-white/10 flex items-center space-x-1">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Trascina per ruotare</span>
+            </div>
+        </div>
+
+        <!-- Sensor Digital Readout Card -->
+        <div class="bg-cardBg rounded-2xl p-3 border border-cardBorder flex items-center justify-between shadow-lg">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-irRed/15 border border-irRed/30 flex items-center justify-center text-irRed">
+                    <i class="fa-solid fa-satellite-dish text-lg"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold block">Irradianza Rilevata</span>
+                    <div class="flex items-baseline space-x-1">
+                        <span id="irradianceVal" class="text-2xl font-black font-mono text-white tracking-tight">0.00</span>
+                        <span class="text-xs text-irOrange font-bold">W/m²</span>
+                    </div>
+                </div>
+            </div>
+            <div class="text-right border-l border-gray-800 pl-3">
+                <span class="text-[10px] text-gray-400 block font-medium">Segnale Termopila</span>
+                <span id="signalVal" class="text-xs font-mono font-bold text-cyan-400">0.00 mV</span>
+                <span id="relEmissionVal" class="text-[10px] font-mono text-emerald-400 block mt-0.5">96% del max</span>
+            </div>
+        </div>
+
+        <!-- Surface Selector Grid (Correct Mapping to Cube Faces) -->
+        <div class="bg-cardBg p-1.5 rounded-2xl border border-cardBorder grid grid-cols-4 gap-1">
+            <button onclick="selectFace('black')" id="btn-black" class="face-btn py-2 rounded-xl text-xs font-medium transition-all bg-gray-800 text-white border border-irOrange/60 shadow-sm flex flex-col items-center">
+                <span class="w-3 h-3 rounded-full bg-[#111113] border border-gray-600 mb-1"></span>
+                <span>Nero</span>
+            </button>
+            <button onclick="selectFace('white')" id="btn-white" class="face-btn py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white transition-all flex flex-col items-center">
+                <span class="w-3 h-3 rounded-full bg-[#FAFAFA] border border-gray-400 mb-1"></span>
+                <span>Bianco</span>
+            </button>
+            <button onclick="selectFace('gray')" id="btn-gray" class="face-btn py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white transition-all flex flex-col items-center">
+                <span class="w-3 h-3 rounded-full bg-[#8E8E99] border border-gray-300 mb-1"></span>
+                <span>Grigio</span>
+            </button>
+            <button onclick="selectFace('mirror')" id="btn-mirror" class="face-btn py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white transition-all flex flex-col items-center">
+                <span class="w-3 h-3 rounded-full bg-gradient-to-tr from-cyan-200 via-white to-sky-400 border border-white shadow-sm mb-1"></span>
+                <span>Specchio</span>
+            </button>
+        </div>
+
+        <!-- Sliders Dashboard -->
+        <div class="bg-cardBg rounded-2xl p-3.5 border border-cardBorder space-y-3.5 shadow-lg">
+            <!-- Temperature Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="tempSlider" class="text-gray-300 font-semibold flex items-center">
+                        <i class="fa-solid fa-fire-flame-curved text-irRed mr-1.5"></i>Temperatura Acqua Interna
+                    </label>
+                    <span id="tempValText" class="font-mono text-irOrange font-bold bg-irOrange/10 px-2 py-0.5 rounded border border-irOrange/30">80 °C</span>
+                </div>
+                <input type="range" id="tempSlider" min="20" max="95" value="80" step="1" 
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-irOrange">
+                <div class="flex justify-between text-[10px] text-gray-500 font-mono">
+                    <span>20°C (Ambiente)</span>
+                    <span>60°C</span>
+                    <span>95°C (Bollente)</span>
+                </div>
+            </div>
+
+            <hr class="border-cardBorder">
+
+            <!-- Sensor Distance Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="distSlider" class="text-gray-300 font-semibold flex items-center">
+                        <i class="fa-solid fa-ruler-horizontal text-cyan-400 mr-1.5"></i>Distanza Rivelatore IR ($r$)
+                    </label>
+                    <span id="distValText" class="font-mono text-cyan-400 font-bold bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/30">15 cm</span>
+                </div>
+                <input type="range" id="distSlider" min="5" max="40" value="15" step="1" 
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                <div class="flex justify-between text-[10px] text-gray-500 font-mono">
+                    <span>5 cm</span>
+                    <span>20 cm</span>
+                    <span>40 cm</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis & Theory Section -->
+        <div class="bg-cardBg rounded-2xl border border-cardBorder overflow-hidden shadow-lg">
+            <div class="flex border-b border-cardBorder text-xs text-gray-400">
+                <button onclick="switchTab('chart')" id="tab-chart" class="tab-btn active flex-1 py-3 text-center transition-all">
+                    <i class="fa-solid fa-chart-column mr-1"></i>Confronto Emissione
+                </button>
+                <button onclick="switchTab('theory')" id="tab-theory" class="tab-btn flex-1 py-3 text-center transition-all">
+                    <i class="fa-solid fa-graduation-cap mr-1"></i>Spiegazione Fisica
+                </button>
+            </div>
+
+            <!-- Tab 1: Realtime Comparison Bar Graph -->
+            <div id="content-chart" class="p-3">
+                <div class="h-48 w-full">
+                    <canvas id="emissivityChart"></canvas>
+                </div>
+                <p class="text-[10px] text-gray-400 text-center mt-2 leading-tight">
+                    Potenza irradiata per superficie a <span class="text-irOrange font-bold" id="chartTempLabel">80°C</span>. Notare la vicinanza tra Nero, Bianco e Grigio nell'infrarosso!
+                </p>
+            </div>
+
+            <!-- Tab 2: Theory & Math Formulations -->
+            <div id="content-theory" class="p-3.5 space-y-3 hidden text-xs leading-relaxed text-gray-300">
+                <div class="bg-darkBg p-3 rounded-xl border border-cardBorder space-y-1.5">
+                    <h3 class="font-bold text-irOrange text-xs uppercase tracking-wider">Legge di Stefan-Boltzmann</h3>
+                    <p>La potenza termica emessa per irraggiamento da una superficie $A$ è:</p>
+                    <div class="py-2 text-center text-sm font-mono text-white bg-cardBg/80 rounded-lg border border-cardBorder my-1">
+                        $$P = \varepsilon \cdot \sigma \cdot A \cdot (T^4 - T_0^4)$$
+                    </div>
+                    <ul class="text-[11px] text-gray-400 space-y-1 list-disc pl-4">
+                        <li>$\varepsilon$: Emissività della superficie ($0 \le \varepsilon \le 1$)</li>
+                        <li>$\sigma = 5.67 \times 10^{-8} \text{ W/m}^2\text{K}^4$ (Costante universale)</li>
+                        <li>$T$: Temperatura del cubo in Kelvin ($\text{K}$)</li>
+                        <li>$T_0 = 293.15 \text{ K}$ ($20^\circ\text{C}$ ambiente)</li>
+                    </ul>
+                </div>
+
+                <div class="bg-darkBg p-3 rounded-xl border border-cardBorder space-y-1.5">
+                    <h3 class="font-bold text-amber-400 text-xs uppercase tracking-wider">Il Paradosso di Leslie</h3>
+                    <p>
+                        I colori visibili (Nero $\varepsilon \approx 0.96$, Bianco $\varepsilon \approx 0.93$, Grigio $\varepsilon \approx 0.85$) dipendono dalla riflessione della <strong>luce visibile</strong>.
+                    </p>
+                    <p class="mt-1">
+                        Tuttavia, nell'<strong>infrarosso termico</strong> ($\lambda \approx 10 \, \mu\text{m}$), i pigmenti delle vernici assorbono ed emettono quasi allo stesso modo. La faccia a specchio cromato, altamente riflettente ($\varepsilon \approx 0.05$), riflette l'ambiente circostante e irradia pochissimo calore.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-2.5 text-center text-[10px] text-gray-500 border-t border-cardBorder bg-cardBg/50">
+        Simulazione del Cubo di Leslie • Ottimizzata per mobile
+    </footer>
+
+    <!-- Main JS Application Logic -->
+    <script>
+        // State Object
+        const state = {
+            tempC: 80,
+            distCm: 15,
+            activeFace: 'black',
+            isThermalMode: false,
+            ambientTempC: 20
+        };
+
+        // Physically Accurate Face Definitions with Exact Rotations
+        // Front (+Z): Nero, Right (+X): Bianco, Back (-Z): Grigio, Left (-X): Specchio
+        const faceProperties = {
+            black: { 
+                name: 'Nero Opaco', 
+                emissive: 0.96, 
+                visColor: 0x111113, 
+                roughness: 0.95, 
+                metalness: 0.05,
+                rotY: 0, // Front (+Z)
+                dotColor: 'bg-[#111113] border-gray-600'
+            },
+            white: { 
+                name: 'Bianco Pulito', 
+                emissive: 0.93, 
+                visColor: 0xFAFAFA, 
+                roughness: 0.85, 
+                metalness: 0.05,
+                rotY: -Math.PI / 2, // Right (+X)
+                dotColor: 'bg-[#FAFAFA] border-gray-400'
+            },
+            gray: { 
+                name: 'Grigio Neutro', 
+                emissive: 0.85, 
+                visColor: 0x8E8E99, 
+                roughness: 0.7, 
+                metalness: 0.1,
+                rotY: Math.PI, // Back (-Z)
+                dotColor: 'bg-[#8E8E99] border-gray-300'
+            },
+            mirror: { 
+                name: 'Specchio Cromato', 
+                emissive: 0.05, 
+                visColor: 0xDCE8F2, 
+                roughness: 0.02, 
+                metalness: 1.0,
+                rotY: Math.PI / 2, // Left (-X)
+                dotColor: 'bg-gradient-to-tr from-cyan-200 via-white to-sky-400 border-white'
+            }
+        };
+
+        const SIGMA = 5.670374e-8;
+
+        // Three.js Scene Variables
+        let scene, camera, renderer, cubeGroup, leslieCube;
+        let sensorMesh;
+        let cubeMaterials = [];
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let targetRotationY = 0;
+
+        // Chart Variable
+        let emissivityChart;
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            init3D();
+            initChart();
+            setupEventListeners();
+            updateCalculations();
+
+            if (window.renderMathInElement) {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ]
+                });
+            }
+        });
+
+        // 3D Scene Initialization with Procedural Environment Mapping for the Mirror
+        function init3D() {
+            const container = document.getElementById('canvas3d');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x06070a);
+
+            camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 1000);
+            camera.position.set(0, 2.0, 4.4);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Studio Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(4, 6, 4);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x7090ff, 0.6);
+            fillLight.position.set(-4, 3, -3);
+            scene.add(fillLight);
+
+            // Cube Materials order: [Right (+X), Left (-X), Top (+Y), Bottom (-Y), Front (+Z), Back (-Z)]
+            // Right (+Z rotated): White, Left (-X rotated): Mirror, Front (+Z): Black, Back (-Z): Gray
+            cubeMaterials = [
+                createFaceMaterial(faceProperties.white),  // 0: Right (+X) -> Bianco
+                createFaceMaterial(faceProperties.mirror), // 1: Left (-X) -> Specchio Cromato
+                new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.5, metalness: 0.5 }), // 2: Top
+                new THREE.MeshStandardMaterial({ color: 0x111113 }), // 3: Bottom
+                createFaceMaterial(faceProperties.black),  // 4: Front (+Z) -> Nero Opaco
+                createFaceMaterial(faceProperties.gray)    // 5: Back (-Z) -> Grigio Neutro
+            ];
+
+            cubeGroup = new THREE.Group();
+
+            const cubeGeo = new THREE.BoxGeometry(1.4, 1.4, 1.4);
+            leslieCube = new THREE.Mesh(cubeGeo, cubeMaterials);
+            leslieCube.castShadow = true;
+            cubeGroup.add(leslieCube);
+
+            // Water Reservoir Lid
+            const lidGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.15, 20);
+            const lidMat = new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.8, roughness: 0.2 });
+            const lid = new THREE.Mesh(lidGeo, lidMat);
+            lid.position.y = 0.77;
+            cubeGroup.add(lid);
+
+            // Stand
+            const baseGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 16);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x333338, metalness: 0.8, roughness: 0.2 });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.position.y = -0.95;
+            cubeGroup.add(base);
+
+            scene.add(cubeGroup);
+
+            // Infrared Sensor (Thermopile)
+            const sensorGroup = new THREE.Group();
+            const sensorBodyGeo = new THREE.CylinderGeometry(0.16, 0.2, 0.45, 16);
+            sensorBodyGeo.rotateX(Math.PI / 2);
+            const sensorMat = new THREE.MeshStandardMaterial({ color: 0x007AFF, metalness: 0.6, roughness: 0.3 });
+            const sensorBody = new THREE.Mesh(sensorBodyGeo, sensorMat);
+
+            const sensorLensGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.04, 16);
+            sensorLensGeo.rotateX(Math.PI / 2);
+            const sensorLensMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const sensorLens = new THREE.Mesh(sensorLensGeo, sensorLensMat);
+            sensorLens.position.z = -0.23;
+
+            sensorGroup.add(sensorBody);
+            sensorGroup.add(sensorLens);
+            sensorGroup.position.set(0, 0, 2.2);
+            scene.add(sensorGroup);
+            sensorMesh = sensorGroup;
+
+            // Touch Drag / Mouse Controls for Cube Rotation
+            const domEl = renderer.domElement;
+
+            const handlePointerDown = (e) => {
+                isDragging = true;
+                const pointer = e.touches ? e.touches[0] : e;
+                previousMousePosition = { x: pointer.clientX, y: pointer.clientY };
+            };
+
+            const handlePointerMove = (e) => {
+                if (!isDragging) return;
+                const pointer = e.touches ? e.touches[0] : e;
+                const deltaX = pointer.clientX - previousMousePosition.x;
+                targetRotationY += deltaX * 0.01;
+                previousMousePosition = { x: pointer.clientX, y: pointer.clientY };
+            };
+
+            const handlePointerEnd = () => { isDragging = false; };
+
+            domEl.addEventListener('mousedown', handlePointerDown);
+            domEl.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerEnd);
+
+            domEl.addEventListener('touchstart', handlePointerDown, { passive: true });
+            domEl.addEventListener('touchmove', handlePointerMove, { passive: true });
+            window.addEventListener('touchend', handlePointerEnd);
+
+            window.addEventListener('resize', onWindowResize);
+
+            animate();
+        }
+
+        function createFaceMaterial(prop) {
+            return new THREE.MeshStandardMaterial({
+                color: prop.visColor,
+                roughness: prop.roughness,
+                metalness: prop.metalness
+            });
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas3d');
+            if (!container) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        // Render Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Interpolated Smooth Y Rotation
+            cubeGroup.rotation.y += (targetRotationY - cubeGroup.rotation.y) * 0.1;
+
+            // Update Sensor Position in 3D Space
+            const worldDist = 0.75 + (state.distCm / 40) * 1.7;
+            sensorMesh.position.z = worldDist;
+
+            // Update Face Shading according to Mode
+            updateFaceShading();
+
+            renderer.render(scene, camera);
+        }
+
+        // Ironbow Thermal Color Scale Mapping
+        function getIronbowColor(emissivity, tempC) {
+            const T_k = tempC + 273.15;
+            const T0_k = state.ambientTempC + 273.15;
+            const maxEmitted = 1.0 * SIGMA * (Math.pow(368.15, 4) - Math.pow(T0_k, 4));
+            const actualEmitted = emissivity * SIGMA * (Math.pow(T_k, 4) - Math.pow(T0_k, 4));
+            
+            let t = Math.min(1.0, Math.max(0.02, actualEmitted / maxEmitted));
+            const color = new THREE.Color();
+
+            if (t < 0.15) {
+                const factor = t / 0.15;
+                color.setRGB(0.1 * factor, 0.05 * factor, 0.4 * factor); // Dark blue (cold reflection)
+            } else if (t < 0.4) {
+                const factor = (t - 0.15) / 0.25;
+                color.setRGB(0.1 + 0.6 * factor, 0.05, 0.4 - 0.3 * factor); // Purple
+            } else if (t < 0.75) {
+                const factor = (t - 0.4) / 0.35;
+                color.setRGB(0.7 + 0.3 * factor, 0.05 + 0.65 * factor, 0.0); // Red to Orange
+            } else {
+                const factor = (t - 0.75) / 0.25;
+                color.setRGB(1.0, 0.7 + 0.3 * factor, 0.2 * factor); // Yellow (hot)
+            }
+
+            return color;
+        }
+
+        function updateFaceShading() {
+            const keys = ['white', 'mirror', 'black', 'gray'];
+            const indices = [0, 1, 4, 5];
+
+            indices.forEach((matIdx, i) => {
+                const key = keys[i];
+                const prop = faceProperties[key];
+                const mat = cubeMaterials[matIdx];
+
+                if (state.isThermalMode) {
+                    const thermalColor = getIronbowColor(prop.emissive, state.tempC);
+                    mat.color.copy(thermalColor);
+                    mat.emissive.copy(thermalColor).multiplyScalar(0.7);
+                    mat.roughness = 0.9;
+                    mat.metalness = 0.1;
+                } else {
+                    mat.color.setHex(prop.visColor);
+                    mat.emissive.setHex(0x000000);
+                    mat.roughness = prop.roughness;
+                    mat.metalness = prop.metalness;
+                }
+            });
+        }
+
+        // Toggle Rendering Mode: Visible Light vs Infrared Thermal Camera
+        function setRenderMode(isThermal) {
+            state.isThermalMode = isThermal;
+
+            const btnVis = document.getElementById('btnVisMode');
+            const btnIr = document.getElementById('btnIrMode');
+            const irBar = document.getElementById('irPaletteBar');
+
+            if (isThermal) {
+                btnIr.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all bg-irRed text-white shadow-md flex items-center space-x-1';
+                btnVis.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all text-gray-400 hover:text-white flex items-center space-x-1';
+                irBar.classList.remove('hidden');
+            } else {
+                btnVis.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all bg-gray-800 text-white shadow-sm flex items-center space-x-1';
+                btnIr.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all text-gray-400 hover:text-white flex items-center space-x-1';
+                irBar.classList.add('hidden');
+            }
+
+            updateCalculations();
+        }
+
+        // Calculations & Sensor Readouts
+        function updateCalculations() {
+            const T_kelvin = state.tempC + 273.15;
+            const T0_kelvin = state.ambientTempC + 273.15;
+            const currentEps = faceProperties[state.activeFace].emissive;
+
+            const flux = currentEps * SIGMA * (Math.pow(T_kelvin, 4) - Math.pow(T0_kelvin, 4));
+            const r_meters = state.distCm / 100;
+            const distanceAttenuation = 1 / (1 + 14 * Math.pow(r_meters, 2));
+            const detectedIrradiance = flux * distanceAttenuation;
+            const signalMillivolts = detectedIrradiance * 0.085;
+
+            document.getElementById('irradianceVal').innerText = detectedIrradiance.toFixed(2);
+            document.getElementById('signalVal').innerText = signalMillivolts.toFixed(2) + ' mV';
+            document.getElementById('relEmissionVal').innerText = `${Math.round(currentEps * 100)}% emissività`;
+            document.getElementById('cubeTempDisp').innerText = state.tempC;
+            document.getElementById('tempValText').innerText = state.tempC + ' °C';
+            document.getElementById('distValText').innerText = state.distCm + ' cm';
+            document.getElementById('chartTempLabel').innerText = state.tempC + '°C';
+
+            const noticeText = document.getElementById('paradoxNoticeText');
+            if (state.activeFace === 'white') {
+                noticeText.innerHTML = `Stai osservando la <b>Faccia Bianca</b>: sebbene rifletta la luce visibile, nell'infrarosso emette quasi quanto il nero ($\varepsilon = 0.93$).`;
+            } else if (state.activeFace === 'mirror') {
+                noticeText.innerHTML = `Stai osservando lo <b>Specchio Cromato</b>: la sua bassissima emissività ($\varepsilon = 0.05$) lo rende riflettente e cattivo emettitore termico.`;
+            } else if (state.activeFace === 'gray') {
+                noticeText.innerHTML = `Stai osservando il <b>Grigio Neutro</b>: emissività intermedia ($\varepsilon = 0.85$) che mostra una gradazione termica coerente.`;
+            } else {
+                noticeText.innerHTML = `In <b>Luce Visibile</b> le 4 facce sono ben distinguibili. In <b>Infrarosso (IR)</b> bianco e nero emettono quasi lo stesso calore ($\varepsilon \approx 0.93 \text{ vs } 0.96$)!`;
+            }
+
+            updateChart();
+        }
+
+        // Surface Selection Handler
+        function selectFace(faceKey) {
+            state.activeFace = faceKey;
+            const prop = faceProperties[faceKey];
+
+            targetRotationY = prop.rotY;
+
+            document.getElementById('activeFaceName').innerText = prop.name;
+            document.getElementById('activeFaceEps').innerText = `\u03B5 = ${prop.emissive.toFixed(2)} (${prop.emissive > 0.7 ? 'Alta' : 'Bassa'} Emissione)`;
+            
+            const dotEl = document.getElementById('faceColorDot');
+            dotEl.className = `w-3 h-3 rounded-full ${prop.dotColor}`;
+
+            document.querySelectorAll('.face-btn').forEach(btn => {
+                btn.className = 'face-btn py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white transition-all flex flex-col items-center';
+            });
+            const activeBtn = document.getElementById(`btn-${faceKey}`);
+            if (activeBtn) {
+                activeBtn.className = 'face-btn py-2 rounded-xl text-xs font-medium transition-all bg-gray-800 text-white border border-irOrange/60 shadow-sm flex flex-col items-center';
+            }
+
+            updateCalculations();
+        }
+
+        // Attach Slider Event Listeners
+        function setupEventListeners() {
+            document.getElementById('tempSlider').addEventListener('input', (e) => {
+                state.tempC = parseFloat(e.target.value);
+                updateCalculations();
+            });
+
+            document.getElementById('distSlider').addEventListener('input', (e) => {
+                state.distCm = parseFloat(e.target.value);
+                updateCalculations();
+            });
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.getElementById('content-chart').classList.add('hidden');
+            document.getElementById('content-theory').classList.add('hidden');
+            document.getElementById('tab-chart').classList.remove('active');
+            document.getElementById('tab-theory').classList.remove('active');
+
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        // Initialize Realtime Chart.js Comparison Graph
+        function initChart() {
+            const ctx = document.getElementById('emissivityChart').getContext('2d');
+
+            emissivityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Nero Opaco', 'Bianco Pulito', 'Grigio Neutro', 'Specchio Cromato'],
+                    datasets: [{
+                        label: 'Irradianza Rilevata (W/m²)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#111113', // Black
+                            '#FAFAFA', // White
+                            '#8E8E99', // Gray
+                            '#38BDF8'  // Mirror
+                        ],
+                        borderColor: [
+                            '#FF6B00',
+                            '#FF6B00',
+                            '#9CA3AF',
+                            '#0284C7'
+                        ],
+                        borderWidth: 1.5,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` Irradianza: ${context.raw} W/m²`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9CA3AF', font: { size: 10, weight: 'bold' } }
+                        },
+                        y: {
+                            grid: { color: '#1F2937' },
+                            ticks: { color: '#9CA3AF', font: { size: 9 } },
+                            title: { display: true, text: 'W/m²', color: '#6B7280', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!emissivityChart) return;
+
+            const T_k = state.tempC + 273.15;
+            const T0_k = state.ambientTempC + 273.15;
+            const r_meters = state.distCm / 100;
+            const distanceAttenuation = 1 / (1 + 14 * Math.pow(r_meters, 2));
+
+            const keys = ['black', 'white', 'gray', 'mirror'];
+            const dataVals = keys.map(k => {
+                const eps = faceProperties[k].emissive;
+                const flux = eps * SIGMA * (Math.pow(T_k, 4) - Math.pow(T0_k, 4));
+                return (flux * distanceAttenuation).toFixed(2);
+            });
+
+            const borderColors = keys.map(k => k === state.activeFace ? '#FF6B00' : 'transparent');
+            const borderWidths = keys.map(k => k === state.activeFace ? 3 : 0);
+
+            emissivityChart.data.datasets[0].data = dataVals;
+            emissivityChart.data.datasets[0].borderColor = borderColors;
+            emissivityChart.data.datasets[0].borderWidth = borderWidths;
+            emissivityChart.update('none');
+        }
+    </script>
+</body>
+</html>
