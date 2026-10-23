@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Simulazione Bottiglia di Leida</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX CSS & JS per il rendering delle formule -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        /* Style custom scrollbar per il pannello senza intralciare la grafica */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        
+        /* Prevenzione selezione testo durante il touch sul canvas */
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Fallback elegante per formule in CSS qualora KaTeX tardi a caricare */
+        .math-fallback {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden no-select">
+
+    <!-- Header Mobile Safe -->
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 sticky top-0 z-30 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-950/50">
+                ⚡
+            </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-tight text-slate-100 leading-none">Bottiglia di Leida</h1>
+                <span class="text-[10px] text-slate-400">Simulatore Condensatore Elettrostatico</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1.5">
+            <button id="tab-sim" onclick="switchTab('sim')" class="h-10 px-3 text-xs font-semibold rounded-xl bg-emerald-600 text-white shadow-md transition">Simulatore</button>
+            <button id="tab-theory" onclick="switchTab('theory')" class="h-10 px-3 text-xs font-semibold rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Teoria & Formule</button>
+        </div>
+    </header>
+
+    <!-- Main Mobile Content Area -->
+    <main class="flex-1 flex flex-col overflow-y-auto p-3 max-w-md mx-auto w-full space-y-3">
+
+        <!-- SIMULATION VIEW -->
+        <div id="view-sim" class="flex flex-col space-y-3 flex-1">
+            
+            <!-- Dynamic Status Dashboard -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3 shadow-xl backdrop-blur">
+                <div class="text-center border-r border-slate-800 pr-1">
+                    <span class="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Tensione ($V$)</span>
+                    <span id="status-v" class="text-xs font-bold text-emerald-400">0 kV</span>
+                </div>
+                <div class="text-center border-r border-slate-800 px-1">
+                    <span class="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Carica ($Q$)</span>
+                    <span id="status-q" class="text-xs font-bold text-cyan-400">0.0 μC</span>
+                </div>
+                <div class="text-center pl-1">
+                    <span class="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Messa a Terra</span>
+                    <span id="status-gnd" class="text-xs font-bold text-amber-400">ISOLATA</span>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="relative bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center justify-center p-1 min-h-[300px]">
+                
+                <!-- Legend Overlay -->
+                <div class="absolute top-2 left-2 right-2 flex justify-between items-center z-10 pointer-events-none">
+                    <div class="flex items-center space-x-1.5 bg-slate-900/85 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 text-[10px]">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
+                        <span class="text-slate-300">Elettroni (−)</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5 bg-slate-900/85 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 text-[10px]">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></span>
+                        <span class="text-slate-300">Deficit (+)</span>
+                    </div>
+                </div>
+
+                <canvas id="leydenCanvas" class="w-full h-[300px] rounded-xl cursor-pointer"></canvas>
+
+                <!-- Touch Action Hint -->
+                <div class="absolute bottom-2 left-2 right-2 bg-slate-900/90 backdrop-blur border border-slate-800/80 text-center py-1.5 px-3 rounded-xl text-[11px] text-slate-300 shadow-md pointer-events-none flex items-center justify-center space-x-1.5">
+                    <span class="text-amber-400 font-bold">💡</span>
+                    <span>Tocca la sferetta in alto per scaricare la bottiglia!</span>
+                </div>
+            </div>
+
+            <!-- Interactive Parameters Control -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 space-y-3 shadow-xl backdrop-blur">
+                
+                <!-- Voltage Slider -->
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-300">Tensione Generatore ($V$):</span>
+                        <span id="voltage-val" class="font-bold text-emerald-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">12 kV</span>
+                    </div>
+                    <input type="range" id="voltageSlider" min="5" max="30" value="12" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <!-- Glass Thickness Slider -->
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-300">Spessore Vetro ($d$):</span>
+                        <span id="thickness-val" class="font-bold text-cyan-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">3.0 mm</span>
+                    </div>
+                    <input type="range" id="thicknessSlider" min="1.0" max="6.0" step="0.5" value="3.0" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+
+                <!-- Touch Friendly Button Grid (Min Height 48px) -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button id="btn-charge" class="h-12 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        <span>Carica Bottiglia</span>
+                    </button>
+                    
+                    <button id="btn-ground" class="h-12 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                        <span id="ground-btn-text">Metti a Terra</span>
+                    </button>
+
+                    <button id="btn-discharge" class="h-12 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>
+                        <span>Scarica / Scossa</span>
+                    </button>
+
+                    <button id="btn-reset" class="h-12 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 shadow-lg transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Explainer Section -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 space-y-2 shadow-xl backdrop-blur">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Dettaglio Componenti e Cariche</span>
+                <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button id="mode-all" onclick="setExplainerMode('all')" class="h-8 text-[11px] font-medium rounded-lg bg-slate-800 text-emerald-400 transition">Tutto</button>
+                    <button id="mode-int" onclick="setExplainerMode('int')" class="h-8 text-[11px] font-medium rounded-lg text-slate-400 hover:text-slate-200 transition">Interno</button>
+                    <button id="mode-ext" onclick="setExplainerMode('ext')" class="h-8 text-[11px] font-medium rounded-lg text-slate-400 hover:text-slate-200 transition">Esterno</button>
+                </div>
+                <p id="explainer-desc" class="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 min-h-[50px]">
+                    Gli elettroni (−) fluiscono lungo l'asta fino al rivestimento interno. L'armatura esterna risponde per induzione elettrostatica attraendo o respingendo elettroni.
+                </p>
+            </div>
+
+        </div>
+
+        <!-- THEORY VIEW WITH RENDERED KATEX FORMULAS -->
+        <div id="view-theory" class="hidden flex flex-col space-y-3 flex-1">
+            
+            <!-- Real Physics Note Card -->
+            <div class="bg-amber-950/20 border border-amber-800/40 rounded-2xl p-3.5 space-y-1.5 shadow-xl">
+                <h2 class="text-xs font-bold text-amber-400 flex items-center space-x-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Comportamento Reale Elettronico</span>
+                </h2>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Nei conduttori metallici si muovono <strong>esclusivamente gli elettroni (−)</strong>. Il segno <span class="text-rose-400 font-bold">(+)</span> non indica particelle positive in movimento, ma un <em>deficit o carenza di elettroni</em> rispetto ai protoni fissi nel metallo.
+                </p>
+            </div>
+
+            <!-- Formula 1: Capacitance -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 space-y-2 shadow-xl">
+                <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">1. Capacità del Condensatore Cilindrico</h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    La capacità $C$ esprime la quantità di carica $Q$ accumulabile per ogni volt di tensione applicata:
+                </p>
+                <div class="render-math bg-slate-950 p-3 rounded-xl border border-slate-800 text-center text-sm text-emerald-300 overflow-x-auto my-1">
+                    $$C = \frac{\varepsilon_0 \cdot \varepsilon_r \cdot A}{d}$$
+                </div>
+                <div class="text-[11px] text-slate-400 space-y-1 pt-1">
+                    <p>• <span class="math-fallback">ε₀</span>: Permettività del vuoto ($8.854 \times 10^{-12} \text{ F/m}$)</p>
+                    <p>• <span class="math-fallback">εᵣ</span>: Permettività relativa del vetro ($\approx 5 - 10$)</p>
+                    <p>• <span class="math-fallback">A</span>: Superficie delle armature sovrapposte</p>
+                    <p>• <span class="math-fallback">d</span>: Spessore della parete di vetro isolante</p>
+                </div>
+            </div>
+
+            <!-- Formula 2: Charge & Energy -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 space-y-2 shadow-xl">
+                <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">2. Carica ed Energia Accumulata</h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    La carica $Q$ accumulata è proporzionale alla capacità e alla tensione applicata:
+                </p>
+                <div class="render-math bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center text-sm text-cyan-300 overflow-x-auto my-1">
+                    $$Q = C \cdot V$$
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed pt-1">
+                    L'energia elettrica $E$ immagazzinata all'interno del campo elettrostatico del vetro è data da:
+                </p>
+                <div class="render-math bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center text-sm text-amber-300 overflow-x-auto my-1">
+                    $$E = \frac{1}{2} C \cdot V^2$$
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed pt-1">
+                    Dipendendo dal quadrato della tensione ($V^2$), ad alte tensioni si accumula energia sufficiente per generare una scintilla ad alta luminosità e rumore d'urto.
+                </p>
+            </div>
+
+            <!-- Grounding Explanation -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 space-y-2 shadow-xl">
+                <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider">3. Effetto della Messa a Terra</h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Quando l'armatura interna si carica di elettroni, quelli sull'armatura esterna vengono respinti. Se l'armatura esterna è <strong>messa a terra</strong>, questi elettroni in eccesso possono fuggire liberamente verso il suolo, consentendo un accumulo molto maggiore di carica.
+                </p>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal Dialog per Avvisi ed Errori -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-5 text-center space-y-3 shadow-2xl">
+            <div id="modal-icon" class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-lg font-bold">⚡</div>
+            <h3 id="modal-title" class="text-sm font-bold text-slate-100">Info</h3>
+            <p id="modal-message" class="text-xs text-slate-300 leading-relaxed">Messaggio informativo.</p>
+            <button onclick="closeModal()" class="w-full h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition">Capito</button>
+        </div>
+    </div>
+
+    <!-- Web Audio & Haptic Feedback Synthesizer -->
+    <script>
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSparkEffects() {
+            // Haptic Feedback (Vibrazione Smartphone)
+            if (navigator.vibrate) {
+                navigator.vibrate([40, 30, 80]);
+            }
+
+            // Audio Synthesizer per lo scoppio della scintilla
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const bufferSize = audioCtx.sampleRate * 0.12; // 120ms
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 1200;
+
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                noise.start();
+            } catch (e) {
+                // Audio non supportato o interazione bloccata
+            }
+        }
+    </script>
+
+    <!-- Main Controller Logic & Rendering -->
+    <script>
+        // KaTeX Safe Initialization
+        document.addEventListener("DOMContentLoaded", function() {
+            if (window.renderMathInElement) {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: "$$", right: "$$", display: true},
+                        {left: "$", right: "$", display: false}
+                    ],
+                    throwOnError : false
+                });
+            }
+        });
+
+        // Tab Navigation Logic
+        function switchTab(tab) {
+            const simView = document.getElementById('view-sim');
+            const theoryView = document.getElementById('view-theory');
+            const tabSim = document.getElementById('tab-sim');
+            const tabTheory = document.getElementById('tab-theory');
+
+            if (tab === 'sim') {
+                simView.classList.remove('hidden');
+                theoryView.classList.add('hidden');
+                tabSim.className = 'h-10 px-3 text-xs font-semibold rounded-xl bg-emerald-600 text-white shadow-md transition';
+                tabTheory.className = 'h-10 px-3 text-xs font-semibold rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            } else {
+                simView.classList.add('hidden');
+                theoryView.classList.remove('hidden');
+                tabTheory.className = 'h-10 px-3 text-xs font-semibold rounded-xl bg-emerald-600 text-white shadow-md transition';
+                tabSim.className = 'h-10 px-3 text-xs font-semibold rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+                
+                // Force KaTeX Rendering on tab switch if needed
+                if (window.renderMathInElement) {
+                    renderMathInElement(document.getElementById('view-theory'), {
+                        delimiters: [
+                            {left: "$$", right: "$$", display: true},
+                            {left: "$", right: "$", display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+            }
+        }
+
+        // Modal Controls
+        function showModal(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        // Explainer Component Selector
+        let explainerMode = 'all';
+        function setExplainerMode(mode) {
+            explainerMode = mode;
+            const btnAll = document.getElementById('mode-all');
+            const btnInt = document.getElementById('mode-int');
+            const btnExt = document.getElementById('mode-ext');
+            const desc = document.getElementById('explainer-desc');
+
+            const activeClass = "h-8 text-[11px] font-medium rounded-lg bg-slate-800 text-emerald-400 transition";
+            const inactiveClass = "h-8 text-[11px] font-medium rounded-lg text-slate-400 hover:text-slate-200 transition";
+
+            btnAll.className = mode === 'all' ? activeClass : inactiveClass;
+            btnInt.className = mode === 'int' ? activeClass : inactiveClass;
+            btnExt.className = mode === 'ext' ? activeClass : inactiveClass;
+
+            if (mode === 'all') {
+                desc.innerText = "Gli elettroni (−) fluiscono lungo l'asta fino al rivestimento interno. L'armatura esterna risponde per induzione elettrostatica attraendo o respingendo elettroni.";
+            } else if (mode === 'int') {
+                desc.innerText = "Armatura Interna: Collegata alla sferetta metallica superiore. Accumula direttamente gli elettroni (−) trasferiti dalla sorgente elettrica.";
+            } else if (mode === 'ext') {
+                desc.innerText = "Armatura Esterna: Il bicchiere metallico inferiore. Se isolato impedisce il pieno accumulo. Se messo a terra, libera elettroni lasciando un forte deficit (+).";
+            }
+        }
+
+        // Canvas Simulation State
+        const canvas = document.getElementById('leydenCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let chargeLevel = 0; // Range: 0 - 100
+        let isGrounded = false;
+        let isCharging = false;
+        let targetVoltage = 12;
+        let glassThickness = 3.0; // mm
+        let sparkProgress = 0;
+        let sparkActive = false;
+
+        // Canvas Responsive Adjustments
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth * window.devicePixelRatio;
+            canvas.height = 300 * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Control Sliders Handlers
+        const voltageSlider = document.getElementById('voltageSlider');
+        const voltageVal = document.getElementById('voltage-val');
+        voltageSlider.addEventListener('input', (e) => {
+            targetVoltage = parseInt(e.target.value);
+            voltageVal.innerText = targetVoltage + ' kV';
+            updateDashboard();
+        });
+
+        const thicknessSlider = document.getElementById('thicknessSlider');
+        const thicknessVal = document.getElementById('thickness-val');
+        thicknessSlider.addEventListener('input', (e) => {
+            glassThickness = parseFloat(e.target.value);
+            thicknessVal.innerText = glassThickness.toFixed(1) + ' mm';
+            updateDashboard();
+        });
+
+        // Action Buttons
+        document.getElementById('btn-charge').addEventListener('click', () => {
+            // Capacità inversamente proporzionale allo spessore del vetro
+            const capFactor = (3.0 / glassThickness);
+            const maxCap = isGrounded ? Math.min(100, Math.round(80 * capFactor)) : Math.round(35 * capFactor);
+
+            if (chargeLevel >= maxCap) {
+                if (!isGrounded) {
+                    showModal("Bottiglia Satura", "L'armatura esterna è isolata! Collega la Messa a Terra per far fuggire gli elettroni respinti ed aumentare la capacità.");
+                } else {
+                    showModal("Carica Massima", "Raggiunto il limite massimo di carica per questa tensione e spessore del vetro.");
+                }
+                return;
+            }
+            isCharging = true;
+        });
+
+        document.getElementById('btn-ground').addEventListener('click', () => {
+            isGrounded = !isGrounded;
+            const btnGndText = document.getElementById('ground-btn-text');
+            const btnGnd = document.getElementById('btn-ground');
+            
+            if (isGrounded) {
+                btnGndText.innerText = "Scollega Terra";
+                btnGnd.className = "h-12 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg transition flex items-center justify-center space-x-2";
+            } else {
+                btnGndText.innerText = "Metti a Terra";
+                btnGnd.className = "h-12 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg transition flex items-center justify-center space-x-2";
+            }
+            updateDashboard();
+        });
+
+        document.getElementById('btn-discharge').addEventListener('click', () => {
+            triggerDischarge();
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            chargeLevel = 0;
+            isCharging = false;
+            sparkActive = false;
+            updateDashboard();
+        });
+
+        // Touch Click on Sphere Trigger
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const cx = canvas.clientWidth / 2;
+            const sphereY = 55;
+            const dist = Math.hypot(x - cx, y - sphereY);
+
+            if (dist < 40) {
+                triggerDischarge();
+            }
+        });
+
+        function triggerDischarge() {
+            if (chargeLevel <= 2) {
+                showModal("Nessuna Carica", "La bottiglia è scarica. Premi 'Carica' per immettere elettroni.");
+                return;
+            }
+            sparkActive = true;
+            sparkProgress = 1.0;
+            playSparkEffects();
+            chargeLevel = 0;
+            isCharging = false;
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const statusV = document.getElementById('status-v');
+            const statusQ = document.getElementById('status-q');
+            const statusGnd = document.getElementById('status-gnd');
+
+            const currentV = Math.round((chargeLevel / 100) * targetVoltage);
+            const currentQ = ((chargeLevel * 0.12) * (3.0 / glassThickness)).toFixed(1);
+
+            statusV.innerText = currentV + ' kV';
+            statusQ.innerText = currentQ + ' μC';
+
+            if (isGrounded) {
+                statusGnd.innerText = "CONNESSA";
+                statusGnd.className = "text-xs font-bold text-emerald-400";
+            } else {
+                statusGnd.innerText = "ISOLATA";
+                statusGnd.className = "text-xs font-bold text-amber-400";
+            }
+        }
+
+        // Draw Individual Charge Particle
+        function drawChargeParticle(x, y, type, size = 6) {
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            if (type === '-') {
+                ctx.fillStyle = '#22d3ee'; // Cyan for electrons
+                ctx.fill();
+                ctx.fillStyle = '#092327';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('−', x, y);
+            } else {
+                ctx.fillStyle = '#f43f5e'; // Rose for electron deficit (+)
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('+', x, y);
+            }
+        }
+
+        // Animation Canvas Loop
+        function animate() {
+            const w = canvas.clientWidth;
+            const h = 300;
+            ctx.clearRect(0, 0, w, h);
+
+            const cx = w / 2;
+
+            // Increment charge level
+            if (isCharging) {
+                const capFactor = (3.0 / glassThickness);
+                const maxCap = isGrounded ? Math.min(100, Math.round(80 * capFactor)) : Math.round(35 * capFactor);
+                chargeLevel += 1.2;
+                if (chargeLevel >= maxCap) {
+                    chargeLevel = maxCap;
+                    isCharging = false;
+                }
+                updateDashboard();
+            }
+
+            // Object Dimensions
+            const jarW = 110;
+            const jarH = 160;
+            const jarX = cx - jarW / 2;
+            const jarY = 85;
+
+            // 1. External Metal Can (Armatura Esterna)
+            const extGrad = ctx.createLinearGradient(jarX, 0, jarX + jarW, 0);
+            extGrad.addColorStop(0, '#334155');
+            extGrad.addColorStop(0.3, '#94a3b8');
+            extGrad.addColorStop(0.7, '#cbd5e1');
+            extGrad.addColorStop(1, '#475569');
+
+            ctx.fillStyle = extGrad;
+            ctx.beginPath();
+            ctx.roundRect(jarX, jarY + 70, jarW, 90, [0, 0, 14, 14]);
+            ctx.fill();
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // 2. Glass Cylinder (Dielettrico Isolante con spessore visibile)
+            const strokeW = Math.max(1.5, glassThickness * 0.8);
+            ctx.fillStyle = 'rgba(203, 213, 225, 0.15)';
+            ctx.beginPath();
+            ctx.roundRect(jarX + 6, jarY, jarW - 12, 155, [10, 10, 6, 6]);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = strokeW;
+            ctx.stroke();
+
+            // Glass Specular Highlight
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(jarX + 16, jarY + 8);
+            ctx.lineTo(jarX + 16, jarY + 140);
+            ctx.stroke();
+
+            // 3. Inner Metal Foil (Armatura Interna)
+            if (explainerMode === 'all' || explainerMode === 'int') {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(jarX + 14, jarY + 75, jarW - 28, 75);
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(jarX + 14, jarY + 75, jarW - 28, 75);
+            }
+
+            // Central Metal Rod
+            const sphereY = jarY - 30;
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx, jarY + 70);
+            ctx.lineTo(cx, sphereY);
+            ctx.stroke();
+
+            // Metallic Sphere
+            const sRadius = 14;
+            const sGrad = ctx.createRadialGradient(cx - 4, sphereY - 4, 2, cx, sphereY, sRadius);
+            sGrad.addColorStop(0, '#ffffff');
+            sGrad.addColorStop(0.5, '#94a3b8');
+            sGrad.addColorStop(1, '#334155');
+
+            ctx.fillStyle = sGrad;
+            ctx.beginPath();
+            ctx.arc(cx, sphereY, sRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Ground Connection Wire Visualization
+            if (isGrounded) {
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2.5;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(jarX + jarW, jarY + 120);
+                ctx.lineTo(jarX + jarW + 28, jarY + 120);
+                ctx.lineTo(jarX + jarW + 28, jarY + 175);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Grounding Symbol
+                const gx = jarX + jarW + 28;
+                const gy = jarY + 175;
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(gx - 10, gy); ctx.lineTo(gx + 10, gy);
+                ctx.moveTo(gx - 6, gy + 4); ctx.lineTo(gx + 6, gy + 4);
+                ctx.moveTo(gx - 3, gy + 8); ctx.lineTo(gx + 3, gy + 8);
+                ctx.stroke();
+            }
+
+            // Charge Rendering Dynamics
+            const numParticles = Math.floor((chargeLevel / 100) * 12);
+
+            // Inner Armature: (-) Electrons
+            if (explainerMode === 'all' || explainerMode === 'int') {
+                for (let i = 0; i < numParticles; i++) {
+                    const px = jarX + 22 + (i % 4) * 18;
+                    const py = jarY + 88 + Math.floor(i / 4) * 20;
+                    drawChargeParticle(px, py, '-');
+                }
+            }
+
+            // Outer Armature: Induced Charges
+            if (explainerMode === 'all' || explainerMode === 'ext') {
+                for (let i = 0; i < numParticles; i++) {
+                    const px = jarX + 4 + (i % 5) * 22;
+                    const py = jarY + 98 + Math.floor(i / 5) * 22;
+                    if (isGrounded) {
+                        drawChargeParticle(px, py, '+');
+                    } else {
+                        if (i % 2 === 0) {
+                            drawChargeParticle(px, py, '+');
+                        } else {
+                            drawChargeParticle(px + 78, py, '-');
+                        }
+                    }
+                }
+            }
+
+            // Active Charging Effect
+            if (isCharging) {
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(cx - 65, sphereY - 18);
+                ctx.lineTo(cx, sphereY - sRadius);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                drawChargeParticle(cx - 32, sphereY - 9, '-');
+            }
+
+            // High Voltage Spark Flash
+            if (sparkActive && sparkProgress > 0) {
+                ctx.strokeStyle = '#60a5fa';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#3b82f6';
+                ctx.shadowBlur = 14;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, sphereY);
+                ctx.lineTo(cx + 22, sphereY + 28);
+                ctx.lineTo(cx - 12, sphereY + 60);
+                ctx.lineTo(cx + 30, sphereY + 95);
+                ctx.lineTo(jarX + jarW, jarY + 115);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                sparkProgress -= 0.06;
+                if (sparkProgress <= 0) {
+                    sparkActive = false;
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize Application
+        window.onload = function() {
+            updateDashboard();
+            animate();
+        };
+    </script>
+</body>
+</html>
