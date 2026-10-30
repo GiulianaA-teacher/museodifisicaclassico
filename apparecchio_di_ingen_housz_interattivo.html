@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Apparecchio di Ingen-Housz Interattivo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#131e32',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #090d16;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 4px;
+        }
+
+        .glass-panel {
+            background: rgba(26, 38, 57, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #ef4444;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            border: 2px solid #ffffff;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden select-none pb-4">
+
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-30 px-4 py-3 shadow-lg border-b border-slate-800">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 flex items-center justify-center text-white font-bold shadow-lg shadow-red-950/40">
+                    <i class="fa-solid fa-temperature-arrow-up text-base"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-tight leading-none text-white">Apparecchio di Ingen-Housz</h1>
+                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">Modello a 6 Aste con Tappi in Caucciù</p>
+                </div>
+            </div>
+            <button id="infoBtn" class="w-9 h-9 rounded-xl glass-card flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition" aria-label="Info e Teoria">
+                <i class="fa-solid fa-book-open text-base text-cyan-400"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-md mx-auto w-full px-3 py-3 flex-1 flex flex-col gap-3">
+
+        <!-- Canvas Container -->
+        <div class="glass-panel rounded-2xl p-3 shadow-xl relative overflow-hidden border border-slate-800">
+            
+            <!-- Canvas Top Stats -->
+            <div class="flex justify-between items-center mb-2 px-1">
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-full border border-slate-700/60">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <span class="text-xs font-semibold text-slate-200" id="tempDisplayBadge">Acqua: 85°C</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <!-- Speed Multiplier -->
+                    <div class="flex bg-slate-900/80 p-0.5 rounded-lg border border-slate-800 text-[10px] font-bold">
+                        <button id="speed1x" class="px-2 py-0.5 rounded bg-amber-500 text-slate-950">1x</button>
+                        <button id="speed2x" class="px-2 py-0.5 rounded text-slate-400 hover:text-white">2x</button>
+                        <button id="speed5x" class="px-2 py-0.5 rounded text-slate-400 hover:text-white">5x</button>
+                    </div>
+
+                    <!-- Timer -->
+                    <div class="flex items-center gap-1 text-[11px] text-slate-300 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800">
+                        <i class="fa-solid fa-stopwatch text-amber-400"></i>
+                        <span id="timeDisplay" class="font-mono font-bold">00:00s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Canvas -->
+            <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-inner">
+                <canvas id="simCanvas" class="w-full h-full block"></canvas>
+
+                <!-- Heat Legend -->
+                <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-800 text-[10px]">
+                    <span class="text-sky-400 font-medium">20°C (Freddo)</span>
+                    <div class="h-1.5 flex-1 mx-2 rounded-full bg-gradient-to-r from-sky-500 via-amber-400 to-red-600"></div>
+                    <span class="text-red-400 font-medium">100°C (Caldo)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulation Controls -->
+        <div class="glass-panel rounded-2xl p-3.5 shadow-xl flex flex-col gap-3 border border-slate-800">
+            
+            <!-- Temperature Control Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center">
+                    <label for="tempSlider" class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-fire text-red-400"></i>
+                        Temperatura Acqua Serbatoio:
+                    </label>
+                    <span id="tempSliderVal" class="text-xs font-bold font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">85 °C</span>
+                </div>
+                <input type="range" id="tempSlider" min="20" max="100" value="85" step="1" 
+                    class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                <div class="flex justify-between text-[10px] text-slate-500 font-medium px-0.5">
+                    <span>20°C (Ambiente)</span>
+                    <span>60°C (Fusione Cera)</span>
+                    <span>100°C (Ebollizione)</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-3 gap-2 pt-1">
+                <button id="startBtn" class="h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 active:scale-95 transition">
+                    <i class="fa-solid fa-play text-xs"></i>
+                    <span>Avvia</span>
+                </button>
+                <button id="pauseBtn" disabled class="h-11 rounded-xl bg-slate-800 text-slate-400 font-semibold text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed active:scale-95 transition">
+                    <i class="fa-solid fa-pause text-xs"></i>
+                    <span>Pausa</span>
+                </button>
+                <button id="resetBtn" class="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm border border-slate-700 flex items-center justify-center gap-2 active:scale-95 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Conduction Live Progress for 6 Metals -->
+        <div class="glass-panel rounded-2xl p-3.5 shadow-xl space-y-2 border border-slate-800">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                <h2 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-column text-amber-400"></i>
+                    Avanzamento Fusione Cera (6 Aste)
+                </h2>
+                <span class="text-[10px] text-slate-400 font-mono">Distanza / % Fusa</span>
+            </div>
+
+            <!-- Progress Rows -->
+            <div id="metalProgressContainer" class="space-y-2 pt-1">
+                <!-- Dynamically Populated -->
+            </div>
+        </div>
+
+        <!-- Material Properties Reference -->
+        <div class="glass-panel rounded-2xl p-3 shadow-xl border border-slate-800 text-xs space-y-2">
+            <h2 class="font-bold text-slate-200 flex items-center gap-1.5 text-xs">
+                <i class="fa-solid fa-atom text-cyan-400"></i>
+                Proprietà Termiche dei Materiali
+            </h2>
+            <div class="grid grid-cols-2 gap-1.5 text-[10px]" id="materialTable">
+                <!-- Dynamically Populated -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Info & Physics Theory Modal -->
+    <div id="infoModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-sm w-full rounded-2xl p-5 border border-slate-700 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-microscope text-amber-400"></i>
+                    Principio di Funzionamento
+                </h3>
+                <button id="closeModalBtn" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    L'<strong>Apparecchio di Ingen-Housz</strong> mostrato nell'immagine presenta una vaschetta metallica dotata di coperchio, maniglie laterali e <strong>6 aste metalliche</strong> fissate con tappi rossi di caucciù.
+                </p>
+
+                <!-- Clean Formatted Physics Equation (No raw LaTeX) -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-2">
+                    <div class="text-amber-400 font-semibold text-[11px] uppercase tracking-wider">Legge della Conduzione (Fourier)</div>
+                    
+                    <div class="text-center py-2.5 font-serif text-base text-white bg-slate-950/80 rounded-lg border border-slate-800/80 my-1 shadow-inner">
+                        <span class="italic">q</span> = &minus;<span class="italic">k</span> &middot; <span class="italic">A</span> &middot; 
+                        <span class="inline-flex flex-col vertical-middle text-center mx-1 align-middle">
+                            <span class="border-b border-slate-400 px-1">d<span class="italic">T</span></span>
+                            <span class="px-1">d<span class="italic">x</span></span>
+                        </span>
+                    </div>
+
+                    <ul class="text-[11px] space-y-1 text-slate-400 pl-1">
+                        <li>• <strong>q</strong> = Flusso di calore nel tempo [W]</li>
+                        <li>• <strong>k</strong> = Conducibilità termica del metallo [W/(m·K)]</li>
+                        <li>• <strong>A</strong> = Sezione trasversale dell'asta [m²]</li>
+                        <li>• <strong>dT/dx</strong> = Gradiente di temperatura lungo l'asta</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                    <div class="text-amber-400 font-semibold text-[11px] uppercase tracking-wider">Fusione e Caduta Palline di Cera</div>
+                    <p class="text-[11px] text-slate-300">
+                        Quando l'acqua calda riempie la vaschetta, il calore si propaga lungo le 6 aste. Quando la temperatura del metallo raggiunge la temperatura di fusione della cera (<strong>~55°C - 60°C</strong>), lo strato di paraffina fonde e la pallina collegata cade.
+                    </p>
+                </div>
+            </div>
+
+            <button id="modalOkBtn" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs border border-slate-700 transition">
+                Chiudi
+            </button>
+        </div>
+    </div>
+
+    <!-- Simulation Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 6 Metals matching physical historical sets ---
+            const METALS = [
+                { id: 'copper',    name: 'Rame',          k: 390, color: '#d97706', density: 8960, cp: 385 },
+                { id: 'aluminum',  name: 'Alluminio',     k: 237, color: '#e2e8f0', density: 2700, cp: 897 },
+                { id: 'brass',     name: 'Ottone',        k: 110, color: '#facc15', density: 8500, cp: 380 },
+                { id: 'iron',      name: 'Ferro',         k: 80,  color: '#94a3b8', density: 7870, cp: 450 },
+                { id: 'lead',      name: 'Piombo',        k: 35,  color: '#64748b', density: 11340, cp: 128 },
+                { id: 'steel',     name: 'Acciaio Inox',  k: 16,  color: '#475569', density: 8000, cp: 500 }
+            ];
+
+            const T_AMB = 20; // Ambient Temp (°C)
+            const T_MELT = 58; // Wax Melting Temp (°C)
+            const ROD_NODES = 32;
+            const ROD_LENGTH_CM = 12;
+
+            let speedMultiplier = 1;
+            let isRunning = false;
+            let simTime = 0;
+            let lastTimestamp = 0;
+            let animationFrameId = null;
+
+            let rodsState = [];
+            let waxBeads = []; // Suspended wax beads that fall when melted
+
+            // Canvas & Context
+            const canvas = document.getElementById('simCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Controls & DOM Elements
+            const tempSlider = document.getElementById('tempSlider');
+            const tempSliderVal = document.getElementById('tempSliderVal');
+            const tempDisplayBadge = document.getElementById('tempDisplayBadge');
+            const timeDisplay = document.getElementById('timeDisplay');
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const metalProgressContainer = document.getElementById('metalProgressContainer');
+            const materialTable = document.getElementById('materialTable');
+            const infoBtn = document.getElementById('infoBtn');
+            const infoModal = document.getElementById('infoModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modalOkBtn = document.getElementById('modalOkBtn');
+
+            // Speed Buttons
+            const speed1x = document.getElementById('speed1x');
+            const speed2x = document.getElementById('speed2x');
+            const speed5x = document.getElementById('speed5x');
+
+            function setSpeed(spd, btn) {
+                speedMultiplier = spd;
+                [speed1x, speed2x, speed5x].forEach(b => {
+                    b.className = 'px-2 py-0.5 rounded text-slate-400 hover:text-white';
+                });
+                btn.className = 'px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold';
+            }
+
+            speed1x.addEventListener('click', () => setSpeed(1, speed1x));
+            speed2x.addEventListener('click', () => setSpeed(2, speed2x));
+            speed5x.addEventListener('click', () => setSpeed(5, speed5x));
+
+            // Populate Material Table
+            function populateMaterialTable() {
+                materialTable.innerHTML = '';
+                METALS.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-card p-1.5 rounded-lg flex justify-between items-center';
+                    card.innerHTML = `
+                        <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full inline-block" style="background-color: ${m.color}"></span>
+                            ${m.name}:
+                        </span>
+                        <span class="font-mono text-amber-400 font-bold">${m.k} W/(m·K)</span>
+                    `;
+                    materialTable.appendChild(card);
+                });
+            }
+
+            // Populate Progress Bars
+            function createProgressRows() {
+                metalProgressContainer.innerHTML = '';
+                METALS.forEach(m => {
+                    const row = document.createElement('div');
+                    row.className = 'space-y-1';
+                    row.innerHTML = `
+                        <div class="flex justify-between items-center text-[11px]">
+                            <span class="font-medium text-slate-300 flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.color}"></span>
+                                ${m.name}
+                            </span>
+                            <span id="meltDist-${m.id}" class="font-mono text-amber-400 font-semibold">0.0 cm</span>
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                            <div id="progressBar-${m.id}" class="h-full rounded-full transition-all duration-75 bg-gradient-to-r from-amber-500 to-red-500" style="width: 0%"></div>
+                        </div>
+                    `;
+                    metalProgressContainer.appendChild(row);
+                });
+            }
+
+            // Initialize/Reset State
+            function initSimulation() {
+                simTime = 0;
+                waxBeads = [];
+
+                rodsState = METALS.map((m, idx) => {
+                    // Thermal Diffusivity alpha = k / (rho * cp)
+                    const alpha = (m.k / (m.density * m.cp)) * 140000;
+                    const nodes = new Array(ROD_NODES).fill(T_AMB);
+                    const waxIntact = new Array(ROD_NODES).fill(true);
+
+                    // Add 2 wax beads per rod at 30% and 70% along length
+                    waxBeads.push({
+                        rodIdx: idx,
+                        nodeIdx: Math.floor(ROD_NODES * 0.35),
+                        isDropped: false,
+                        dropY: 0,
+                        opacity: 1
+                    });
+                    waxBeads.push({
+                        rodIdx: idx,
+                        nodeIdx: Math.floor(ROD_NODES * 0.75),
+                        isDropped: false,
+                        dropY: 0,
+                        opacity: 1
+                    });
+
+                    return {
+                        ...m,
+                        alpha,
+                        nodes,
+                        waxIntact,
+                        meltDistanceCm: 0
+                    };
+                });
+
+                updateUI();
+                renderCanvas();
+            }
+
+            // 1D Fourier Thermal Conduction Physics Step
+            function updatePhysics(dt) {
+                const effectiveDt = dt * speedMultiplier;
+                const tankTemp = parseFloat(tempSlider.value);
+
+                rodsState.forEach((rod) => {
+                    rod.nodes[0] = tankTemp; // Hot tank coupling
+
+                    const newNodes = [...rod.nodes];
+                    const dx = 1.0;
+
+                    for (let i = 1; i < ROD_NODES - 1; i++) {
+                        const d2T = (rod.nodes[i - 1] - 2 * rod.nodes[i] + rod.nodes[i + 1]) / (dx * dx);
+                        const heatLoss = 0.012 * (rod.nodes[i] - T_AMB); // Ambient cooling
+                        newNodes[i] = rod.nodes[i] + (rod.alpha * d2T - heatLoss) * effectiveDt;
+                        if (newNodes[i] < T_AMB) newNodes[i] = T_AMB;
+                    }
+                    newNodes[ROD_NODES - 1] = rod.nodes[ROD_NODES - 1] + rod.alpha * (rod.nodes[ROD_NODES - 2] - rod.nodes[ROD_NODES - 1]) * effectiveDt;
+
+                    rod.nodes = newNodes;
+
+                    // Melt progress calculation
+                    let maxMeltIdx = 0;
+                    for (let i = 1; i < ROD_NODES; i++) {
+                        if (rod.nodes[i] >= T_MELT) {
+                            rod.waxIntact[i] = false;
+                            maxMeltIdx = i;
+                        }
+                    }
+                    rod.meltDistanceCm = (maxMeltIdx / (ROD_NODES - 1)) * ROD_LENGTH_CM;
+                });
+
+                // Update Wax Beads falling animation
+                waxBeads.forEach(bead => {
+                    const rod = rodsState[bead.rodIdx];
+                    if (!bead.isDropped && rod.nodes[bead.nodeIdx] >= T_MELT) {
+                        bead.isDropped = true;
+                    }
+                    if (bead.isDropped && bead.opacity > 0) {
+                        bead.dropY += 60 * effectiveDt;
+                        bead.opacity -= 0.6 * effectiveDt;
+                        if (bead.opacity < 0) bead.opacity = 0;
+                    }
+                });
+            }
+
+            // Temperature to Gradient Color Helper
+            function getTemperatureColor(temp) {
+                const norm = Math.min(Math.max((temp - T_AMB) / (100 - T_AMB), 0), 1);
+                let r, g, b;
+                if (norm < 0.5) {
+                    const t = norm * 2;
+                    r = Math.round(56 + t * (234 - 56));
+                    g = Math.round(189 + t * (179 - 189));
+                    b = Math.round(248 - t * (248 - 8));
+                } else {
+                    const t = (norm - 0.5) * 2;
+                    r = Math.round(234 + t * (239 - 234));
+                    g = Math.round(179 - t * (179 - 68));
+                    b = Math.round(8 - t * 8);
+                }
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            // Rendering Function - Matching the photo
+            function renderCanvas() {
+                if (!canvas.width || !canvas.height) return;
+
+                const dpr = window.devicePixelRatio || 1;
+                const w = canvas.width / dpr;
+                const h = canvas.height / dpr;
+
+                ctx.save();
+                ctx.scale(dpr, dpr);
+                ctx.clearRect(0, 0, w, h);
+
+                // --- 1. Draw Background Table Surface ---
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, h * 0.72, w, h * 0.28);
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(0, h * 0.72, w, 2);
+
+                // --- 2. Draw Metallic Tank Apparatus (Centered, matching photo) ---
+                const tankW = w * 0.62;
+                const tankH = h * 0.38;
+                const tankX = (w - tankW) / 2;
+                const tankY = h * 0.22;
+
+                // Tank Body Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(tankX + 5, tankY + tankH, tankW - 10, 8);
+
+                // Tank Metallic Gradient
+                const tankGrad = ctx.createLinearGradient(tankX, tankY, tankX, tankY + tankH);
+                tankGrad.addColorStop(0, '#cbd5e1');
+                tankGrad.addColorStop(0.15, '#94a3b8');
+                tankGrad.addColorStop(0.8, '#475569');
+                tankGrad.addColorStop(1, '#334155');
+
+                ctx.fillStyle = tankGrad;
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(tankX, tankY, tankW, tankH, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Metallic Top Lid Plate
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(tankX - 4, tankY - 4, tankW + 8, 6);
+
+                // Side Handles (Matching Photo)
+                ctx.fillStyle = '#475569';
+                // Left Handle
+                ctx.fillRect(tankX - 12, tankY + 12, 10, 24);
+                ctx.fillRect(tankX - 15, tankY + 18, 5, 12);
+                // Right Handle
+                ctx.fillRect(tankX + tankW + 2, tankY + 12, 10, 24);
+                ctx.fillRect(tankX + tankW + 10, tankY + 18, 5, 12);
+
+                // --- 3. Draw Top Vertical Pegs / Stoppers (Matching photo) ---
+                const numRods = rodsState.length;
+                const spacing = tankW / (numRods + 1);
+
+                for (let i = 0; i < numRods; i++) {
+                    const px = tankX + spacing * (i + 1);
+                    // Red rubber cork stopper on top
+                    ctx.fillStyle = '#991b1b';
+                    ctx.beginPath();
+                    ctx.roundRect(px - 5, tankY - 18, 10, 14, 2);
+                    ctx.fill();
+                    // Metal pin on top
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.fillRect(px - 2, tankY - 28, 4, 10);
+                }
+
+                // --- 4. Draw Front Rod Plate & Red Stopper Sleeves ---
+                const plateY = tankY + tankH * 0.45;
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(tankX + 12, plateY - 6, tankW - 24, 12);
+
+                // --- 5. Draw 6 Horizontal/Slightly Angled Rods Extending Forward ---
+                rodsState.forEach((rod, i) => {
+                    const rx = tankX + spacing * (i + 1);
+                    const ry = plateY;
+                    const rodLen = h * 0.28;
+
+                    // Red rubber cork stopper sleeve on front
+                    ctx.fillStyle = '#991b1b';
+                    ctx.beginPath();
+                    ctx.ellipse(rx, ry, 6, 9, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw Rod Heat Conduction Segments
+                    const segLen = rodLen / (ROD_NODES - 1);
+                    for (let n = 0; n < ROD_NODES - 1; n++) {
+                        const rY1 = ry + n * (segLen * 0.7);
+                        const rY2 = ry + (n + 1) * (segLen * 0.7);
+                        const c1 = getTemperatureColor(rod.nodes[n]);
+                        const c2 = getTemperatureColor(rod.nodes[n + 1]);
+
+                        const segGrad = ctx.createLinearGradient(rx, rY1, rx, rY2);
+                        segGrad.addColorStop(0, c1);
+                        segGrad.addColorStop(1, c2);
+
+                        ctx.strokeStyle = segGrad;
+                        ctx.lineWidth = 4.5;
+                        ctx.beginPath();
+                        ctx.moveTo(rx, rY1);
+                        ctx.lineTo(rx, rY2);
+                        ctx.stroke();
+                    }
+
+                    // Wax Coating Tip (Cream/Yellow)
+                    const waxStartNode = Math.floor(ROD_NODES * 0.3);
+                    const waxStartY = ry + waxStartNode * (segLen * 0.7);
+                    const waxEndY = ry + (ROD_NODES - 1) * (segLen * 0.7);
+
+                    ctx.strokeStyle = 'rgba(254, 240, 138, 0.85)';
+                    ctx.lineWidth = 6.5;
+                    for (let n = waxStartNode; n < ROD_NODES; n++) {
+                        if (rod.waxIntact[n]) {
+                            const wy = ry + n * (segLen * 0.7);
+                            ctx.beginPath();
+                            ctx.moveTo(rx, wy);
+                            ctx.lineTo(rx, wy + (segLen * 0.7));
+                            ctx.stroke();
+                        }
+                    }
+
+                    // Label Metal Code
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.font = 'bold 9px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(rod.name.substring(0, 3).toUpperCase(), rx, ry - 12);
+                });
+
+                // --- 6. Draw Suspended Wax Beads / Dropping Beads ---
+                waxBeads.forEach(bead => {
+                    const rod = rodsState[bead.rodIdx];
+                    const rx = tankX + spacing * (bead.rodIdx + 1);
+                    const ry = plateY + bead.nodeIdx * (h * 0.28 / (ROD_NODES - 1) * 0.7) + bead.dropY;
+
+                    if (bead.opacity > 0) {
+                        ctx.fillStyle = `rgba(253, 224, 71, ${bead.opacity})`;
+                        ctx.strokeStyle = `rgba(180, 83, 9, ${bead.opacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(rx, ry, 3.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                });
+
+                ctx.restore();
+            }
+
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * window.devicePixelRatio;
+                canvas.height = rect.height * window.devicePixelRatio;
+                renderCanvas();
+            }
+
+            function updateUI() {
+                const mins = Math.floor(simTime / 60);
+                const secs = (simTime % 60).toFixed(1);
+                timeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.padStart(4, '0')}s`;
+
+                const curTemp = tempSlider.value;
+                tempSliderVal.textContent = `${curTemp} °C`;
+                tempDisplayBadge.textContent = `Acqua: ${curTemp}°C`;
+
+                rodsState.forEach(rod => {
+                    const pct = Math.min((rod.meltDistanceCm / ROD_LENGTH_CM) * 100, 100);
+                    const bar = document.getElementById(`progressBar-${rod.id}`);
+                    const txt = document.getElementById(`meltDist-${rod.id}`);
+                    if (bar) bar.style.width = `${pct}%`;
+                    if (txt) txt.textContent = `${rod.meltDistanceCm.toFixed(1)} cm`;
+                });
+            }
+
+            function animate(timestamp) {
+                if (!isRunning) return;
+
+                if (!lastTimestamp) lastTimestamp = timestamp;
+                const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+                lastTimestamp = timestamp;
+
+                simTime += dt * speedMultiplier;
+
+                updatePhysics(dt);
+                updateUI();
+                renderCanvas();
+
+                animationFrameId = requestAnimationFrame(animate);
+            }
+
+            // Controls Handlers
+            startBtn.addEventListener('click', () => {
+                if (!isRunning) {
+                    isRunning = true;
+                    lastTimestamp = 0;
+                    startBtn.disabled = true;
+                    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    pauseBtn.disabled = false;
+                    pauseBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    animationFrameId = requestAnimationFrame(animate);
+                }
+            });
+
+            pauseBtn.addEventListener('click', () => {
+                if (isRunning) {
+                    isRunning = false;
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    pauseBtn.disabled = true;
+                    pauseBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                }
+            });
+
+            resetBtn.addEventListener('click', () => {
+                isRunning = false;
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                startBtn.disabled = false;
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                pauseBtn.disabled = true;
+                pauseBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                initSimulation();
+            });
+
+            tempSlider.addEventListener('input', () => {
+                updateUI();
+                renderCanvas();
+            });
+
+            // Modal Handlers
+            infoBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+            closeModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+            modalOkBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+            infoModal.addEventListener('click', (e) => {
+                if (e.target === infoModal) infoModal.classList.add('hidden');
+            });
+
+            window.addEventListener('resize', resizeCanvas);
+
+            // Init App
+            populateMaterialTable();
+            createProgressRows();
+            initSimulation();
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>
