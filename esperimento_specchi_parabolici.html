@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-950 text-slate-100 font-sans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Esperimento Specchi Parabolici e Incendio del Fiammifero</title>
+    <!-- Tailwind CSS per uno styling moderno ed elegante -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax configurato per renderizzare LaTeX senza mostrare codice grezzo -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        document.querySelectorAll('.math-placeholder').forEach(el => el.classList.remove('opacity-0'));
+                    });
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome per icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        .math-placeholder { transition: opacity 0.2s ease-in; }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between overflow-x-hidden select-none bg-slate-950">
+
+    <!-- HEADER / NAVIGAZIONE MOBILE -->
+    <header class="w-full bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 sticky top-0 z-30 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20">
+                <i class="fa-solid fa-fire-flame-curved text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-extrabold text-slate-100 tracking-tight leading-tight">Specchi Ustori</h1>
+                <p class="text-[10px] text-amber-400 font-medium">Fuoco e Riflessione Parabolica</p>
+            </div>
+        </div>
+        
+        <!-- Toggle tra Simulatore e Teoria -->
+        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button id="btnTabSim" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-amber-500 text-slate-950 shadow">
+                <i class="fa-solid fa-flask mr-1"></i>Simula
+            </button>
+            <button id="btnTabTheory" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-book-bookmark mr-1"></i>Teoria
+            </button>
+        </div>
+    </header>
+
+    <!-- CONTAINER PRINCIPALE (Portrait Mobile) -->
+    <main class="flex-1 flex flex-col p-3 gap-3 max-w-md mx-auto w-full overflow-y-auto">
+
+        <!-- TAB 1: SIMULATORE INTERATTIVO -->
+        <section id="simulationTab" class="flex flex-col gap-3 w-full">
+            
+            <!-- SCHERMO CANVAS BANCO OTTICO CON SPECCHI PARABOLICI -->
+            <div class="relative bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden aspect-[4/3] w-full flex items-center justify-center">
+                <canvas id="opticsCanvas" class="w-full h-full block cursor-pointer touch-none"></canvas>
+                
+                <!-- Badge Temperatura Fiammifero -->
+                <div class="absolute top-2.5 right-2.5 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center gap-2 shadow-lg z-10">
+                    <i id="tempIcon" class="fa-solid fa-temperature-half text-amber-400 text-xs"></i>
+                    <div class="flex flex-col">
+                        <span class="text-[8px] uppercase tracking-wider text-slate-400 font-bold">Temperatura</span>
+                        <span id="tempDisplay" class="text-xs font-mono font-extrabold text-amber-300">20 °C</span>
+                    </div>
+                </div>
+
+                <!-- Badge Stato Fuoco -->
+                <div class="absolute top-2.5 left-2.5 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center gap-2 shadow-lg z-10">
+                    <span id="focusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="focusText" class="text-[10px] font-bold text-slate-300">Allineamento Ottimale</span>
+                </div>
+
+                <!-- Suggerimento Drag&Drop -->
+                <div id="dragHint" class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-950/90 text-amber-300 text-[10px] px-3 py-1 rounded-full border border-amber-500/30 backdrop-blur pointer-events-none opacity-90 transition-opacity flex items-center gap-1.5 shadow-md z-10 whitespace-nowrap">
+                    <i class="fa-solid fa-hand-pointer text-xs"></i> Trascina la lampadina o il fiammifero
+                </div>
+            </div>
+
+            <!-- CONTROLLI ACCENSIONE E ALINEAMENTO -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-3 shadow-xl backdrop-blur">
+                
+                <!-- Interruttore Lampada -->
+                <div class="flex gap-2">
+                    <button id="btnLampSwitch" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:brightness-110 active:scale-[0.98] font-extrabold text-slate-950 text-xs sm:text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+                        <i id="lampIcon" class="fa-solid fa-lightbulb text-base"></i>
+                        <span id="lampBtnText">ACCENDI LAMPADINA</span>
+                    </button>
+                    <button id="btnResetFocus" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 transition border border-slate-700 flex items-center justify-center" title="Ripristina Fuoco">
+                        <i class="fa-solid fa-arrows-to-dot text-sm text-amber-400"></i>
+                    </button>
+                </div>
+
+                <!-- Slider Intensità Luminosa -->
+                <div class="flex flex-col gap-1 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-sun text-amber-400"></i> Potenza Sorgente Luminosa
+                        </span>
+                        <span id="valPower" class="text-amber-400 font-mono font-bold">100 W</span>
+                    </div>
+                    <input type="range" id="sliderPower" min="10" max="250" step="10" value="100" class="w-full accent-amber-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[9px] text-slate-500 font-mono pt-0.5">
+                        <span>10 W (Debole)</span>
+                        <span>100 W</span>
+                        <span>250 W (Forte)</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TAB 2: TEORIA E FISICA DEL FENOMENO -->
+        <section id="theoryTab" class="hidden flex-col gap-3 w-full text-slate-200">
+            
+            <!-- SCHEDA 1: COS'È E COME FUNZIONA IN PRATICA -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h2 class="text-sm font-bold text-amber-400 flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-lightbulb text-base"></i> 1. Come funziona l'esperimento?
+                </h2>
+                <p class="text-xs leading-relaxed text-slate-300">
+                    L'esperimento mostra come accendere un fiammifero a distanza usando unicamente la luce ed un paio di <strong>specchi parabolici riflettenti</strong> affacciati l'uno di fronte all'altro.
+                </p>
+                <div class="mt-2.5 p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
+                    <p><strong class="text-amber-300">• Sorgente nel Fuoco 1 ($F_1$):</strong> La lampadina posizionata nel punto focale del primo specchio emette luce in tutte le direzioni.</p>
+                    <p><strong class="text-amber-300">• Riflessione Parallela:</strong> I raggi colpendo il primo specchio parabola vengono riflessi tutti in parallelo tra loro verso il secondo specchio.</p>
+                    <p><strong class="text-amber-300">• Concentrazione nel Fuoco 2 ($F_2$):</strong> Il secondo specchio raccoglie il fascio parallelo e fa convergere tutti i raggi in un unico punto: il suo fuoco, dove si trova la capocchia del fiammifero!</p>
+                </div>
+            </div>
+
+            <!-- SCHEDA 2: LA MATEMATICA E LA FISICA DELLA PARABOLA -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h2 class="text-sm font-bold text-amber-400 flex items-center gap-2 mb-2.5">
+                    <i class="fa-solid fa-calculator text-base"></i> 2. La Legge della Parabola
+                </h2>
+                
+                <div class="space-y-3 text-xs text-slate-300">
+                    <p class="leading-relaxed">
+                        Una parabola è una curva geometrica speciale che possiede una proprietà fondamentale: ogni raggio di luce proveniente dal <strong>fuoco</strong> viene riflesso lungo una linea retta parallela all'asse della parabola.
+                    </p>
+
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-amber-300 math-placeholder opacity-0">
+                        <div class="text-center text-sm font-bold mb-1">Equazione della Parabola:</div>
+                        $$y = a x^2$$
+                    </div>
+
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-amber-300 math-placeholder opacity-0">
+                        <div class="text-center text-sm font-bold mb-1">Distanza Focale:</div>
+                        $$f = \frac{1}{4a}$$
+                    </div>
+
+                    <div class="space-y-1.5 text-[11px] text-slate-300">
+                        <p><strong class="text-slate-100">$f$ (Distanza focale):</strong> La distanza esatta dal vertice dello specchio al punto in cui i raggi si concentrano.</p>
+                        <p><strong class="text-slate-100">$a$ (Curvatura):</strong> Indica quanto la parabola è stretta o larga.</p>
+                    </div>
+
+                    <div class="p-2.5 bg-slate-950/60 rounded-xl border border-amber-500/20 text-[11px] text-slate-300">
+                        <strong class="text-amber-400 block mb-1"><i class="fa-solid fa-fire text-xs"></i> Perché il fiammifero si accende?</strong>
+                        Tutta l'energia luminosa emessa dalla lampadina viene "raccolta" dallo specchio e concentrata in un punto piccolissimo (il fuoco $F_2$). Questa elevata densità di calore fa salire rapidamente la temperatura fino al punto di ignizione del fosforo ($180^\circ\text{C}$).
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- FOOTER MINIMALE -->
+    <footer class="w-full text-center py-2.5 bg-slate-950 text-[10px] text-slate-500 border-t border-slate-900">
+        Simulatore Didattico di Ottica • Specchi Ustori
+    </footer>
+
+    <!-- LOGICA JAVASCRIPT SIMULATORE & RAY TRACING -->
+    <script>
+        // Stato dell'applicazione
+        const state = {
+            activeTab: 'simulation',
+            lampOn: false,
+            powerWatts: 100,
+            matchTemp: 20, // °C
+            isIgnited: false,
+
+            // Geometria Banco Ottico
+            mirror1: { x: 50, focalDistance: 45 },
+            mirror2: { x: 310, focalDistance: 45 },
+
+            // Posizioni elementi trascinabili (in coordinate virtuali canvas)
+            bulb: { x: 95, y: 120, isDragging: false },  // Fuoco 1 nominale: 50 + 45 = 95
+            match: { x: 265, y: 120, isDragging: false }, // Fuoco 2 nominale: 310 - 45 = 265
+
+            canvas: null,
+            ctx: null,
+            width: 360,
+            height: 240
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initCanvas();
+            initUI();
+            requestAnimationFrame(gameLoop);
+        });
+
+        function initCanvas() {
+            state.canvas = document.getElementById('opticsCanvas');
+            state.ctx = state.canvas.getContext('2d');
+
+            const dpr = window.devicePixelRatio || 1;
+            const rect = state.canvas.getBoundingClientRect();
+            state.width = rect.width || 360;
+            state.height = rect.height || 240;
+
+            state.canvas.width = state.width * dpr;
+            state.canvas.height = state.height * dpr;
+            state.ctx.scale(dpr, dpr);
+
+            // Adatta le coordinate in base alle dimensioni reali
+            resetFocusPositions();
+
+            // Eventi mouse / touch per trascinare la sorgente o il fiammifero
+            state.canvas.addEventListener('mousedown', handlePointerDown);
+            state.canvas.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerUp);
+
+            state.canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+            state.canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+            window.addEventListener('touchend', handlePointerUp);
+        }
+
+        function resetFocusPositions() {
+            const centerY = state.height / 2;
+            state.mirror1.x = state.width * 0.15;
+            state.mirror2.x = state.width * 0.85;
+            state.mirror1.focalDistance = state.width * 0.12;
+            state.mirror2.focalDistance = state.width * 0.12;
+
+            state.bulb.x = state.mirror1.x + state.mirror1.focalDistance;
+            state.bulb.y = centerY;
+
+            state.match.x = state.mirror2.x - state.mirror2.focalDistance;
+            state.match.y = centerY;
+        }
+
+        function initUI() {
+            const btnSim = document.getElementById('btnTabSim');
+            const btnTheory = document.getElementById('btnTabTheory');
+            const simTab = document.getElementById('simulationTab');
+            const theoryTab = document.getElementById('theoryTab');
+
+            btnSim.addEventListener('click', () => {
+                state.activeTab = 'simulation';
+                btnSim.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-amber-500 text-slate-950 shadow";
+                btnTheory.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200";
+                simTab.classList.remove('hidden');
+                theoryTab.classList.add('hidden');
+            });
+
+            btnTheory.addEventListener('click', () => {
+                state.activeTab = 'theory';
+                btnTheory.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-amber-500 text-slate-950 shadow";
+                btnSim.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200";
+                theoryTab.classList.remove('hidden');
+                theoryTab.classList.add('flex');
+                simTab.classList.add('hidden');
+
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise();
+                }
+            });
+
+            // Pulsante Accensione Lampada
+            const btnLamp = document.getElementById('btnLampSwitch');
+            const lampBtnText = document.getElementById('lampBtnText');
+
+            btnLamp.addEventListener('click', () => {
+                state.lampOn = !state.lampOn;
+                if (state.lampOn) {
+                    btnLamp.classList.remove('from-amber-500', 'via-orange-500', 'to-amber-600');
+                    btnLamp.classList.add('from-rose-500', 'to-red-600');
+                    lampBtnText.textContent = "SPEGNI LAMPADINA";
+                } else {
+                    btnLamp.classList.remove('from-rose-500', 'to-red-600');
+                    btnLamp.classList.add('from-amber-500', 'via-orange-500', 'to-amber-600');
+                    lampBtnText.textContent = "ACCENDI LAMPADINA";
+                }
+            });
+
+            // Pulsante Reset Fuochi
+            document.getElementById('btnResetFocus').addEventListener('click', () => {
+                resetFocusPositions();
+            });
+
+            // Slider Potenza
+            const slider = document.getElementById('sliderPower');
+            slider.addEventListener('input', (e) => {
+                state.powerWatts = parseInt(e.target.value);
+                document.getElementById('valPower').textContent = `${state.powerWatts} W`;
+            });
+        }
+
+        function getCanvasCoords(e) {
+            const rect = state.canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function handlePointerDown(e) {
+            const coords = getCanvasCoords(e);
+            const distBulb = Math.hypot(coords.x - state.bulb.x, coords.y - state.bulb.y);
+            const distMatch = Math.hypot(coords.x - state.match.x, coords.y - state.match.y);
+
+            if (distBulb < 20) {
+                state.bulb.isDragging = true;
+                if (e.cancelable) e.preventDefault();
+            } else if (distMatch < 20) {
+                state.match.isDragging = true;
+                if (e.cancelable) e.preventDefault();
+            }
+        }
+
+        function handlePointerMove(e) {
+            const coords = getCanvasCoords(e);
+            if (state.bulb.isDragging) {
+                state.bulb.x = Math.max(state.mirror1.x + 10, Math.min(state.width * 0.45, coords.x));
+                state.bulb.y = Math.max(20, Math.min(state.height - 20, coords.y));
+                if (e.cancelable) e.preventDefault();
+            } else if (state.match.isDragging) {
+                state.match.x = Math.max(state.width * 0.55, Math.min(state.mirror2.x - 10, coords.x));
+                state.match.y = Math.max(20, Math.min(state.height - 20, coords.y));
+                if (e.cancelable) e.preventDefault();
+            }
+        }
+
+        function handlePointerUp() {
+            state.bulb.isDragging = false;
+            state.match.isDragging = false;
+        }
+
+        // Loop principale di animazione e fisica
+        function gameLoop() {
+            const focal1X = state.mirror1.x + state.mirror1.focalDistance;
+            const focal2X = state.mirror2.x - state.mirror2.focalDistance;
+            const centerY = state.height / 2;
+
+            // Verifica se la lampadina e il fiammifero sono esattamente nei rispettivi fuochi
+            const bulbInFocus = Math.hypot(state.bulb.x - focal1X, state.bulb.y - centerY) < 8;
+            const matchInFocus = Math.hypot(state.match.x - focal2X, state.match.y - centerY) < 8;
+            const isPerfectFocus = bulbInFocus && matchInFocus;
+
+            // Aggiornamento Temperatura del Fiammifero
+            if (state.lampOn && isPerfectFocus) {
+                // Si scalda in base alla potenza impostata
+                const heatRate = (state.powerWatts / 100) * 1.5;
+                state.matchTemp = Math.min(220, state.matchTemp + heatRate);
+                if (state.matchTemp >= 180) {
+                    state.isIgnited = true;
+                }
+            } else {
+                // Si raffredda gradualmente fino a temperatura ambiente (20°C)
+                state.matchTemp = Math.max(20, state.matchTemp - 1.2);
+            }
+
+            // Aggiorna UI Badge
+            document.getElementById('tempDisplay').textContent = `${Math.round(state.matchTemp)} °C`;
+            const focusDot = document.getElementById('focusDot');
+            const focusText = document.getElementById('focusText');
+
+            if (isPerfectFocus) {
+                focusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                focusText.textContent = "Allineamento Focale OK";
+                focusText.className = "text-[10px] font-bold text-emerald-400";
+            } else {
+                focusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+                focusText.textContent = "Fuori dal Punto Focale";
+                focusText.className = "text-[10px] font-bold text-rose-400";
+            }
+
+            drawOptics(isPerfectFocus);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawOptics(isPerfectFocus) {
+            const ctx = state.ctx;
+            const w = state.width;
+            const h = state.height;
+            const centerY = h / 2;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Asse Ottico (linea tratteggiata)
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.moveTo(10, centerY);
+            ctx.lineTo(w - 10, centerY);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+
+            // Disegna Specchio Parabolico 1 (sinistra)
+            drawParabolaMirror(ctx, state.mirror1.x, centerY, state.mirror1.focalDistance, true);
+
+            // Disegna Specchio Parabolico 2 (destra)
+            drawParabolaMirror(ctx, state.mirror2.x, centerY, state.mirror2.focalDistance, false);
+
+            // Raggi Luminosi (Ray Tracing)
+            if (state.lampOn) {
+                drawRayTracing(ctx, isPerfectFocus);
+            }
+
+            // Disegna Lampadina (Sorgente)
+            drawBulb(ctx, state.bulb.x, state.bulb.y);
+
+            // Disegna Fiammifero (Bersaglio)
+            drawMatch(ctx, state.match.x, state.match.y);
+        }
+
+        function drawParabolaMirror(ctx, vx, vy, f, isLeft) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#cbd5e1';
+
+            const height = 120;
+            const a = 1 / (4 * f);
+
+            for (let y = -height / 2; y <= height / 2; y += 2) {
+                const x = a * y * y;
+                const canvasX = isLeft ? vx + x : vx - x;
+                const canvasY = vy + y;
+
+                if (y === -height / 2) {
+                    ctx.moveTo(canvasX, canvasY);
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            ctx.stroke();
+
+            // Ombreggiatura posteriore dello specchio metallico
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#475569';
+            ctx.stroke();
+
+            // Segna il Fuoco Teorico sulla linea
+            const fx = isLeft ? vx + f : vx - f;
+            ctx.beginPath();
+            ctx.arc(fx, vy, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#f59e0b';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawRayTracing(ctx, isPerfectFocus) {
+            ctx.save();
+            ctx.strokeStyle = state.lampOn ? 'rgba(251, 191, 36, 0.45)' : 'transparent';
+            ctx.lineWidth = 1.5;
+
+            const m1X = state.mirror1.x;
+            const m2X = state.mirror2.x;
+            const centerY = state.height / 2;
+            const f1 = state.mirror1.focalDistance;
+            const f2 = state.mirror2.focalDistance;
+            const a1 = 1 / (4 * f1);
+            const a2 = 1 / (4 * f2);
+
+            const numRays = 10;
+            const raySpread = 100;
+
+            for (let i = 0; i < numRays; i++) {
+                const yOffset = -raySpread / 2 + (raySpread / (numRays - 1)) * i;
+                if (Math.abs(yOffset) < 4) continue; // Salta il raggio centrale sovrapposto all'asse
+
+                const mirror1TouchY = centerY + yOffset;
+                const mirror1TouchX = m1X + a1 * yOffset * yOffset;
+
+                // Raggio dalla lampadina allo specchio 1
+                ctx.beginPath();
+                ctx.moveTo(state.bulb.x, state.bulb.y);
+                ctx.lineTo(mirror1TouchX, mirror1TouchY);
+
+                // Riflessione parallela dallo specchio 1 allo specchio 2
+                const mirror2TouchY = mirror1TouchY;
+                const mirror2TouchX = m2X - a2 * yOffset * yOffset;
+
+                if (isPerfectFocus) {
+                    // Fascio perfettamente parallelo e poi re-inviato al fuoco 2
+                    ctx.lineTo(mirror2TouchX, mirror2TouchY);
+                    ctx.lineTo(state.match.x, state.match.y);
+                } else {
+                    // Riflessione imperfetta fuori dal punto focale
+                    ctx.lineTo(mirror2TouchX, mirror2TouchY);
+                    ctx.lineTo(m2X - f2 * 1.5, centerY + yOffset * 0.3);
+                }
+
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawBulb(ctx, x, y) {
+            ctx.save();
+            if (state.lampOn) {
+                // Bagliore luminoso
+                const glow = ctx.createRadialGradient(x, y, 2, x, y, 20);
+                glow.addColorStop(0, 'rgba(253, 224, 71, 0.9)');
+                glow.addColorStop(1, 'rgba(253, 224, 71, 0)');
+                ctx.beginPath();
+                ctx.arc(x, y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+            }
+
+            // Corpo lampadina
+            ctx.beginPath();
+            ctx.arc(x, y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = state.lampOn ? '#fef08a' : '#64748b';
+            ctx.fill();
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Supporto / Stelo
+            ctx.beginPath();
+            ctx.moveTo(x, y + 7);
+            ctx.lineTo(x, state.height / 2 + 35);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawMatch(ctx, x, y) {
+            ctx.save();
+
+            // Asta in legno del fiammifero
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, state.height / 2 + 35);
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Capocchia del fiammifero
+            ctx.beginPath();
+            ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+            ctx.fillStyle = state.isIgnited ? '#1e293b' : '#dc2626';
+            ctx.fill();
+
+            // Animazione della Fiamma se incendiato
+            if (state.isIgnited || state.matchTemp >= 180) {
+                const flameHeight = 14 + Math.random() * 6;
+                const flameGrad = ctx.createRadialGradient(x, y - 6, 1, x, y - 8, 12);
+                flameGrad.addColorStop(0, '#fef08a');
+                flameGrad.addColorStop(0.4, '#f97316');
+                flameGrad.addColorStop(1, 'rgba(220, 38, 38, 0)');
+
+                ctx.beginPath();
+                ctx.ellipse(x, y - 8, 5, flameHeight / 2, 0, 0, Math.PI * 2);
+                ctx.fillStyle = flameGrad;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
