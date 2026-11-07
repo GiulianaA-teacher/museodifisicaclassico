@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-950 text-slate-100 font-sans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sirena a Disco di Seebeck</title>
+    <!-- Tailwind CSS per styling moderno e reattivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax configurato per renderizzare LaTeX senza mostrare mai codice grezzo -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        document.querySelectorAll('.math-placeholder').forEach(el => el.classList.remove('opacity-0'));
+                    });
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome per icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        .math-placeholder { transition: opacity 0.2s ease-in; }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between overflow-x-hidden select-none bg-slate-950">
+
+    <!-- HEADER / NAVIGAZIONE MOBILE -->
+    <header class="w-full bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 sticky top-0 z-30 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-cyan-500/20">
+                <i class="fa-solid fa-compact-disc text-lg animate-spin" style="animation-duration: 8s;"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-extrabold text-slate-100 tracking-tight leading-tight">Sirena di Seebeck</h1>
+                <p class="text-[10px] text-cyan-400 font-medium">Acustica e Fluttuazioni di Pressione</p>
+            </div>
+        </div>
+        
+        <!-- Toggle tra Simulatore e Teoria -->
+        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button id="btnTabSim" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-cyan-500 text-slate-950 shadow">
+                <i class="fa-solid fa-wind mr-1"></i>Simula
+            </button>
+            <button id="btnTabTheory" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-book-bookmark mr-1"></i>Teoria
+            </button>
+        </div>
+    </header>
+
+    <!-- CONTAINER PRINCIPALE (Portrait Mobile) -->
+    <main class="flex-1 flex flex-col p-3 gap-3 max-w-md mx-auto w-full overflow-y-auto">
+
+        <!-- TAB 1: SIMULATORE INTERATTIVO -->
+        <section id="simulationTab" class="flex flex-col gap-3 w-full">
+            
+            <!-- SCHERMO CANVAS DISCO DI SEEBECK -->
+            <div class="relative bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden aspect-square w-full flex items-center justify-center">
+                <canvas id="discCanvas" class="w-full h-full block cursor-pointer touch-none"></canvas>
+                
+                <!-- Badge Frequenza Calcolata -->
+                <div class="absolute top-2.5 right-2.5 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center gap-2 shadow-lg z-10">
+                    <i class="fa-solid fa-wave-square text-cyan-400 text-xs"></i>
+                    <div class="flex flex-col">
+                        <span class="text-[8px] uppercase tracking-wider text-slate-400 font-bold">Frequenza Generata</span>
+                        <span id="freqDisplay" class="text-xs font-mono font-extrabold text-cyan-300">0.0 Hz</span>
+                    </div>
+                </div>
+
+                <!-- Badge Nota / Anello selezionato -->
+                <div class="absolute top-2.5 left-2.5 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center gap-2 shadow-lg z-10">
+                    <span id="ringDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                    <span id="ringText" class="text-[10px] font-bold text-slate-300">Ugello staccato</span>
+                </div>
+
+                <!-- Suggerimento Interazione Drag/Tap -->
+                <div id="nozzleHint" class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-950/90 text-cyan-300 text-[10px] px-3 py-1 rounded-full border border-cyan-500/30 backdrop-blur pointer-events-none opacity-90 transition-opacity flex items-center gap-1.5 shadow-md z-10 whitespace-nowrap">
+                    <i class="fa-solid fa-hand-pointer text-xs"></i> Tocca o trascina l'ugello sui cerchi forati
+                </div>
+            </div>
+
+            <!-- CONTROLLI VELOCITÀ E ARIA -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-3 shadow-xl backdrop-blur">
+                
+                <!-- Interruttore Aria Nozzle / Sfiato -->
+                <div class="flex gap-2">
+                    <button id="btnAirSwitch" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:brightness-110 active:scale-[0.98] font-extrabold text-slate-950 text-xs sm:text-sm shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2">
+                        <i id="airIcon" class="fa-solid fa-wind text-base"></i>
+                        <span id="airBtnText">ATTIVA GETTO D'ARIA</span>
+                    </button>
+                    <button id="btnStopMotor" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 transition border border-slate-700 flex items-center justify-center" title="Frena Disco">
+                        <i class="fa-solid fa-circle-stop text-sm text-rose-400"></i>
+                    </button>
+                </div>
+
+                <!-- Slider Velocità di Rotazione (RPM) -->
+                <div class="flex flex-col gap-1 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-gauge-high text-cyan-400"></i> Velocità Rotazione ($n$)
+                        </span>
+                        <span id="valRPM" class="text-cyan-400 font-mono font-bold">600 RPM</span>
+                    </div>
+                    <input type="range" id="sliderRPM" min="0" max="2400" step="30" value="600" class="w-full accent-cyan-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[9px] text-slate-500 font-mono pt-0.5">
+                        <span>0 RPM (Fermo)</span>
+                        <span>1200 RPM</span>
+                        <span>2400 RPM (Veloce)</span>
+                    </div>
+                </div>
+
+                <!-- Selezione rapida delle 8 corone / note musicali -->
+                <div class="flex flex-col gap-1.5 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80">
+                    <span class="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+                        <i class="fa-solid fa-music text-cyan-400"></i> Selezione Rapida Corona di Fori:
+                    </span>
+                    <div class="grid grid-cols-4 gap-1.5" id="ringButtonsContainer">
+                        <!-- Generato dinamicamente in JS per le 8 corone -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TAB 2: TEORIA E FISICA DEL FENOMENO -->
+        <section id="theoryTab" class="hidden flex-col gap-3 w-full text-slate-200">
+            
+            <!-- SCHEDA 1: COS'È E COME FUNZIONA IN PRATICA -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h2 class="text-sm font-bold text-cyan-400 flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-lightbulb text-base"></i> 1. Cos'è la Sirena e come funziona?
+                </h2>
+                <p class="text-xs leading-relaxed text-slate-300">
+                    Immagina un soffio continuo d'aria che esce da un tubicino (ugello). Se metti una mano davanti al soffio e la muovi avanti e indietro, l'aria passerà "a scatti". La <strong>Sirena di Seebeck</strong> fa esattamente questo, ma in modo velocissimo ed estremamente preciso!
+                </p>
+                <div class="mt-2.5 p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
+                    <p><strong class="text-cyan-300">• Il Disco:</strong> Un grande disco di alluminio con tanti fori disposti su 8 cerchi concentrici (dal cerchio interno con soli 24 fori a quello esterno con 48 fori).</p>
+                    <p><strong class="text-cyan-300">• Il Soffio d'Aria:</strong> Collegando un tubo d'aria compressa a un ugello a punta, miriamo al disco in rotazione.</p>
+                    <p><strong class="text-cyan-300">• La Creazione del Suono:</strong> Quando un foro si trova davanti all'ugello, l'aria passa. Subito dopo arriva la parte solida del metallo e l'aria viene bloccata. Questa rapida sequenza di <i>"aria che passa - aria che si ferma"</i> crea tante piccole <strong>spinte di pressione nell'aria</strong>, che il nostro orecchio percepisce come una nota musicale!</p>
+                </div>
+            </div>
+
+            <!-- SCHEDA 2: LA MATEMATICA E LA FISICA DEL SUONO -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h2 class="text-sm font-bold text-cyan-400 flex items-center gap-2 mb-2.5">
+                    <i class="fa-solid fa-calculator text-base"></i> 2. Come si calcola la Nota Generata?
+                </h2>
+                
+                <div class="space-y-3 text-xs text-slate-300">
+                    <p class="leading-relaxed">
+                        L'altezza di un suono (cioè quanto una nota è acuta o grave) dipende dalla sua <strong>frequenza</strong>, ovvero dal numero di "sbuffi" d'aria che arrivano al nostro orecchio in un singolo secondo (misurati in Hertz, $\text{Hz}$).
+                    </p>
+
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-cyan-300 math-placeholder opacity-0">
+                        <div class="text-center text-sm font-bold mb-1">Formula della Frequenza:</div>
+                        $$f = N \cdot n$$
+                    </div>
+
+                    <div class="space-y-1.5 text-[11px] text-slate-300">
+                        <p><strong class="text-slate-100">$f$ (Frequenza):</strong> Il numero di vibrazioni al secondo ($\text{Hz}$). Più è alta, più il suono è acuto.</p>
+                        <p><strong class="text-slate-100">$N$ (Numero di fori):</strong> Il numero di fori presenti sul cerchio selezionato (es. 24, 36 o 48 fori).</p>
+                        <p><strong class="text-slate-100">$n$ (Giri al secondo):</strong> Quante volte il disco gira su sé stesso in un secondo ($\text{Giri al secondo} = \frac{\text{RPM}}{60}$).</p>
+                    </div>
+
+                    <!-- Esempio Pratico e Chiarificatore -->
+                    <div class="p-2.5 bg-slate-950/60 rounded-xl border border-cyan-500/20 text-[11px] text-slate-300">
+                        <strong class="text-cyan-400 block mb-1"><i class="fa-solid fa-pen-ruler"></i> Esempio Pratico:</strong>
+                        Se il disco compie $10\text{ giri}$ in un secondo ($n = 10\text{ Hz}$) e mettiamo l'ugello sul cerchio da $24\text{ fori}$ ($N = 24$):
+                        <div class="my-1.5 font-mono text-center text-cyan-300">
+                            $$f = 24 \cdot 10 = 240\text{ Hz}\quad (\text{Suono Grave})$$
+                        </div>
+                        Se invece spostiamo l'ugello sul cerchio esterno con $48\text{ fori}$ ($N = 48$):
+                        <div class="my-1.5 font-mono text-center text-cyan-300">
+                            $$f = 48 \cdot 10 = 480\text{ Hz}\quad (\text{Suono Acuto - un'Ottava sopra!})$$
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCHEDA 3: PERCHÉ QUEGLI SPECIFICI NUMERI DI FORI? (MUSICA) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl mb-4">
+                <h2 class="text-sm font-bold text-cyan-400 flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-music text-base"></i> 3. Il legame con la Scala Musicale
+                </h2>
+                <p class="text-xs leading-relaxed text-slate-300 mb-2">
+                    I numeri di fori scelti da Thomas Seebeck ($24, 27, 30, 32, 36, 40, 45, 48$) non sono casuali! Se dividiamo il numero di fori di ciascun cerchio per $24$, otteniamo i <strong>rapporti armonici della scala musicale naturale</strong> (Do, Re, Mi, Fa, Sol, La, Si, Do):
+                </p>
+
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div class="p-2 bg-slate-950 rounded-lg border border-slate-800 text-[11px]">
+                        <span class="text-rose-400 font-bold block">Do3 (24 fori)</span>
+                        <span class="text-slate-400">Rapporto base: $1$</span>
+                    </div>
+                    <div class="p-2 bg-slate-950 rounded-lg border border-slate-800 text-[11px]">
+                        <span class="text-amber-400 font-bold block">Mi3 (30 fori)</span>
+                        <span class="text-slate-400">Rapporto Terza: $\frac{30}{24} = \frac{5}{4}$</span>
+                    </div>
+                    <div class="p-2 bg-slate-950 rounded-lg border border-slate-800 text-[11px]">
+                        <span class="text-cyan-400 font-bold block">Sol3 (36 fori)</span>
+                        <span class="text-slate-400">Rapporto Quinta: $\frac{36}{24} = \frac{3}{2}$</span>
+                    </div>
+                    <div class="p-2 bg-slate-950 rounded-lg border border-slate-800 text-[11px]">
+                        <span class="text-pink-400 font-bold block">Do4 (48 fori)</span>
+                        <span class="text-slate-400">Ottava doppia: $\frac{48}{24} = 2$</span>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-2.5">
+                    <strong>Conclusione:</strong> Mantenendo costante la velocità di rotazione del disco, spostare l'ugello da un cerchio all'altro ti permette di suonare un'ottava completa della scala musicale naturale!
+                </p>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- FOOTER MINIMALE -->
+    <footer class="w-full text-center py-2.5 bg-slate-950 text-[10px] text-slate-500 border-t border-slate-900">
+        Simulatore Didattico di Acustica • Sirena di Seebeck
+    </footer>
+
+    <!-- LOGICA JAVASCRIPT SIMULATORE & WEB AUDIO -->
+    <script>
+        // Configurazione delle 8 corone di fori di Seebeck
+        const RINGS_DATA = [
+            { count: 24, note: "Do3", color: "#ef4444", radiusRatio: 0.30 },
+            { count: 27, note: "Re3", color: "#f97316", radiusRatio: 0.38 },
+            { count: 30, note: "Mi3", color: "#f59e0b", radiusRatio: 0.46 },
+            { count: 32, note: "Fa3", color: "#10b981", radiusRatio: 0.54 },
+            { count: 36, note: "Sol3", color: "#06b6d4", radiusRatio: 0.62 },
+            { count: 40, note: "La3", color: "#3b82f6", radiusRatio: 0.70 },
+            { count: 45, note: "Si3", color: "#8b5cf6", radiusRatio: 0.78 },
+            { count: 48, note: "Do4", color: "#ec4899", radiusRatio: 0.86 }
+        ];
+
+        // Stato dell'applicazione
+        const state = {
+            activeTab: 'simulation',
+            targetRPM: 600,
+            currentRPM: 600,
+            angle: 0,
+            airActive: false,
+            selectedRingIndex: 4, // Default sulla corona Sol (36 fori)
+            
+            // Posizione ugello aria
+            nozzle: {
+                x: 0,
+                y: 0,
+                isDragging: false
+            },
+
+            // Web Audio API Elements
+            audioCtx: null,
+            oscillator: null,
+            gainNode: null,
+            filterNode: null,
+            isAudioInitialized: false,
+
+            // Canvas & Rendering
+            canvas: null,
+            ctx: null,
+            size: 320
+        };
+
+        // Inizializzazione al caricamento della pagina
+        window.addEventListener('DOMContentLoaded', () => {
+            initCanvas();
+            initUI();
+            
+            // Sblocco globale dell'AudioContext su qualunque primo tocco dell'utente (policy dei browser/mobile)
+            const unlockAudioEvents = ['touchstart', 'touchend', 'mousedown', 'keydown'];
+            const unlockAudio = () => {
+                ensureAudioStarted();
+                unlockAudioEvents.forEach(evt => document.removeEventListener(evt, unlockAudio));
+            };
+            unlockAudioEvents.forEach(evt => document.addEventListener(evt, unlockAudio, { once: true }));
+
+            // Loop Animazione
+            requestAnimationFrame(gameLoop);
+        });
+
+        // Configurazione Canvas
+        function initCanvas() {
+            state.canvas = document.getElementById('discCanvas');
+            state.ctx = state.canvas.getContext('2d');
+            
+            // Impostazione risoluzione retina
+            const dpr = window.devicePixelRatio || 1;
+            const rect = state.canvas.getBoundingClientRect();
+            state.size = rect.width || 320;
+
+            state.canvas.width = state.size * dpr;
+            state.canvas.height = state.size * dpr;
+            state.ctx.scale(dpr, dpr);
+
+            // Posizione iniziale dell'ugello sulla corona 4 (Sol3)
+            updateNozzleToRing(state.selectedRingIndex);
+
+            // Gestione Eventi Touch / Mouse per spostamento Ugello
+            state.canvas.addEventListener('mousedown', handlePointerDown);
+            state.canvas.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerUp);
+
+            state.canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+            state.canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+            window.addEventListener('touchend', handlePointerUp);
+        }
+
+        // Posiziona l'ugello lungo l'asse orizzontale in corrispondenza del raggio dell'anello selezionato
+        function updateNozzleToRing(index) {
+            const center = state.size / 2;
+            const maxR = (state.size / 2) * 0.92;
+            const r = maxR * RINGS_DATA[index].radiusRatio;
+            state.nozzle.x = center + r;
+            state.nozzle.y = center;
+        }
+
+        // Inizializzazione del motore Audio sintetizzato (Web Audio API)
+        function ensureAudioStarted() {
+            if (!state.audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                
+                state.audioCtx = new AudioContextClass();
+
+                // Oscillatore per generare l'onda da impulso di pressione d'aria
+                state.oscillator = state.audioCtx.createOscillator();
+                state.oscillator.type = 'sawtooth'; // La dente di sega ricrea timbricamente l'aria pulsata
+
+                // Filtro passa-basso per arrotondare e ammorbidire il timbro acustico
+                state.filterNode = state.audioCtx.createBiquadFilter();
+                state.filterNode.type = 'lowpass';
+                state.filterNode.frequency.setValueAtTime(1200, state.audioCtx.currentTime);
+
+                // Controllo Volume (Gain Node)
+                state.gainNode = state.audioCtx.createGain();
+                state.gainNode.gain.setValueAtTime(0, state.audioCtx.currentTime);
+
+                // Connessioni della catena audio
+                state.oscillator.connect(state.filterNode);
+                state.filterNode.connect(state.gainNode);
+                state.gainNode.connect(state.audioCtx.destination);
+
+                state.oscillator.start();
+                state.isAudioInitialized = true;
+            }
+
+            // Ripresa dell'AudioContext se suspended dal browser
+            if (state.audioCtx && state.audioCtx.state === 'suspended') {
+                state.audioCtx.resume();
+            }
+        }
+
+        // Inizializzazione Interfaccia Utente
+        function initUI() {
+            // Tab Switcher
+            const btnSim = document.getElementById('btnTabSim');
+            const btnTheory = document.getElementById('btnTabTheory');
+            const simTab = document.getElementById('simulationTab');
+            const theoryTab = document.getElementById('theoryTab');
+
+            btnSim.addEventListener('click', () => {
+                state.activeTab = 'simulation';
+                btnSim.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-cyan-500 text-slate-950 shadow";
+                btnTheory.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200";
+                simTab.classList.remove('hidden');
+                theoryTab.classList.add('hidden');
+            });
+
+            btnTheory.addEventListener('click', () => {
+                state.activeTab = 'theory';
+                btnTheory.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-cyan-500 text-slate-950 shadow";
+                btnSim.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-slate-200";
+                theoryTab.classList.remove('hidden');
+                theoryTab.classList.add('flex');
+                simTab.classList.add('hidden');
+
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise();
+                }
+            });
+
+            // Pulsante Flusso Aria
+            const btnAir = document.getElementById('btnAirSwitch');
+            const airBtnText = document.getElementById('airBtnText');
+
+            btnAir.addEventListener('click', () => {
+                ensureAudioStarted();
+
+                state.airActive = !state.airActive;
+
+                if (state.airActive) {
+                    btnAir.classList.remove('from-cyan-500', 'via-teal-500', 'to-blue-600');
+                    btnAir.classList.add('from-rose-500', 'to-red-600');
+                    airBtnText.textContent = "CHIUDI GETTO D'ARIA";
+                } else {
+                    btnAir.classList.remove('from-rose-500', 'to-red-600');
+                    btnAir.classList.add('from-cyan-500', 'via-teal-500', 'to-blue-600');
+                    airBtnText.textContent = "ATTIVA GETTO D'ARIA";
+                }
+            });
+
+            // Frenata Motore
+            document.getElementById('btnStopMotor').addEventListener('click', () => {
+                ensureAudioStarted();
+                state.targetRPM = 0;
+                document.getElementById('sliderRPM').value = 0;
+                document.getElementById('valRPM').textContent = "0 RPM";
+            });
+
+            // Slider RPM
+            const sliderRPM = document.getElementById('sliderRPM');
+            sliderRPM.addEventListener('input', (e) => {
+                ensureAudioStarted();
+                state.targetRPM = parseInt(e.target.value);
+                document.getElementById('valRPM').textContent = `${state.targetRPM} RPM`;
+            });
+
+            // Generazione Bottoni Corone Rapide
+            const container = document.getElementById('ringButtonsContainer');
+            container.innerHTML = '';
+            RINGS_DATA.forEach((ring, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `py-1.5 px-2 rounded-lg text-[10px] font-bold border border-slate-700 bg-slate-800 text-slate-300 hover:border-cyan-500 transition flex flex-col items-center justify-center`;
+                btn.innerHTML = `<span style="color:${ring.color}">${ring.note}</span><span class="text-[8px] text-slate-400">${ring.count} fori</span>`;
+                btn.addEventListener('click', () => {
+                    ensureAudioStarted();
+                    state.selectedRingIndex = idx;
+                    updateNozzleToRing(idx);
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        // Interazione Puntatore Canvas
+        function getCanvasCoords(e) {
+            const rect = state.canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function handlePointerDown(e) {
+            ensureAudioStarted();
+            const coords = getCanvasCoords(e);
+            state.nozzle.isDragging = true;
+            updateNozzlePosition(coords.x, coords.y);
+            if (e.cancelable) e.preventDefault();
+        }
+
+        function handlePointerMove(e) {
+            if (!state.nozzle.isDragging) return;
+            const coords = getCanvasCoords(e);
+            updateNozzlePosition(coords.x, coords.y);
+            if (e.cancelable) e.preventDefault();
+        }
+
+        function handlePointerUp() {
+            state.nozzle.isDragging = false;
+        }
+
+        function updateNozzlePosition(x, y) {
+            state.nozzle.x = x;
+            state.nozzle.y = y;
+
+            // Trova l'anello più vicino in base alla distanza radiale dal centro del disco
+            const center = state.size / 2;
+            const dist = Math.hypot(x - center, y - center);
+            const maxR = center * 0.92;
+
+            let closestIdx = -1;
+            let minDiff = Infinity;
+
+            RINGS_DATA.forEach((ring, idx) => {
+                const ringR = maxR * ring.radiusRatio;
+                const diff = Math.abs(dist - ringR);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIdx = idx;
+                }
+            });
+
+            // Tolleranza per l'aggancio ai fori dell'anello
+            if (minDiff < 20) {
+                state.selectedRingIndex = closestIdx;
+            } else {
+                state.selectedRingIndex = -1; // Ugello fuori posizione
+            }
+        }
+
+        // Loop di Simulazione Fisica & Audio
+        function gameLoop() {
+            // Inerzia del motore elettrico
+            state.currentRPM += (state.targetRPM - state.currentRPM) * 0.05;
+            if (Math.abs(state.currentRPM - state.targetRPM) < 0.1) {
+                state.currentRPM = state.targetRPM;
+            }
+
+            // Calcolo rotazione
+            const rps = state.currentRPM / 60;
+            state.angle += (rps * 2 * Math.PI) / 60;
+
+            // Calcolo della Frequenza dell'Onda Sonora
+            let calculatedFreq = 0;
+            if (state.selectedRingIndex !== -1) {
+                const ring = RINGS_DATA[state.selectedRingIndex];
+                calculatedFreq = ring.count * rps;
+            }
+
+            // Sintesi Sonora in Tempo Reale
+            if (state.audioCtx && state.gainNode && state.oscillator) {
+                if (state.airActive && state.selectedRingIndex !== -1 && calculatedFreq > 15) {
+                    // Aggiornamento Frequenza
+                    state.oscillator.frequency.setTargetAtTime(calculatedFreq, state.audioCtx.currentTime, 0.015);
+                    
+                    // Adattamento Filtro Passa-Basso
+                    const filterFreq = Math.min(8000, Math.max(600, calculatedFreq * 2.5));
+                    state.filterNode.frequency.setTargetAtTime(filterFreq, state.audioCtx.currentTime, 0.02);
+
+                    // Impostazione Guadagno/Volume Acustico
+                    const volume = Math.min(0.2, 0.03 + (calculatedFreq / 1500) * 0.15);
+                    state.gainNode.gain.setTargetAtTime(volume, state.audioCtx.currentTime, 0.02);
+                } else {
+                    // Silenzio se l'aria è spenta o se l'ugello è fuori dai fori
+                    state.gainNode.gain.setTargetAtTime(0, state.audioCtx.currentTime, 0.02);
+                }
+            }
+
+            // Aggiornamento Badge della Frequenza in UI
+            document.getElementById('freqDisplay').textContent = `${calculatedFreq.toFixed(1)} Hz`;
+            
+            const ringDot = document.getElementById('ringDot');
+            const ringText = document.getElementById('ringText');
+
+            if (state.selectedRingIndex !== -1) {
+                const ring = RINGS_DATA[state.selectedRingIndex];
+                ringDot.style.backgroundColor = ring.color;
+                ringText.textContent = `Corona ${ring.note} (${ring.count} fori)`;
+                ringText.style.color = ring.color;
+            } else {
+                ringDot.style.backgroundColor = '#64748b';
+                ringText.textContent = "Getto d'aria fuori dai fori";
+                ringText.style.color = '#94a3b8';
+            }
+
+            // Disegno Canvas
+            drawDisc();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Rendering Grafico del Disco e dell'Ugello
+        function drawDisc() {
+            const ctx = state.ctx;
+            const size = state.size;
+            const center = size / 2;
+            const maxR = center * 0.92;
+
+            ctx.clearRect(0, 0, size, size);
+
+            // Ombra
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(center, center, maxR, 0, Math.PI * 2);
+            ctx.fillStyle = '#020617';
+            ctx.shadowColor = 'rgba(6, 182, 212, 0.25)';
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.restore();
+
+            // Disco Alluminio
+            ctx.save();
+            ctx.translate(center, center);
+            
+            const metalGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, maxR);
+            metalGrad.addColorStop(0, '#cbd5e1');
+            metalGrad.addColorStop(0.7, '#64748b');
+            metalGrad.addColorStop(1, '#334155');
+
+            ctx.beginPath();
+            ctx.arc(0, 0, maxR, 0, Math.PI * 2);
+            ctx.fillStyle = metalGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Rotazione per i fori del disco
+            ctx.rotate(state.angle);
+
+            // Cerchi Concentrici di Fori
+            RINGS_DATA.forEach((ring) => {
+                const r = maxR * ring.radiusRatio;
+                const holeCount = ring.count;
+                const holeRadius = Math.max(1.5, (maxR * 0.025));
+
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.2)';
+                ctx.lineWidth = 0.8;
+                ctx.stroke();
+
+                ctx.fillStyle = '#090d16';
+                for (let i = 0; i < holeCount; i++) {
+                    const a = (i / holeCount) * Math.PI * 2;
+                    const hx = Math.cos(a) * r;
+                    const hy = Math.sin(a) * r;
+
+                    ctx.beginPath();
+                    ctx.arc(hx, hy, holeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // Foro e Mozzo Centrale
+            ctx.beginPath();
+            ctx.arc(0, 0, maxR * 0.16, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, maxR * 0.08, 0, Math.PI * 2);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fill();
+
+            ctx.restore();
+
+            // Ugello Soffiante e Getto D'aria
+            drawNozzleAndAir(ctx);
+        }
+
+        function drawNozzleAndAir(ctx) {
+            const nx = state.nozzle.x;
+            const ny = state.nozzle.y;
+
+            ctx.save();
+
+            // Flusso d'Aria Visibile se Attivo
+            if (state.airActive) {
+                ctx.beginPath();
+                ctx.arc(nx, ny, 12 + Math.random() * 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(nx, ny, 6, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fill();
+            }
+
+            // Struttura Ugello
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 6;
+
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(nx, ny, 8, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = '#0891b2';
+            ctx.beginPath();
+            ctx.arc(nx, ny, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 9px Inter';
+            ctx.fillText("Ugello Aria", nx - 22, ny - 14);
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
