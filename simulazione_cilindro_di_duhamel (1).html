@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cilindro di Duhamel - Simulazione Interattiva</title>
+    <!-- Tailwind CSS per layout reattivo e pulito -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter per tipografia moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- MathJax per il rendering elegante delle formule matematiche -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Previene lo scorrimento accidentale della pagina durante il drag su canvas/controlli */
+        canvas {
+            touch-action: none;
+        }
+        
+        /* Custom Styling per slider touch */
+        input[type=range] {
+            accent-color: #38bdf8;
+        }
+
+        /* Effetti bagliore e ombre */
+        .glow-accent {
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-3 sm:p-5 max-w-md mx-auto">
+
+    <!-- Header dell'App -->
+    <header class="w-full text-center my-3">
+        <div class="inline-block px-3 py-1 bg-sky-500/10 border border-sky-500/20 rounded-full text-xs text-sky-400 font-semibold tracking-wide uppercase mb-1">
+            Fisica & Acustica Storica
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Cilindro di Duhamel</h1>
+        <p class="text-xs text-slate-400 mt-1">Registrazione meccanica e composizione dei moti armonici</p>
+    </header>
+
+    <!-- Canvas per la simulazione 2D -->
+    <main class="w-full flex flex-col gap-4">
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl glow-accent">
+            <canvas id="simCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Badge Stato Animazione -->
+            <div id="statusBadge" class="absolute top-3 left-3 px-2.5 py-1 bg-slate-800/80 backdrop-blur rounded-full text-[10px] font-medium text-slate-300 border border-slate-700">
+                Stato: <span id="statusText" class="text-amber-400 font-semibold">In Attesa</span>
+            </div>
+            
+            <!-- Indicatore Grafico Traccia Scanalata -->
+            <div class="absolute top-3 right-3 px-2.5 py-1 bg-slate-800/80 backdrop-blur rounded-full text-[10px] font-medium text-sky-400 border border-slate-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+                Traccia Solco: <span id="grooveCount">0</span> cm
+            </div>
+        </div>
+
+        <!-- Pannello Controlli Principali (Azione Rapida) -->
+        <div class="glass-panel w-full p-4 rounded-2xl flex flex-col gap-3">
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Bottone Diapason -->
+                <button id="btnVibrate" class="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-lg active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <span>Vibra Diapason</span>
+                </button>
+                
+                <!-- Bottone Rotazione -->
+                <button id="btnRotate" class="w-full py-3 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span id="btnRotateText">Ruota Manovella</span>
+                </button>
+            </div>
+
+            <button id="btnReset" class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl border border-slate-700 active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>Pulisci & Ri-affumica Cilindro</span>
+            </button>
+        </div>
+
+        <!-- Sliders Regolazioni Parametri -->
+        <div class="glass-panel w-full p-4 rounded-2xl flex flex-col gap-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-700/50 pb-2">Parametri dell'Esperimento</h3>
+            
+            <!-- Slider Frequenza Diapason -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-300 font-medium">Frequenza Diapason ($f$)</span>
+                    <span id="freqVal" class="text-amber-400 font-bold">440 Hz</span>
+                </div>
+                <input type="range" id="freqSlider" min="100" max="880" value="440" step="10" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                    <span>100 Hz (Grave)</span>
+                    <span>880 Hz (Acuto)</span>
+                </div>
+            </div>
+
+            <!-- Slider Velocità Rotazione -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-300 font-medium">Velocità Manovella ($\omega$)</span>
+                    <span id="speedVal" class="text-sky-400 font-bold">1.0x</span>
+                </div>
+                <input type="range" id="speedSlider" min="0.2" max="3.0" value="1.0" step="0.1" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                    <span>Lenta</span>
+                    <span>Veloce</span>
+                </div>
+            </div>
+
+            <!-- Audio Toggle & Scratch Sound -->
+            <div class="flex flex-col gap-2 pt-1 border-t border-slate-700/50">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-300 font-medium flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                        Audio Acustico & Sfregamento
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="audioToggle" class="sr-only peer" checked>
+                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sezione Teoria e Spiegazione Scientifica -->
+        <article class="glass-panel w-full p-5 rounded-2xl flex flex-col gap-4 text-slate-300 text-xs leading-relaxed mb-6">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                Fisica del Cilindro di Duhamel
+            </h2>
+            
+            <p>
+                Progettato dal fisico francese <strong>Jean-Marie Duhamel</strong> a metà del XIX secolo, questo dispositivo costituisce uno dei primi strumenti di <em>registrazione grafica diretta</em> delle onde sonore.
+            </p>
+
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/50 flex flex-col gap-2">
+                <h3 class="font-semibold text-sky-400 text-xs">Composizione dei Moti Ortogonali</h3>
+                <p>
+                    La forma d'onda incisa sulla superficie del cilindro affumicato è il risultato combinato di due movimenti simultanei e indipendenti:
+                </p>
+                <ol class="list-disc pl-4 space-y-1 text-slate-400">
+                    <li><strong>Moto Armonico Semplice (Diapason):</strong> Oscillazione lungo l'asse verticale $y(t)$:
+                        <div class="my-1.5 text-center text-amber-300 text-sm font-serif">
+                            $$y(t) = A \cdot \sin(2\pi f t + \phi)$$
+                        </div>
+                    </li>
+                    <li><strong>Moto Traslatorio Lineare (Asta Filettata):</strong> Lo scorrimento orizzontale uniforme lungo l'asse $x(t)$ prodotto dall'avvitamento sulla barra filettata con passo $p$:
+                        <div class="my-1.5 text-center text-sky-300 text-sm font-serif">
+                            $$x(t) = v_x \cdot t = \left(\frac{\omega \cdot p}{2\pi}\right) t$$
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/50">
+                <h3 class="font-semibold text-amber-400 text-xs mb-1.5">Equazione Spaziale del Tracciato</h3>
+                <p class="mb-2">
+                    Sostituendo il tempo $t = \frac{x}{v_x}$ nell'equazione del moto oscillatorio, otteniamo la traiettoria spaziale tracciata dallo stiletto d'acciaio sulla carta affumicata:
+                </p>
+                <div class="text-center text-emerald-400 text-sm font-serif my-2">
+                    $$y(x) = A \cdot \sin\left(2\pi \frac{f}{v_x} x\right) = A \cdot \sin\left(\frac{2\pi}{\lambda} x\right)$$
+                </div>
+                <p class="text-[11px] text-slate-400">
+                    Dove $\lambda = \frac{v_x}{f}$ rappresenta la <strong>lunghezza d'onda</strong> visualizzata graficamente sul cilindro. Misurando la lunghezza d'onda incisa e conoscendo la velocità di traslazione $v_x$, Duhamel fu in grado di calcolare con precisione la frequenza $f$ del suono emesso.
+                </p>
+            </div>
+        </article>
+    </main>
+
+    <!-- Script della simulazione -->
+    <script>
+        // Configurazione Canvas e Contesto
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Ridimensionamento dinamico del canvas
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Stato dell'applicazione
+        const state = {
+            isRotating: false,
+            isVibrating: false,
+            cylinderX: 0,
+            rotationAngle: 0,
+            diapasonAmp: 0,
+            targetAmp: 0,
+            freq: 440,
+            speed: 1.0,
+            traces: [],
+            audioEnabled: true,
+            isStylusContacting: false
+        };
+
+        // Riferimenti UI
+        const btnVibrate = document.getElementById('btnVibrate');
+        const btnRotate = document.getElementById('btnRotate');
+        const btnRotateText = document.getElementById('btnRotateText');
+        const btnReset = document.getElementById('btnReset');
+        const freqSlider = document.getElementById('freqSlider');
+        const speedSlider = document.getElementById('speedSlider');
+        const freqVal = document.getElementById('freqVal');
+        const speedVal = document.getElementById('speedVal');
+        const audioToggle = document.getElementById('audioToggle');
+        const statusText = document.getElementById('statusText');
+        const grooveCount = document.getElementById('grooveCount');
+
+        // WEB AUDIO API SYSTEM COMPLETO
+        let audioCtx = null;
+        let toneOsc = null;
+        let toneGain = null;
+        let noiseNode = null;
+        let noiseGain = null;
+
+        function initAudioEngine() {
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                return;
+            }
+
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            // 1. Tono puro del Diapason (Sinusoidale)
+            toneOsc = audioCtx.createOscillator();
+            toneGain = audioCtx.createGain();
+            toneOsc.type = 'sine';
+            toneOsc.frequency.setValueAtTime(state.freq, audioCtx.currentTime);
+            toneGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            toneOsc.connect(toneGain);
+            toneGain.connect(audioCtx.destination);
+            toneOsc.start();
+
+            // 2. Rumore di sfregamento metallo-fuliggine (White Noise + Bandpass Filter)
+            const bufferSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = noiseBuffer;
+            noiseNode.loop = true;
+
+            const bandpass = audioCtx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.value = 1800; // Frequenza tipica del graffio d'acciaio
+            bandpass.Q.value = 3.0;
+
+            noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+            noiseNode.connect(bandpass);
+            bandpass.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noiseNode.start();
+        }
+
+        function updateAudioGains() {
+            if (!audioCtx || !state.audioEnabled) return;
+
+            // Aggiorna frequenza nota
+            toneOsc.frequency.setTargetAtTime(state.freq, audioCtx.currentTime, 0.03);
+
+            // Volume diapason
+            if (state.isVibrating) {
+                toneGain.gain.setTargetAtTime(0.18, audioCtx.currentTime, 0.05);
+            } else {
+                toneGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+            }
+
+            // Volume rumore di contatto / incisione sfregamento
+            if (state.isRotating && state.isStylusContacting) {
+                const frictionVol = 0.04 * state.speed;
+                noiseGain.gain.setTargetAtTime(frictionVol, audioCtx.currentTime, 0.05);
+            } else {
+                noiseGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+            }
+        }
+
+        // Event Listeners
+        btnVibrate.addEventListener('click', () => {
+            initAudioEngine();
+            state.isVibrating = !state.isVibrating;
+            state.targetAmp = state.isVibrating ? 1.0 : 0.0;
+            
+            if (state.isVibrating) {
+                btnVibrate.classList.remove('from-amber-500', 'to-amber-600');
+                btnVibrate.classList.add('from-red-500', 'to-red-600');
+            } else {
+                btnVibrate.classList.remove('from-red-500', 'to-red-600');
+                btnVibrate.classList.add('from-amber-500', 'to-amber-600');
+            }
+            updateStatus();
+            updateAudioGains();
+        });
+
+        btnRotate.addEventListener('click', () => {
+            initAudioEngine();
+            state.isRotating = !state.isRotating;
+            btnRotateText.textContent = state.isRotating ? "Fermate Manovella" : "Ruota Manovella";
+            updateStatus();
+            updateAudioGains();
+        });
+
+        btnReset.addEventListener('click', () => {
+            state.cylinderX = 0;
+            state.traces = [];
+            grooveCount.textContent = "0.0";
+        });
+
+        freqSlider.addEventListener('input', (e) => {
+            state.freq = parseInt(e.target.value);
+            freqVal.textContent = `${state.freq} Hz`;
+            updateAudioGains();
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            state.speed = parseFloat(e.target.value);
+            speedVal.textContent = `${state.speed.toFixed(1)}x`;
+            updateAudioGains();
+        });
+
+        audioToggle.addEventListener('change', (e) => {
+            state.audioEnabled = e.target.checked;
+            if (!state.audioEnabled && audioCtx) {
+                toneGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+                noiseGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+            } else {
+                updateAudioGains();
+            }
+        });
+
+        function updateStatus() {
+            if (state.isRotating && state.isVibrating) {
+                statusText.textContent = "Registrazione in Corso";
+                statusText.className = "text-emerald-400 font-semibold animate-pulse";
+            } else if (state.isRotating) {
+                statusText.textContent = "Rotazione Cilindro";
+                statusText.className = "text-sky-400 font-semibold";
+            } else if (state.isVibrating) {
+                statusText.textContent = "Diapason in Vibrazione";
+                statusText.className = "text-amber-400 font-semibold";
+            } else {
+                statusText.textContent = "In Attesa";
+                statusText.className = "text-slate-400 font-semibold";
+            }
+        }
+
+        // Loop di Simulazione e Rendering Grafico (Canvas)
+        let lastTime = performance.now();
+        let time = 0;
+
+        function render(currentTime) {
+            const dt = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            time += dt;
+
+            // Dimensioni Logiche (CSS Pixels)
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Transizione fluida ampiezza vibrazione
+            state.diapasonAmp += (state.targetAmp - state.diapasonAmp) * 0.1;
+
+            // Avanzamento meccanico (Rotazione + Traslazione)
+            const maxTranslation = w * 0.45;
+            if (state.isRotating) {
+                const moveStep = 25 * state.speed * dt;
+                state.cylinderX += moveStep;
+                state.rotationAngle += 3 * state.speed * dt;
+
+                if (state.cylinderX > maxTranslation) {
+                    state.cylinderX = 0; // Riparte dal principio se raggiunge la fine
+                }
+
+                grooveCount.textContent = (state.cylinderX / 15).toFixed(1);
+            }
+
+            // --- DISEGNO APPARATO SPERIMENTALE ---
+
+            // 1. Base di Legno Solida
+            const baseH = 20;
+            const baseY = h - baseH - 15;
+            const baseW = w - 30;
+            const baseX = 15;
+            
+            const woodGrad = ctx.createLinearGradient(baseX, baseY, baseX, baseY + baseH);
+            woodGrad.addColorStop(0, '#854d0e');
+            woodGrad.addColorStop(0.5, '#713f12');
+            woodGrad.addColorStop(1, '#451a03');
+            ctx.fillStyle = woodGrad;
+            ctx.beginPath();
+            ctx.roundRect(baseX, baseY, baseW, baseH, 6);
+            ctx.fill();
+            ctx.strokeStyle = '#3b1a03';
+            ctx.stroke();
+
+            // 2. Supporti di Metallo Verticali
+            const suppW = 12;
+            const suppH = 80;
+            const suppY = baseY - suppH;
+            const leftSuppX = baseX + 25;
+            const rightSuppX = baseX + baseW - 35;
+
+            const metalGrad = ctx.createLinearGradient(0, suppY, 0, baseY);
+            metalGrad.addColorStop(0, '#94a3b8');
+            metalGrad.addColorStop(0.5, '#475569');
+            metalGrad.addColorStop(1, '#1e293b');
+
+            // Supporto Sinistro
+            ctx.fillStyle = metalGrad;
+            ctx.fillRect(leftSuppX, suppY, suppW, suppH);
+            // Supporto Destro
+            ctx.fillRect(rightSuppX, suppY, suppW, suppH);
+
+            // 3. Asta Filettata Orizzontale
+            const rodY = suppY + 25;
+            const rodX1 = leftSuppX - 15;
+            const rodX2 = rightSuppX + 25;
+            
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.moveTo(rodX1, rodY);
+            ctx.lineTo(rodX2, rodY);
+            ctx.stroke();
+
+            // Disegno Filettatura sull'asta
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#475569';
+            for (let x = leftSuppX; x < rightSuppX + 10; x += 4) {
+                ctx.beginPath();
+                ctx.moveTo(x, rodY - 3);
+                ctx.lineTo(x + 2, rodY + 3);
+                ctx.stroke();
+            }
+
+            // 4. Manovella sulla destra
+            const crankX = rodX2;
+            const crankRadius = 18;
+            const crankAngle = state.rotationAngle;
+            const handleX = crankX + Math.cos(crankAngle) * crankRadius;
+            const handleY = rodY + Math.sin(crankAngle) * crankRadius;
+
+            // Braccio manovella
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(crankX, rodY);
+            ctx.lineTo(handleX, handleY);
+            ctx.stroke();
+            
+            // Pomello manovella
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(handleX, handleY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 5. Cilindro Metallico Annerito (Fuliggine)
+            const cylW = 140;
+            const cylH = 65;
+            const cylX = leftSuppX + 10 + state.cylinderX;
+            const cylY = rodY - cylH / 2;
+
+            // Ombra Cilindro
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(cylX + 5, cylY + 5, cylW, cylH);
+
+            // Superficie Affumicata (Cilindro di Fuliggine)
+            const cylGrad = ctx.createLinearGradient(cylX, cylY, cylX, cylY + cylH);
+            cylGrad.addColorStop(0, '#334155');
+            cylGrad.addColorStop(0.2, '#0f172a');
+            cylGrad.addColorStop(0.5, '#020617');
+            cylGrad.addColorStop(0.8, '#0f172a');
+            cylGrad.addColorStop(1, '#1e293b');
+
+            ctx.fillStyle = cylGrad;
+            ctx.beginPath();
+            ctx.roundRect(cylX, cylY, cylW, cylH, 4);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.stroke();
+
+            // Texture righe di scorrimento cilindro
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 10; i < cylH; i += 12) {
+                ctx.beginPath();
+                ctx.moveTo(cylX, cylY + i);
+                ctx.lineTo(cylX + cylW, cylY + i);
+                ctx.stroke();
+            }
+
+            // 6. Diapason Metallico con Punta d'Acciaio
+            const diapasonX = leftSuppX + 80;
+            const vibrOffset = Math.sin(time * state.freq * 0.05) * (12 * state.diapasonAmp);
+            const diapasonBaseY = cylY - 45;
+
+            // Struttura a "U" del Diapason
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.beginPath();
+            // Rebbio Sinistro
+            ctx.moveTo(diapasonX - 10 + vibrOffset * 0.3, diapasonBaseY - 30);
+            ctx.lineTo(diapasonX - 10, diapasonBaseY);
+            // U-Turn
+            ctx.quadraticCurveTo(diapasonX, diapasonBaseY + 15, diapasonX + 10, diapasonBaseY);
+            // Rebbio Destro con vibrazione
+            ctx.lineTo(diapasonX + 10 + vibrOffset, diapasonBaseY - 30);
+            ctx.stroke();
+
+            // Asta di supporto del diapason
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(diapasonX, diapasonBaseY + 10);
+            ctx.lineTo(diapasonX, diapasonBaseY + 35);
+            ctx.stroke();
+
+            // Punta / Stiletto d'Acciaio che tocca il cilindro
+            const stylusX = diapasonX + 10 + vibrOffset;
+            const stylusY = cylY + 12;
+
+            // Verifica se lo stiletto tocca la superficie del cilindro
+            const wasContacting = state.isStylusContacting;
+            state.isStylusContacting = (stylusX >= cylX && stylusX <= cylX + cylW);
+            if (wasContacting !== state.isStylusContacting) {
+                updateAudioGains();
+            }
+
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.moveTo(diapasonX + 10 + vibrOffset, diapasonBaseY - 30);
+            ctx.lineTo(stylusX, stylusY);
+            ctx.stroke();
+
+            // Punto di contatto della punta d'acciaio
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(stylusX, stylusY, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 7. REGISTRAZIONE DELLA TRACCIA SINUSOIDALE SUL CILINDRO
+            if (state.isRotating && state.isStylusContacting) {
+                const relX = stylusX - cylX;
+                const relY = stylusY - cylY;
+                state.traces.push({ relX: relX, relY: relY, cylXAtCreation: state.cylinderX });
+            }
+
+            // Disegno dei solchi incisi argentati (fuliggine rimossa)
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+
+            let isDrawing = false;
+            for (let i = 0; i < state.traces.length; i++) {
+                const pt = state.traces[i];
+                const currentCanvasX = (cylX + pt.relX);
+
+                if (currentCanvasX >= cylX && currentCanvasX <= cylX + cylW) {
+                    if (!isDrawing) {
+                        ctx.moveTo(currentCanvasX, cylY + pt.relY);
+                        isDrawing = true;
+                    } else {
+                        ctx.lineTo(currentCanvasX, cylY + pt.relY);
+                    }
+                } else {
+                    isDrawing = false;
+                }
+            }
+            ctx.stroke();
+
+            requestAnimationFrame(render);
+        }
+
+        // Avvio simulazione
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
