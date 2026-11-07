@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fedele Modello Storico del Verricello (N. 21)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- MathJax per formule -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        .font-serif-title {
+            font-family: 'Cinzel', serif;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+        }
+        canvas {
+            touch-action: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #78350f;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-amber-50 min-h-screen flex flex-col selection:bg-amber-800 selection:text-white">
+
+    <!-- Header Museo Scientifico -->
+    <header class="bg-amber-950/40 backdrop-blur border-b border-amber-900/40 sticky top-0 z-50 shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-gradient-to-br from-amber-700 to-amber-950 rounded-xl text-amber-200 shadow-md border border-amber-600/30">
+                    <i data-lucide="box" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold font-serif-title text-amber-100 tracking-wide">Modello dell'Asse della Ruota (N. 21)</h1>
+                    <p class="text-xs text-amber-400/80">Replica Grafica Fedele dallo Strumento Fisico Originale in Legno</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btnReset" title="Ripristina Posizione" class="p-2 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-lg border border-amber-900/50 transition flex items-center gap-1.5 text-xs">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Reset</span>
+                </button>
+                <button id="btnAnimate" class="px-3.5 py-2 bg-gradient-to-r from-amber-700 to-amber-900 hover:from-amber-600 hover:to-amber-800 text-amber-100 rounded-lg text-xs font-semibold transition flex items-center gap-2 shadow-lg border border-amber-600/40">
+                    <i data-lucide="play" class="w-4 h-4" id="playIcon"></i> 
+                    <span id="playText">Ruota Crociere</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Layout -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Simulation Screen Column -->
+        <div class="lg:col-span-7 flex flex-col gap-5">
+            
+            <!-- Canvas Container -->
+            <div class="bg-slate-900/90 rounded-2xl border border-amber-900/40 p-4 shadow-2xl flex flex-col items-center relative overflow-hidden">
+                
+                <div class="w-full flex justify-between items-center mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        <h2 class="text-xs sm:text-sm font-semibold text-amber-200 tracking-wide uppercase font-serif-title">
+                            Simulazione 3D Prospettica del Verricello Storico
+                        </h2>
+                    </div>
+                    <div class="text-xs font-mono text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded border border-amber-900/40">
+                        Angolo: <span id="rotDegrees" class="font-bold">0°</span>
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="w-full bg-stone-950 rounded-xl overflow-hidden relative flex items-center justify-center border border-amber-950/80 shadow-inner" style="aspect-ratio: 4/3; max-height: 480px;">
+                    <canvas id="simCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+                    
+                    <!-- Overlay Guide -->
+                    <div class="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur px-3 py-1.5 rounded-lg border border-amber-900/40 text-xs font-mono text-amber-300 flex items-center gap-2">
+                        <i data-lucide="hand" class="w-4 h-4 text-amber-400"></i>
+                        <span>Trascina orizzontalmente per girare le manovelle</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameters Sliders -->
+            <div class="bg-slate-900/90 rounded-2xl border border-amber-900/40 p-5 shadow-xl space-y-4">
+                <h3 class="text-sm font-bold text-amber-200 border-b border-amber-900/30 pb-2 flex items-center gap-2 uppercase tracking-wider font-serif-title">
+                    <i data-lucide="sliders" class="w-4 h-4 text-amber-400"></i> Parametri del Modello Meccanico
+                </h3>
+
+                <!-- Slider 1: Raggio delle Crociere -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-sm">
+                        <label for="wheelRadius" class="font-medium text-amber-300 flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-amber-600 inline-block"></span>
+                            Lunghezza Crociere / Volanti ($R$)
+                        </label>
+                        <span class="font-mono text-amber-100 font-bold bg-amber-950/60 px-2.5 py-0.5 rounded border border-amber-900/40" id="valWheelRadius">35 cm</span>
+                    </div>
+                    <input type="range" id="wheelRadius" min="15" max="50" value="35" step="1"
+                        class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    <p class="text-[11px] text-slate-400">Raggio delle aste in bronzo/legno montate agli estremi dell'asse.</p>
+                </div>
+
+                <!-- Slider 2: Raggio del Tamburo -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-sm">
+                        <label for="axleRadius" class="font-medium text-emerald-300 flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span>
+                            Raggio del Tamburo Centrale ($r$)
+                        </label>
+                        <span class="font-mono text-amber-100 font-bold bg-amber-950/60 px-2.5 py-0.5 rounded border border-amber-900/40" id="valAxleRadius">10 cm</span>
+                    </div>
+                    <input type="range" id="axleRadius" min="5" max="20" value="10" step="1"
+                        class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <p class="text-[11px] text-slate-400">Dimensione del cilindro di legno scuro dove si avvolge il cavo.</p>
+                </div>
+
+                <!-- Slider 3: Massa / Peso Appeso -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-sm">
+                        <label for="loadWeight" class="font-medium text-amber-400 flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                            Carico Sospeso ($F_{resistente}$)
+                        </label>
+                        <span class="font-mono text-amber-100 font-bold bg-amber-950/60 px-2.5 py-0.5 rounded border border-amber-900/40" id="valLoadWeight">140 N</span>
+                    </div>
+                    <input type="range" id="loadWeight" min="20" max="300" value="140" step="10"
+                        class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Calculations & Educational Column -->
+        <div class="lg:col-span-5 flex flex-col gap-5">
+
+            <!-- Physics Calculations -->
+            <div class="bg-slate-900/90 rounded-2xl border border-amber-900/40 p-5 shadow-xl space-y-4">
+                <h3 class="text-sm font-bold text-amber-200 border-b border-amber-900/30 pb-2 flex items-center gap-2 uppercase tracking-wider font-serif-title">
+                    <i data-lucide="calculator" class="w-4 h-4 text-amber-400"></i> Analisi Fisica e Vantaggio
+                </h3>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Mechanical Advantage -->
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-amber-900/30 flex flex-col justify-between">
+                        <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Vantaggio Meccanico</span>
+                        <div class="text-3xl font-extrabold text-amber-400 font-mono my-1" id="outVM">3.50</div>
+                        <span class="text-[11px] text-emerald-400 font-semibold" id="typeVM">Guadagno di Forza</span>
+                    </div>
+
+                    <!-- Effort Needed -->
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-amber-900/30 flex flex-col justify-between">
+                        <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Forza Motrice ($F_m$)</span>
+                        <div class="text-3xl font-extrabold text-emerald-400 font-mono my-1" id="outEffort">40.0 N</div>
+                        <span class="text-[11px] text-slate-400">Da applicare alle razze</span>
+                    </div>
+                </div>
+
+                <!-- Formulas -->
+                <div class="bg-stone-950 p-4 rounded-xl border border-amber-950/80 space-y-3 font-mono text-xs text-amber-100/90 shadow-inner">
+                    <div class="text-xs text-amber-400/80 font-sans border-b border-slate-800 pb-1 font-semibold flex items-center gap-1.5">
+                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Formule Applicate:
+                    </div>
+                    <div>
+                        $$\text{VM} = \frac{R}{r} = \frac{\text{Raggio Crociera}}{\text{Raggio Tamburo}}$$
+                        <p class="text-xs text-amber-300 text-center mt-1 font-sans" id="eqVM">$$VM = \frac{35}{10} = 3.5$$</p>
+                    </div>
+                    <div>
+                        $$F_m = \frac{F_r}{\text{VM}} = \frac{\text{Carico}}{\text{VM}}$$
+                        <p class="text-xs text-emerald-300 text-center mt-1 font-sans" id="eqEffort">$$F_m = \frac{140\text{ N}}{3.5} = 40.0\text{ N}$$</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work & Displacement -->
+            <div class="bg-slate-900/90 rounded-2xl border border-amber-900/40 p-5 shadow-xl space-y-3">
+                <h3 class="text-sm font-bold text-amber-200 border-b border-amber-900/30 pb-2 flex items-center gap-2 uppercase tracking-wider font-serif-title">
+                    <i data-lucide="scale" class="w-4 h-4 text-amber-400"></i> Conservazione del Lavoro
+                </h3>
+                
+                <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                    <p>
+                        Ruotando le crociere di un giro completo ($360^\circ$), si applica una forza ridotta ma per un cammino circolare più lungo rispetto alla salita diretta del peso.
+                    </p>
+                    <div class="bg-amber-950/30 p-3 rounded-xl border border-amber-900/40 font-mono text-[11px] text-amber-200 space-y-1">
+                        <div>Salita Carico (1 giro): <span class="text-emerald-400 font-bold" id="loadDist">62.8 cm</span></div>
+                        <div>Corsa Manovella (1 giro): <span class="text-amber-400 font-bold" id="handleDist">219.9 cm</span></div>
+                        <div class="border-t border-amber-900/40 pt-1 mt-1 text-slate-300">
+                            Lavoro Utile ($W = F \cdot d$): <span class="text-indigo-300 font-bold" id="workVal">87.9 Joule</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historical Note -->
+            <div class="bg-slate-900/90 rounded-2xl border border-amber-900/40 p-5 shadow-xl space-y-2.5">
+                <h3 class="text-sm font-bold text-amber-200 border-b border-amber-900/30 pb-2 flex items-center gap-2 uppercase tracking-wider font-serif-title">
+                    <i data-lucide="award" class="w-4 h-4 text-amber-400"></i> Storia del Modello N. 21
+                </h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Questo tipo di apparecchio in legno nobile veniva impiegato nei gabinetti didattici di fisica dell'Ottocento per spiegare la teoria delle **macchine semplici** derivate dalla leva di primo genere. La cavità rettangolare sulla base serviva a far scendere liberamente il peso sospeso nel pozzo o nel bancale di prova.
+                </p>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Script Simulazione Grafica 3D Canvas -->
+    <script>
+        lucide.createIcons();
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Inputs DOM
+        const inputWheelRadius = document.getElementById('wheelRadius');
+        const inputAxleRadius = document.getElementById('axleRadius');
+        const inputLoadWeight = document.getElementById('loadWeight');
+
+        const valWheelRadius = document.getElementById('valWheelRadius');
+        const valAxleRadius = document.getElementById('valAxleRadius');
+        const valLoadWeight = document.getElementById('valLoadWeight');
+
+        const outVM = document.getElementById('outVM');
+        const typeVM = document.getElementById('typeVM');
+        const outEffort = document.getElementById('outEffort');
+        const eqVM = document.getElementById('eqVM');
+        const eqEffort = document.getElementById('eqEffort');
+        const rotDegrees = document.getElementById('rotDegrees');
+
+        const loadDist = document.getElementById('loadDist');
+        const handleDist = document.getElementById('handleDist');
+        const workVal = document.getElementById('workVal');
+
+        const btnAnimate = document.getElementById('btnAnimate');
+        const btnReset = document.getElementById('btnReset');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+
+        let rotationAngle = 0;
+        let isAnimating = false;
+        let animationFrameId = null;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            draw();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function updateCalculations() {
+            const R = parseFloat(inputWheelRadius.value);
+            const r = parseFloat(inputAxleRadius.value);
+            const Fr = parseFloat(inputLoadWeight.value);
+
+            valWheelRadius.textContent = `${R} cm`;
+            valAxleRadius.textContent = `${r} cm`;
+            valLoadWeight.textContent = `${Fr} N`;
+
+            const vm = R / r;
+            const Fm = Fr / vm;
+
+            outVM.textContent = vm.toFixed(2);
+            outEffort.textContent = `${Fm.toFixed(1)} N`;
+
+            if (vm > 1) {
+                typeVM.textContent = "Guadagno di Forza";
+                typeVM.className = "text-[11px] text-emerald-400 font-semibold";
+            } else if (vm === 1) {
+                typeVM.textContent = "Macchina Indifferente";
+                typeVM.className = "text-[11px] text-slate-400 font-semibold";
+            } else {
+                typeVM.textContent = "Svantaggiosa";
+                typeVM.className = "text-[11px] text-amber-400 font-semibold";
+            }
+
+            const dLoad = 2 * Math.PI * (r / 100); 
+            const dHandle = 2 * Math.PI * (R / 100); 
+            const work = Fr * dLoad; 
+
+            loadDist.textContent = `${(dLoad * 100).toFixed(1)} cm`;
+            handleDist.textContent = `${(dHandle * 100).toFixed(1)} cm`;
+            workVal.textContent = `${work.toFixed(1)} Joule`;
+
+            eqVM.innerHTML = `$$\\text{VM} = \\frac{${R}}{${r}} = ${vm.toFixed(2)}$$`;
+            eqEffort.innerHTML = `$$F_m = \\frac{${Fr}\\text{ N}}{${vm.toFixed(2)}} = ${Fm.toFixed(1)}\\text{ N}$$`;
+
+            if (window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([eqVM, eqEffort]);
+            }
+
+            draw();
+        }
+
+        // --- DISEGNO 3D PROSPETTICO FEDELE ALLA FOTO ---
+        function draw() {
+            if (!ctx) return;
+            const w = canvas.width;
+            const h = canvas.height;
+            const scale = (Math.min(w, h) / 520);
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Sfondo tavolo da museo
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+            bgGrad.addColorStop(0, '#0a0d14');
+            bgGrad.addColorStop(0.7, '#151922');
+            bgGrad.addColorStop(1, '#1e2430');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            const R_val = parseFloat(inputWheelRadius.value);
+            const r_val = parseFloat(inputAxleRadius.value);
+            const Fr_val = parseFloat(inputLoadWeight.value);
+
+            const wheelR = R_val * 1.6 * scale;
+            const axleR = r_val * 1.6 * scale;
+
+            // Centro del modello prospettico
+            const cx = w / 2;
+            const cy = h / 2 - 20 * scale;
+
+            // 1. OMBRA BASE SUL TAVOLO
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + 220 * scale, 170 * scale, 55 * scale, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fill();
+
+            // 2. BASE RETTANGOLARE IN LEGNO CON FORO CENTRALE (Prospettiva 3D)
+            const bY = cy + 180 * scale;
+            const bW = 280 * scale;
+            const bD = 120 * scale;
+            const bThickness = 18 * scale;
+
+            // Punti perimetro base
+            const p1 = { x: cx - bW/2, y: bY };
+            const p2 = { x: cx + bW/2, y: bY };
+            const p3 = { x: cx + bW/2 + 25*scale, y: bY + bD };
+            const p4 = { x: cx - bW/2 - 25*scale, y: bY + bD };
+
+            // Superficie superiore base in legno d'epoca
+            const woodGrad = ctx.createLinearGradient(p1.x, bY, p3.x, bY + bD);
+            woodGrad.addColorStop(0, '#854d0e');
+            woodGrad.addColorStop(0.5, '#78350f');
+            woodGrad.addColorStop(1, '#451a03');
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.lineTo(p4.x, p4.y);
+            ctx.closePath();
+            ctx.fillStyle = woodGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#a16207';
+            ctx.lineWidth = 2 * scale;
+            ctx.stroke();
+
+            // Bordo frontale 3D della base
+            ctx.beginPath();
+            ctx.moveTo(p4.x, p4.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.lineTo(p3.x, p3.y + bThickness);
+            ctx.lineTo(p4.x, p4.y + bThickness);
+            ctx.closePath();
+            ctx.fillStyle = '#270e02';
+            ctx.fill();
+            ctx.strokeStyle = '#78350f';
+            ctx.stroke();
+
+            // FORO CENTRALE RETTANGOLARE SULLA BASE (Fedele alla foto)
+            const holeW = 110 * scale;
+            const holeD = 65 * scale;
+            const hp1 = { x: cx - holeW/2, y: bY + 25*scale };
+            const hp2 = { x: cx + holeW/2, y: bY + 25*scale };
+            const hp3 = { x: cx + holeW/2 + 10*scale, y: bY + 25*scale + holeD };
+            const hp4 = { x: cx - holeW/2 - 10*scale, y: bY + 25*scale + holeD };
+
+            ctx.beginPath();
+            ctx.moveTo(hp1.x, hp1.y);
+            ctx.lineTo(hp2.x, hp2.y);
+            ctx.lineTo(hp3.x, hp3.y);
+            ctx.lineTo(hp4.x, hp4.y);
+            ctx.closePath();
+            ctx.fillStyle = '#05070b'; // Vuoto interno
+            ctx.fill();
+            ctx.strokeStyle = '#451a03';
+            ctx.lineWidth = 1.5 * scale;
+            ctx.stroke();
+
+            // TARGHETTA STORICA CON NUMERO "21" (Fedele alla foto)
+            const tagX = cx - 35 * scale;
+            const tagY = bY + bD - 24 * scale;
+            ctx.fillStyle = '#fef3c7';
+            ctx.fillRect(tagX, tagY, 70 * scale, 16 * scale);
+            ctx.strokeStyle = '#b45309';
+            ctx.lineWidth = 1 * scale;
+            ctx.strokeRect(tagX, tagY, 70 * scale, 16 * scale);
+            
+            ctx.fillStyle = '#451a03';
+            ctx.font = `bold ${9*scale}px Cinzel, serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText("MODELLO N. 21", cx, tagY + 11 * scale);
+
+            // 3. I 4 MONTANTI IN LEGNO A "A" (TRAPEZOIDALI)
+            const topY = cy - 70 * scale;
+            const leftAxleX = cx - 125 * scale;
+            const rightAxleX = cx + 125 * scale;
+
+            // Disegno i 4 montanti
+            const legs = [
+                // Posteriore Sinistro
+                { top: {x: leftAxleX - 6*scale, y: topY}, bot: {x: p1.x + 35*scale, y: p1.y + 12*scale} },
+                // Anteriore Sinistro
+                { top: {x: leftAxleX + 6*scale, y: topY}, bot: {x: p4.x + 35*scale, y: p4.y - 12*scale} },
+                // Posteriore Destro
+                { top: {x: rightAxleX - 6*scale, y: topY}, bot: {x: p2.x - 35*scale, y: p2.y + 12*scale} },
+                // Anteriore Destro
+                { top: {x: rightAxleX + 6*scale, y: topY}, bot: {x: p3.x - 35*scale, y: p3.y - 12*scale} }
+            ];
+
+            legs.forEach((leg, idx) => {
+                ctx.beginPath();
+                ctx.moveTo(leg.top.x - 5*scale, leg.top.y);
+                ctx.lineTo(leg.top.x + 5*scale, leg.top.y);
+                ctx.lineTo(leg.bot.x + 7*scale, leg.bot.y);
+                ctx.lineTo(leg.bot.x - 7*scale, leg.bot.y);
+                ctx.closePath();
+
+                const legGrad = ctx.createLinearGradient(leg.top.x, leg.top.y, leg.bot.x, leg.bot.y);
+                legGrad.addColorStop(0, '#92400e');
+                legGrad.addColorStop(1, '#451a03');
+                ctx.fillStyle = legGrad;
+                ctx.fill();
+                ctx.strokeStyle = '#270e02';
+                ctx.lineWidth = 1 * scale;
+                ctx.stroke();
+            });
+
+            // Traversine di collegamento in cima ai montanti
+            [leftAxleX, rightAxleX].forEach(ax => {
+                ctx.fillStyle = '#b45309';
+                ctx.fillRect(ax - 14*scale, topY - 4*scale, 28*scale, 10*scale);
+                ctx.strokeStyle = '#451a03';
+                ctx.strokeRect(ax - 14*scale, topY - 4*scale, 28*scale, 10*scale);
+
+                // Boccole superiori in ottone
+                ctx.beginPath();
+                ctx.arc(ax, topY, 8*scale, 0, Math.PI*2);
+                ctx.fillStyle = '#d97706';
+                ctx.fill();
+                ctx.strokeStyle = '#fef3c7';
+                ctx.stroke();
+            });
+
+            // 4. CORDA E CARICO CHE PENDE NEL FORO
+            const ropeX = cx - 15 * scale;
+            const drumWidth = 140 * scale;
+            const drumLeft = cx - drumWidth / 2;
+
+            // Posizione verticale del peso che scende attraverso la cavità
+            const ropeLengthPxl = 180 * scale + Math.sin(rotationAngle) * 30 * scale;
+            const loadY = topY + ropeLengthPxl;
+
+            // Corda scura d'epoca
+            ctx.beginPath();
+            ctx.moveTo(ropeX, topY + axleR);
+            ctx.lineTo(ropeX, loadY);
+            ctx.strokeStyle = '#262626'; // Corda scura
+            ctx.lineWidth = 3.5 * scale;
+            ctx.stroke();
+
+            // Peso agganciato in fondo (sotto la base/nel foro)
+            ctx.beginPath();
+            ctx.arc(ropeX, loadY + 12*scale, 12*scale, 0, Math.PI*2);
+            ctx.fillStyle = '#334155';
+            ctx.fill();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5 * scale;
+            ctx.stroke();
+
+            // Anello corda
+            ctx.beginPath();
+            ctx.arc(ropeX, loadY + 2*scale, 4*scale, 0, Math.PI*2);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.stroke();
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = `bold ${10*scale}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Fr_val} N`, ropeX, loadY + 16*scale);
+
+            // 5. ASSE ORIZZONTALE E TAMBURO CENTRALE IN LEGNO
+            // Perno di ferro/ottone orizzontale passante
+            ctx.beginPath();
+            ctx.moveTo(leftAxleX - 35*scale, topY);
+            ctx.lineTo(rightAxleX + 35*scale, topY);
+            ctx.strokeStyle = '#78716c';
+            ctx.lineWidth = 6 * scale;
+            ctx.stroke();
+
+            // Tamburo cilindrico centrale
+            const drumGrad = ctx.createLinearGradient(0, topY - axleR, 0, topY + axleR);
+            drumGrad.addColorStop(0, '#b45309');
+            drumGrad.addColorStop(0.3, '#f59e0b');
+            drumGrad.addColorStop(0.7, '#78350f');
+            drumGrad.addColorStop(1, '#451a03');
+
+            ctx.fillStyle = drumGrad;
+            ctx.beginPath();
+            ctx.roundRect(drumLeft, topY - axleR, drumWidth, axleR * 2, 6 * scale);
+            ctx.fill();
+            ctx.strokeStyle = '#270e02';
+            ctx.lineWidth = 2 * scale;
+            ctx.stroke();
+
+            // Spire di corda scura avvolte sul tamburo
+            const turns = 10;
+            ctx.strokeStyle = '#1c1917';
+            ctx.lineWidth = 3 * scale;
+            for (let i = 0; i < turns; i++) {
+                const turnX = drumLeft + 25*scale + (i * 9 * scale);
+                ctx.beginPath();
+                ctx.arc(turnX, topY, axleR - 1*scale, -Math.PI/2, Math.PI/2);
+                ctx.stroke();
+            }
+
+            // Flange laterali scure del tamburo
+            [drumLeft, drumLeft + drumWidth].forEach(fx => {
+                ctx.beginPath();
+                ctx.ellipse(fx, topY, 5*scale, axleR + 3*scale, 0, 0, Math.PI*2);
+                ctx.fillStyle = '#3a1507';
+                ctx.fill();
+                ctx.strokeStyle = '#78350f';
+                ctx.stroke();
+            });
+
+            // 6. DUE CROCIERE / VOLANTI A RAZZE AGLI ESTREMI (Identici alle foto)
+            drawMetallicCrossSpoke(leftAxleX - 25*scale, topY, wheelR, rotationAngle, scale);
+            drawMetallicCrossSpoke(rightAxleX + 25*scale, topY, wheelR, rotationAngle + Math.PI/4, scale);
+
+            // Gradi
+            const degrees = Math.round((rotationAngle * 180 / Math.PI) % 360);
+            rotDegrees.textContent = `${degrees < 0 ? degrees + 360 : degrees}°`;
+        }
+
+        // Funzione per disegnare le crociere metalliche con aste sporgenti (Come nella foto)
+        function drawMetallicCrossSpoke(cx, cy, radius, angle, scale) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+
+            // Perno centrale in ottone nobile
+            ctx.beginPath();
+            ctx.arc(0, 0, 10 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#b45309';
+            ctx.fill();
+            ctx.strokeStyle = '#fef3c7';
+            ctx.lineWidth = 1.5 * scale;
+            ctx.stroke();
+
+            // 4 Aste metalliche sottili e lunghe (Crociera d'epoca)
+            for (let i = 0; i < 4; i++) {
+                const a = (i * Math.PI) / 2;
+                const spokeX = Math.cos(a) * radius;
+                const spokeY = Math.sin(a) * radius;
+
+                // Asta braccio metallico
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(spokeX, spokeY);
+                ctx.strokeStyle = '#44403c';
+                ctx.lineWidth = 4 * scale;
+                ctx.stroke();
+
+                // Dettaglio impugnatura sferica in punta
+                ctx.beginPath();
+                ctx.arc(spokeX, spokeY, 4 * scale, 0, Math.PI * 2);
+                ctx.fillStyle = '#d97706';
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // Animazione Loop
+        function animateLoop() {
+            if (isAnimating) {
+                rotationAngle += 0.025;
+                draw();
+                animationFrameId = requestAnimationFrame(animateLoop);
+            }
+        }
+
+        btnAnimate.addEventListener('click', () => {
+            isAnimating = !isAnimating;
+            if (isAnimating) {
+                playText.textContent = "Pausa";
+                playIcon.setAttribute('data-lucide', 'pause');
+                animateLoop();
+            } else {
+                playText.textContent = "Ruota Crociere";
+                playIcon.setAttribute('data-lucide', 'play');
+                cancelAnimationFrame(animationFrameId);
+            }
+            lucide.createIcons();
+        });
+
+        btnReset.addEventListener('click', () => {
+            rotationAngle = 0;
+            if (isAnimating) btnAnimate.click();
+            draw();
+        });
+
+        // Sliders Listeners
+        inputWheelRadius.addEventListener('input', updateCalculations);
+        inputAxleRadius.addEventListener('input', updateCalculations);
+        inputLoadWeight.addEventListener('input', updateCalculations);
+
+        // Controllo Trascinamento Manuale Mouse / Touch
+        let isDragging = false;
+        let lastX = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastX = e.clientX;
+            if (isAnimating) btnAnimate.click();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.clientX - lastX;
+            rotationAngle += deltaX * 0.01;
+            lastX = e.clientX;
+            draw();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        canvas.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            lastX = e.touches[0].clientX;
+            if (isAnimating) btnAnimate.click();
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.touches[0].clientX - lastX;
+            rotationAngle += deltaX * 0.01;
+            lastX = e.touches[0].clientX;
+            draw();
+        });
+
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        // Inizializzazione
+        window.onload = () => {
+            resizeCanvas();
+            updateCalculations();
+        };
+    </script>
+</body>
+</html>
