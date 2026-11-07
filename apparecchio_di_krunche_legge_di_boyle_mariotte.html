@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Apparecchio di Krunche - Legge di Boyle-Mariotte</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- KaTeX per il render delle formule matematiche -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            touch-action: manipulation;
+        }
+
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Styling sliders per un facile utilizzo touch */
+        input[type=range] {
+            accent-color: #38bdf8;
+            height: 8px;
+        }
+
+        /* Effetti legno e ottone vintage */
+        .wood-base {
+            background: linear-gradient(180deg, #422006 0%, #2e1005 100%);
+            border: 2px solid #78350f;
+            box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.1), 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        .brass-accent {
+            background: linear-gradient(135deg, #fef08a 0%, #d97706 50%, #78350f 100%);
+        }
+
+        .glass-tube {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.25) 100%);
+            border-top: 1px solid rgba(255,255,255,0.6);
+            border-bottom: 1px solid rgba(255,255,255,0.4);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 pb-6">
+
+    <!-- Header / Navigazione Mobile -->
+    <header class="w-full bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 flex justify-between items-center shadow-md">
+        <div class="flex items-center space-x-2">
+            <div class="p-2 bg-amber-500/10 rounded-lg border border-amber-500/30 text-amber-400">
+                <i data-lucide="gauge" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-amber-400 leading-tight">Apparecchio di Krunche</h1>
+                <p class="text-[11px] text-slate-400">Verifica della Legge di Boyle-Mariotte</p>
+            </div>
+        </div>
+
+        <button id="btnInfo" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            <i data-lucide="book-open" class="w-5 h-5 text-cyan-400"></i>
+        </button>
+    </header>
+
+    <!-- Contenitore Principale Ottimizzato per Smartphone Portrait -->
+    <main class="w-full max-w-md mx-auto px-3 pt-3 flex flex-col gap-4 flex-1">
+
+        <!-- 1. Scheda Formula Quantitativa con KaTeX (No LaTeX grezzo) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-center items-center text-center">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Legge di Boyle-Mariotte</span>
+            <div id="formulaTarget" class="py-1 text-slate-100 text-lg"></div>
+            <div class="text-[11px] text-slate-400 mt-1 flex justify-center gap-4">
+                <span>Stato Gas: <strong id="gasTypeLabel" class="text-cyan-400">Aria Secca</strong></span>
+                <span>Temperatura: <strong id="tempLabel" class="text-amber-400">293.15 K (20°C)</strong></span>
+            </div>
+        </div>
+
+        <!-- 2. CANVAS DISPOSITIVO FISICO (Apparecchio montato su basamento di legno) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-2 shadow-xl flex flex-col">
+            <div class="flex justify-between items-center mb-1 px-2">
+                <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Vista Strumentale Realistica
+                </span>
+                <span class="text-[10px] text-slate-400 code-font">Modello Krunche</span>
+            </div>
+
+            <!-- Canvas Dispositivo (Ampiezza fluida mobile) -->
+            <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+                <canvas id="kruncheCanvas" class="w-full h-full block"></canvas>
+            </div>
+        </div>
+
+        <!-- 3. PANNELLO DEI CONTROLLI INTERATTIVI -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-4">
+            
+            <!-- Controllo Pressione (Manopola Valvola a Spillo) -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="pressureSlider" class="font-medium text-slate-200 flex items-center gap-1.5">
+                        <i data-lucide="disc" class="w-4 h-4 text-cyan-400"></i>
+                        Apertura Valvola (Pressione P)
+                    </label>
+                    <span id="pressureVal" class="code-font font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/50">1.00 atm</span>
+                </div>
+                <input type="range" id="pressureSlider" min="0.10" max="2.00" step="0.01" value="1.00" class="w-full cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                    <span>0.00 atm</span>
+                    <span>1.00 atm</span>
+                    <span>2.00 atm</span>
+                </div>
+            </div>
+
+            <!-- Selezione Tipologia di Gas -->
+            <div class="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800">
+                <div>
+                    <label class="text-[11px] font-medium text-slate-400 block mb-1">Natura del Gas</label>
+                    <select id="gasSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 outline-none">
+                        <option value="air">Aria (Mascella standard)</option>
+                        <option value="he">Elio (He - Monatomico)</option>
+                        <option value="co2">Anidride Carbonica (CO₂)</option>
+                    </select>
+                </div>
+
+                <!-- Selezione Temperatura Ambiente -->
+                <div>
+                    <label class="text-[11px] font-medium text-slate-400 block mb-1">Temperatura (T)</label>
+                    <select id="tempSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 outline-none">
+                        <option value="273.15">0 °C (273.15 K)</option>
+                        <option value="293.15" selected>20 °C (293.15 K)</option>
+                        <option value="323.15">50 °C (323.15 K)</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 4. TELEMETRIA E MISURA DEL VOLUME -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+                <span class="text-[11px] text-slate-400 font-medium">Volume Intercettato (V)</span>
+                <span id="volumeVal" class="text-xl font-bold code-font text-emerald-400 mt-1">12.50 cm³</span>
+                <span class="text-[10px] text-slate-500 mt-0.5">Letto su scala graduata</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+                <span class="text-[11px] text-slate-400 font-medium">Costante p · V</span>
+                <span id="constantVal" class="text-xl font-bold code-font text-amber-400 mt-1">12.50</span>
+                <span class="text-[10px] text-slate-500 mt-0.5">atm · cm³ (Costante)</span>
+            </div>
+        </div>
+
+        <!-- 5. GRAFICO ISOTERMICA DI BOYLE (P-V) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-xl flex flex-col h-44">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-semibold text-slate-300">Diagramma P-V (Isotermica)</span>
+                <span class="text-[10px] text-slate-500">Curva Iperbolica</span>
+            </div>
+            <div class="flex-1 bg-slate-950 rounded-lg border border-slate-800 relative">
+                <canvas id="chartCanvas" class="w-full h-full block"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODALE DIDATTICA E STORICA -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-sm w-full p-5 shadow-2xl relative space-y-4 max-h-[85vh] overflow-y-auto">
+            <button id="btnCloseModal" class="absolute top-4 right-4 text-slate-400 hover:text-slate-100">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="flex items-center space-x-2 border-b border-slate-800 pb-3">
+                <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
+                <h3 class="text-base font-bold text-slate-100">Apparecchio di Krunche</h3>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    L'<strong>Apparecchio di Krunche</strong> è un classico strumento didattico di fisica impiegato per la verifica sperimentale della <em>Legge di Boyle-Mariotte</em>.
+                </p>
+
+                <h4 class="font-semibold text-amber-400 text-xs">Struttura dello Strumento:</h4>
+                <ul class="list-disc pl-4 space-y-1 text-slate-300">
+                    <li><strong>Basamento in Legno:</strong> Supporta e mantiene in posizione perfettamente orizzontale il tubo di misurazione.</li>
+                    <li><strong>Tubo in Vetro Calibrato:</strong> Contiene una sfera metallica/gommata perfettamente adattata che isola il volume di gas.</li>
+                    <li><strong>Riga Graduata:</strong> A righe rosse e nere con suddivisione millimetrica, centimetrica e decimetrica.</li>
+                    <li><strong>Manometro Analogico:</strong> Scala circolare da 0 a 2 atmosfere con suddivisioni da 0.05 atm.</li>
+                    <li><strong>Valvola a Spillo & Portagomma:</strong> Regola il flusso d'aria/gas convogliato da una pompa esterna.</li>
+                </ul>
+
+                <h4 class="font-semibold text-amber-400 text-xs">Principio Fisico:</h4>
+                <div id="modalFormulaTarget" class="py-1 text-center"></div>
+                <p>
+                    Mantenendo costante la temperatura, il prodotto della pressione $P$ per il volume $V$ del gas rimane costante.
+                </p>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800 flex justify-end">
+                <button id="btnGotIt" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-semibold text-xs rounded-lg transition">
+                    Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inizializza Icone
+        lucide.createIcons();
+
+        // Render Formule Matematiche con KaTeX (Senza LaTeX visibile in chiaro)
+        function renderFormulas() {
+            katex.render("P \\cdot V = C \\quad \\left(\\text{con } T = \\text{costante}\\right)", document.getElementById('formulaTarget'), {
+                throwOnError: false
+            });
+            katex.render("P_1 \\cdot V_1 = P_2 \\cdot V_2", document.getElementById('modalFormulaTarget'), {
+                throwOnError: false
+            });
+        }
+        renderFormulas();
+
+        // Elementi Dom e Canvas
+        const kruncheCanvas = document.getElementById('kruncheCanvas');
+        const kruncheCtx = kruncheCanvas.getContext('2d');
+        const chartCanvas = document.getElementById('chartCanvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        // Controlli
+        const pressureSlider = document.getElementById('pressureSlider');
+        const pressureVal = document.getElementById('pressureVal');
+        const gasSelect = document.getElementById('gasSelect');
+        const tempSelect = document.getElementById('tempSelect');
+
+        // Label Dati
+        const volumeVal = document.getElementById('volumeVal');
+        const constantVal = document.getElementById('constantVal');
+        const gasTypeLabel = document.getElementById('gasTypeLabel');
+        const tempLabel = document.getElementById('tempLabel');
+
+        // Modale
+        const infoModal = document.getElementById('infoModal');
+        const btnInfo = document.getElementById('btnInfo');
+        const btnCloseModal = document.getElementById('btnCloseModal');
+        const btnGotIt = document.getElementById('btnGotIt');
+
+        // Stato Fisico
+        let currentPressure = 1.00; // in atm
+        const referenceConstant = 12.5; // atm * cm^3 a T=293.15K e P=1atm
+
+        function resizeCanvases() {
+            kruncheCanvas.width = kruncheCanvas.parentElement.clientWidth;
+            kruncheCanvas.height = kruncheCanvas.parentElement.clientHeight;
+
+            chartCanvas.width = chartCanvas.parentElement.clientWidth;
+            chartCanvas.height = chartCanvas.parentElement.clientHeight;
+
+            drawKruncheApparatus();
+            drawPVChart();
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+
+        // Eventi Input
+        pressureSlider.addEventListener('input', (e) => {
+            currentPressure = parseFloat(e.target.value);
+            pressureVal.textContent = currentPressure.toFixed(2) + ' atm';
+            updateSimulation();
+        });
+
+        gasSelect.addEventListener('change', (e) => {
+            const labels = { 'air': 'Aria Secca', 'he': 'Elio (He)', 'co2': 'Anidride Carbonica' };
+            gasTypeLabel.textContent = labels[e.target.value];
+            updateSimulation();
+        });
+
+        tempSelect.addEventListener('change', (e) => {
+            const T = parseFloat(e.target.value);
+            const c = (T - 273.15).toFixed(0);
+            tempLabel.textContent = `${T} K (${c}°C)`;
+            updateSimulation();
+        });
+
+        btnInfo.addEventListener('click', () => infoModal.classList.remove('hidden'));
+        btnCloseModal.addEventListener('click', () => infoModal.classList.add('hidden'));
+        btnGotIt.addEventListener('click', () => infoModal.classList.add('hidden'));
+
+        // Aggiorna Calcoli Fisici
+        function updateSimulation() {
+            const T = parseFloat(tempSelect.value);
+            // La costante varia proporzionalmente con la Temperatura Assoluta T
+            const temperatureFactor = T / 293.15;
+            const k = referenceConstant * temperatureFactor;
+
+            // V = k / P (Inversamente proporzionale)
+            const currentVolume = k / currentPressure;
+
+            volumeVal.textContent = currentVolume.toFixed(2) + ' cm³';
+            constantVal.textContent = (currentPressure * currentVolume).toFixed(2);
+
+            drawKruncheApparatus(currentVolume);
+            drawPVChart(currentVolume);
+        }
+
+        // ==========================================
+        // DISEGNO DELLO STRUMENTO REALE DI KRUNCHE
+        // ==========================================
+        function drawKruncheApparatus(volume = 12.5) {
+            const w = kruncheCanvas.width;
+            const h = kruncheCanvas.height;
+
+            kruncheCtx.clearRect(0, 0, w, h);
+
+            // 1. Sfondo / Stanza di laboratorio
+            kruncheCtx.fillStyle = '#090d16';
+            kruncheCtx.fillRect(0, 0, w, h);
+
+            // 2. BASAMENTO IN LEGNO (Wood Base)
+            const baseMarginX = w * 0.04;
+            const baseY = h * 0.68;
+            const baseW = w * 0.92;
+            const baseH = h * 0.26;
+
+            // Legno corpo
+            const woodGrad = kruncheCtx.createLinearGradient(0, baseY, 0, baseY + baseH);
+            woodGrad.addColorStop(0, '#58290c');
+            woodGrad.addColorStop(0.3, '#3d1b07');
+            woodGrad.addColorStop(1, '#240f04');
+
+            kruncheCtx.fillStyle = woodGrad;
+            kruncheCtx.strokeStyle = '#78350f';
+            kruncheCtx.lineWidth = 3;
+            kruncheCtx.beginPath();
+            kruncheCtx.roundRect(baseMarginX, baseY, baseW, baseH, 8);
+            kruncheCtx.fill();
+            kruncheCtx.stroke();
+
+            // Venature del legno (Texture)
+            kruncheCtx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+            kruncheCtx.lineWidth = 1;
+            for (let i = 10; i < baseH; i += 8) {
+                kruncheCtx.beginPath();
+                kruncheCtx.moveTo(baseMarginX + 5, baseY + i);
+                kruncheCtx.lineTo(baseMarginX + baseW - 5, baseY + i + Math.sin(i) * 2);
+                kruncheCtx.stroke();
+            }
+
+            // 3. RIGA GRADUATA (Rosso e Nero con dm, cm, mm)
+            const rulerX = w * 0.22;
+            const rulerY = h * 0.38;
+            const rulerW = w * 0.68;
+            const rulerH = h * 0.16;
+
+            kruncheCtx.fillStyle = '#fef08a'; // Legno chiaro / Avorio graduato
+            kruncheCtx.strokeStyle = '#b45309';
+            kruncheCtx.lineWidth = 1.5;
+            kruncheCtx.fillRect(rulerX, rulerY, rulerW, rulerH);
+            kruncheCtx.strokeRect(rulerX, rulerY, rulerW, rulerH);
+
+            // Tacche della riga graduata (Rosso per cm/dm, Nero per mm)
+            const totalMM = 100;
+            const mmStep = rulerW / totalMM;
+
+            for (let m = 0; m <= totalMM; m++) {
+                const rx = rulerX + m * mmStep;
+                let tickH = rulerH * 0.2;
+                let isMajor = false;
+                let isMedium = false;
+
+                if (m % 10 === 0) {
+                    tickH = rulerH * 0.65; // Decimetro / Centimetro principale
+                    isMajor = true;
+                } else if (m % 5 === 0) {
+                    tickH = rulerH * 0.4;
+                    isMedium = true;
+                }
+
+                kruncheCtx.beginPath();
+                kruncheCtx.moveTo(rx, rulerY);
+                kruncheCtx.lineTo(rx, rulerY + tickH);
+                
+                if (isMajor) {
+                    kruncheCtx.strokeStyle = '#dc2626'; // Rosso per i cm/dm
+                    kruncheCtx.lineWidth = 1.5;
+                } else {
+                    kruncheCtx.strokeStyle = '#1e293b'; // Nero per mm
+                    kruncheCtx.lineWidth = 0.8;
+                }
+                kruncheCtx.stroke();
+
+                // Numerazione ogni 10 mm (1 cm)
+                if (isMajor && m > 0 && m < totalMM) {
+                    kruncheCtx.fillStyle = '#991b1b';
+                    kruncheCtx.font = `${Math.max(8, Math.floor(h * 0.03))}px JetBrains Mono`;
+                    kruncheCtx.fillText(`${m/10}`, rx - 3, rulerY + rulerH - 4);
+                }
+            }
+
+            // 4. TUBO IN VETRO CALIBRATO E SFERA INTERCETTA-VOLUME
+            const tubeY = rulerY + rulerH * 0.35;
+            const tubeH = rulerH * 0.45;
+            const tubeX = rulerX;
+            const tubeW = rulerW;
+
+            // Involucro in vetro trasparentissimo
+            kruncheCtx.fillStyle = 'rgba(186, 230, 253, 0.25)';
+            kruncheCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            kruncheCtx.lineWidth = 2;
+            kruncheCtx.fillRect(tubeX, tubeY, tubeW, tubeH);
+            kruncheCtx.strokeRect(tubeX, tubeY, tubeW, tubeH);
+
+            // Riflesso vetro
+            kruncheCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            kruncheCtx.fillRect(tubeX, tubeY + 2, tubeW, 3);
+
+            // Posizione Sfera adattata in base al Volume (V proporzionale a spostamento)
+            // Volume da 5 a 25 cm^3 mappa sul tubo
+            const normV = Math.min(Math.max((volume - 3) / 22, 0.05), 0.95);
+            const sphereRadius = tubeH * 0.48;
+            const sphereX = tubeX + normV * tubeW;
+            const sphereY = tubeY + tubeH * 0.5;
+
+            // Colore e volume del gas contenuto (Campitura azzurrata)
+            kruncheCtx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+            kruncheCtx.fillRect(tubeX, tubeY, sphereX - tubeX, tubeH);
+
+            // SFERA METALLICA / GOMMATA DI TENUTA
+            const sphereGrad = kruncheCtx.createRadialGradient(sphereX - 2, sphereY - 2, 1, sphereX, sphereY, sphereRadius);
+            sphereGrad.addColorStop(0, '#f8fafc');
+            sphereGrad.addColorStop(0.4, '#475569');
+            sphereGrad.addColorStop(1, '#0f172a');
+
+            kruncheCtx.fillStyle = sphereGrad;
+            kruncheCtx.beginPath();
+            kruncheCtx.arc(sphereX, sphereY, sphereRadius, 0, Math.PI * 2);
+            kruncheCtx.fill();
+            kruncheCtx.strokeStyle = '#0284c7';
+            kruncheCtx.lineWidth = 1;
+            kruncheCtx.stroke();
+
+            // 5. MANOMETRO CIRCOLARE ANALOGICO (Con scala 0 - 2 atm, tacche 0.05 atm)
+            const gaugeCx = w * 0.13;
+            const gaugeCy = h * 0.32;
+            const gaugeR = h * 0.20;
+
+            // Cassa in ottone manometro
+            const brassGrad = kruncheCtx.createLinearGradient(gaugeCx - gaugeR, gaugeCy - gaugeR, gaugeCx + gaugeR, gaugeCy + gaugeR);
+            brassGrad.addColorStop(0, '#fef08a');
+            brassGrad.addColorStop(0.5, '#d97706');
+            brassGrad.addColorStop(1, '#78350f');
+
+            kruncheCtx.fillStyle = brassGrad;
+            kruncheCtx.beginPath();
+            kruncheCtx.arc(gaugeCx, gaugeCy, gaugeR, 0, Math.PI * 2);
+            kruncheCtx.fill();
+            kruncheCtx.strokeStyle = '#451a03';
+            kruncheCtx.lineWidth = 2;
+            kruncheCtx.stroke();
+
+            // Quadrante Bianco Interno
+            const dialR = gaugeR * 0.85;
+            kruncheCtx.fillStyle = '#f8fafc';
+            kruncheCtx.beginPath();
+            kruncheCtx.arc(gaugeCx, gaugeCy, dialR, 0, Math.PI * 2);
+            kruncheCtx.fill();
+
+            // Tacche Manometro (da 0 a 2 atm, arc tra 135° e 405°)
+            const startAngle = Math.PI * 0.75;
+            const endAngle = Math.PI * 2.25;
+            const totalAtm = 2.0;
+            const numTicks = 40; // 2.0 / 0.05 = 40 tacche
+
+            for (let t = 0; t <= numTicks; t++) {
+                const fraction = t / numTicks;
+                const angle = startAngle + fraction * (endAngle - startAngle);
+                const isNumbered = (t % 10 === 0); // Ogni 0.5 atm
+                const isMedium = (t % 2 === 0); // Ogni 0.1 atm
+
+                const tickLen = isNumbered ? dialR * 0.25 : (isMedium ? dialR * 0.15 : dialR * 0.08);
+                const innerX = gaugeCx + (dialR - tickLen) * Math.cos(angle);
+                const innerY = gaugeCy + (dialR - tickLen) * Math.sin(angle);
+                const outerX = gaugeCx + dialR * Math.cos(angle);
+                const outerY = gaugeCy + dialR * Math.sin(angle);
+
+                kruncheCtx.beginPath();
+                kruncheCtx.moveTo(innerX, innerY);
+                kruncheCtx.lineTo(outerX, outerY);
+                kruncheCtx.strokeStyle = isNumbered ? '#dc2626' : '#0f172a';
+                kruncheCtx.lineWidth = isNumbered ? 2 : 1;
+                kruncheCtx.stroke();
+
+                // Numeri su scala manometro (0, 0.5, 1.0, 1.5, 2.0)
+                if (isNumbered) {
+                    const labelVal = (fraction * totalAtm).toFixed(1);
+                    const labelX = gaugeCx + (dialR - tickLen - 8) * Math.cos(angle);
+                    const labelY = gaugeCy + (dialR - tickLen - 8) * Math.sin(angle);
+                    kruncheCtx.fillStyle = '#0f172a';
+                    kruncheCtx.font = `bold ${Math.max(7, Math.floor(gaugeR * 0.18))}px Inter`;
+                    kruncheCtx.textAlign = 'center';
+                    kruncheCtx.textBaseline = 'middle';
+                    kruncheCtx.fillText(labelVal, labelX, labelY);
+                }
+            }
+
+            // Etichetta "atm" sul manometro
+            kruncheCtx.fillStyle = '#0284c7';
+            kruncheCtx.font = `bold ${Math.max(8, Math.floor(gaugeR * 0.2))}px Inter`;
+            kruncheCtx.fillText('atm', gaugeCx, gaugeCy + dialR * 0.45);
+
+            // Lancetta Rossa Indicatrice di Pressione
+            const pressureFrac = Math.min(Math.max(currentPressure / totalAtm, 0), 1);
+            const pointerAngle = startAngle + pressureFrac * (endAngle - startAngle);
+            const pointerLen = dialR * 0.75;
+
+            kruncheCtx.strokeStyle = '#ef4444';
+            kruncheCtx.lineWidth = 2.5;
+            kruncheCtx.beginPath();
+            kruncheCtx.moveTo(gaugeCx, gaugeCy);
+            kruncheCtx.lineTo(gaugeCx + pointerLen * Math.cos(pointerAngle), gaugeCy + pointerLen * Math.sin(pointerAngle));
+            kruncheCtx.stroke();
+
+            // Perno centrale lancetta
+            kruncheCtx.fillStyle = '#0f172a';
+            kruncheCtx.beginPath();
+            kruncheCtx.arc(gaugeCx, gaugeCy, 4, 0, Math.PI * 2);
+            kruncheCtx.fill();
+
+            // 6. VALVOLA A SPILLO E MANOPOLA ROTANTE (Sotto il manometro)
+            const valveCx = gaugeCx;
+            const valveCy = h * 0.65;
+
+            // Raccordo e corpo valvola in ottone
+            kruncheCtx.fillStyle = '#d97706';
+            kruncheCtx.fillRect(valveCx - 6, gaugeCy + gaugeR, 12, valveCy - (gaugeCy + gaugeR));
+
+            // Manopola zigrinata di regolazione
+            const knobR = gaugeR * 0.45;
+            kruncheCtx.fillStyle = '#334155';
+            kruncheCtx.strokeStyle = '#94a3b8';
+            kruncheCtx.lineWidth = 2;
+            kruncheCtx.beginPath();
+            kruncheCtx.arc(valveCx, valveCy, knobR, 0, Math.PI * 2);
+            kruncheCtx.fill();
+            kruncheCtx.stroke();
+
+            // Zigrinatura manopola
+            for (let k = 0; k < 8; k++) {
+                const ka = (k / 8) * Math.PI * 2;
+                kruncheCtx.beginPath();
+                kruncheCtx.moveTo(valveCx, valveCy);
+                kruncheCtx.lineTo(valveCx + knobR * Math.cos(ka), valveCy + knobR * Math.sin(ka));
+                kruncheCtx.strokeStyle = '#64748b';
+                kruncheCtx.lineWidth = 1;
+                kruncheCtx.stroke();
+            }
+
+            // 7. PORTAGOMMA DI INGRESSO (Prima della valvola)
+            const portX = valveCx - gaugeR * 0.8;
+            const portY = valveCy;
+
+            kruncheCtx.fillStyle = '#b45309';
+            kruncheCtx.beginPath();
+            // Raccordo a scanalature per tubo gomma
+            kruncheCtx.fillRect(portX - 15, portY - 5, 15, 10);
+            kruncheCtx.fill();
+
+            kruncheCtx.fillStyle = '#cbd5e1';
+            kruncheCtx.font = '8px Inter';
+            kruncheCtx.textAlign = 'left';
+            kruncheCtx.fillText('Portagomma', portX - 25, portY + 16);
+        }
+
+        // ==========================================
+        // DISEGNO DIAGRAMMA ISOTERMICA P-V
+        // ==========================================
+        function drawPVChart(currentV = 12.5) {
+            const w = chartCanvas.width;
+            const h = chartCanvas.height;
+
+            chartCtx.clearRect(0, 0, w, h);
+
+            // Sfondo grafico
+            chartCtx.fillStyle = '#090d16';
+            chartCtx.fillRect(0, 0, w, h);
+
+            const padLeft = 30;
+            const padBottom = 22;
+            const padTop = 10;
+            const padRight = 15;
+
+            const graphW = w - padLeft - padRight;
+            const graphH = h - padBottom - padTop;
+
+            // Assi cartesiani
+            chartCtx.strokeStyle = '#334155';
+            chartCtx.lineWidth = 1.5;
+            chartCtx.beginPath();
+            chartCtx.moveTo(padLeft, padTop);
+            chartCtx.lineTo(padLeft, h - padBottom);
+            chartCtx.lineTo(w - padRight, h - padBottom);
+            chartCtx.stroke();
+
+            // Etichette Assi
+            chartCtx.fillStyle = '#94a3b8';
+            chartCtx.font = '9px Inter';
+            chartCtx.fillText('P (atm)', 2, padTop + 8);
+            chartCtx.fillText('V (cm³)', w - padRight - 25, h - 5);
+
+            // Curva Isotermica P = k / V
+            const T = parseFloat(tempSelect.value);
+            const k = referenceConstant * (T / 293.15);
+
+            chartCtx.beginPath();
+            chartCtx.strokeStyle = '#38bdf8';
+            chartCtx.lineWidth = 2;
+
+            const vMin = 4;
+            const vMax = 30;
+
+            for (let px = 0; px <= graphW; px += 2) {
+                const vVal = vMin + (px / graphW) * (vMax - vMin);
+                const pVal = k / vVal; // Pressione corrispondente
+
+                // Mapping su canvas (P da 0 a 2.2 atm)
+                const py = (h - padBottom) - (pVal / 2.2) * graphH;
+
+                if (px === 0) chartCtx.moveTo(padLeft + px, py);
+                else chartCtx.lineTo(padLeft + px, py);
+            }
+            chartCtx.stroke();
+
+            // Punto di Lavoro Corrente dello Stato del Gas
+            const curPx = padLeft + ((currentV - vMin) / (vMax - vMin)) * graphW;
+            const curPy = (h - padBottom) - (currentPressure / 2.2) * graphH;
+
+            chartCtx.fillStyle = '#ef4444';
+            chartCtx.beginPath();
+            chartCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+            chartCtx.fill();
+            chartCtx.strokeStyle = '#f8fafc';
+            chartCtx.lineWidth = 1.5;
+            chartCtx.stroke();
+        }
+
+        // Inizializzazione al caricamento
+        window.onload = () => {
+            resizeCanvases();
+            updateSimulation();
+        };
+    </script>
+</body>
+</html>
