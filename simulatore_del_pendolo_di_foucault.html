@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="it" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Pendolo di Foucault</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#1e293b',
+                            900: '#0f172a',
+                        },
+                        amber: {
+                            400: '#d97706',
+                            500: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.8);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col overflow-x-hidden selection:bg-amber-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-amber-500/10 text-amber-700 rounded-lg border border-amber-500/20">
+                    <i data-lucide="compass" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide text-slate-900">Pendolo di Foucault</h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Laboratorio di Fisica — Simulatore Strumento Didattico</p>
+                </div>
+            </div>
+            
+            <!-- Tab Buttons -->
+            <nav class="flex space-x-1 bg-slate-200/80 p-1 rounded-xl border border-slate-300/60">
+                <button id="tab-sim-btn" onclick="switchTab('simulation')" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-amber-600 text-white shadow-sm font-semibold">
+                    Simulazione 3D
+                </button>
+                <button id="tab-edu-btn" onclick="switchTab('education')" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-600 hover:text-slate-900 hover:bg-white/60">
+                    Spiegazione Didattica
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col">
+        
+        <!-- SECTION 1: SIMULATION VIEW -->
+        <div id="simulation-view" class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow">
+            
+            <!-- 3D Canvas Container (2 Columns on Large Screens) -->
+            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col relative min-h-[450px] lg:min-h-[600px] shadow-xl">
+                
+                <!-- Floating Info Overlay Top-Left -->
+                <div class="absolute top-4 left-4 z-10 bg-white/85 backdrop-blur-md border border-slate-200 p-3 rounded-xl text-xs space-y-1 shadow-md">
+                    <div class="flex items-center space-x-2 text-slate-600">
+                        <i data-lucide="globe" class="w-4 h-4 text-amber-600"></i>
+                        <span>Posizione: <strong id="overlay-lat-name" class="text-slate-900">Parigi (48.8°)</strong></span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-slate-600">
+                        <i data-lucide="rotate-cw" class="w-4 h-4 text-amber-600"></i>
+                        <span>Periodo di rotazione: <strong id="overlay-period" class="text-slate-900">31.8 ore</strong></span>
+                    </div>
+                </div>
+
+                <!-- Canvas Control Buttons Top-Right -->
+                <div class="absolute top-4 right-4 z-10 flex space-x-2">
+                    <button id="btn-camera-reset" title="Ripristina Vista" class="p-2.5 bg-white/90 hover:bg-slate-50 border border-slate-300 rounded-xl text-slate-700 hover:text-slate-900 backdrop-blur-md transition-all shadow-md">
+                        <i data-lucide="video" class="w-4 h-4"></i>
+                    </button>
+                    <button id="btn-clear-trace" title="Cancella Traccia" class="p-2.5 bg-white/90 hover:bg-slate-50 border border-slate-300 rounded-xl text-slate-700 hover:text-slate-900 backdrop-blur-md transition-all shadow-md">
+                        <i data-lucide="eraser" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Three.js Canvas Container -->
+                <div id="canvas-container" class="w-full h-full flex-grow relative cursor-grab active:cursor-grabbing">
+                    <!-- Loading Spinner (Hidden after init) -->
+                    <div id="canvas-loader" class="absolute inset-0 flex items-center justify-center bg-slate-50/90 z-20 transition-opacity duration-300">
+                        <div class="flex flex-col items-center space-y-3">
+                            <div class="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span class="text-xs text-slate-600 font-medium">Caricamento Modello 3D...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Simulation Bar (Stats) -->
+                <div class="bg-slate-50 border-t border-slate-200 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Tempo Simulato</div>
+                        <div id="stat-time" class="text-lg font-mono font-bold text-amber-600">00h 00m</div>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Rotazione Piano</div>
+                        <div id="stat-angle" class="text-lg font-mono font-bold text-slate-800">0.0°</div>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Velocità Precessione</div>
+                        <div id="stat-speed" class="text-lg font-mono font-bold text-slate-800">11.3°/ora</div>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Oscillazioni Totali</div>
+                        <div id="stat-swings" class="text-lg font-mono font-bold text-slate-800">0</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Controls Panel (1 Column) -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 flex flex-col justify-between shadow-xl space-y-6">
+                
+                <div class="space-y-6">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                            <i data-lucide="sliders" class="w-5 h-5 text-amber-600"></i>
+                            <span>Parametri del Pendolo</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">Regola latitudine e velocità di simulazione.</p>
+                    </div>
+
+                    <!-- Preset Quick Selection -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Luoghi Preimpostati</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setPreset(90, 'Polo Nord')" class="preset-btn px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium transition-all text-left flex justify-between items-center">
+                                <span>Polo Nord</span>
+                                <span class="text-amber-600 font-mono">90°</span>
+                            </button>
+                            <button onclick="setPreset(48.85, 'Parigi (Panthéon)')" class="preset-btn px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium transition-all text-left flex justify-between items-center">
+                                <span>Parigi</span>
+                                <span class="text-amber-600 font-mono">48.8°</span>
+                            </button>
+                            <button onclick="setPreset(41.9, 'Roma')" class="preset-btn px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium transition-all text-left flex justify-between items-center">
+                                <span>Roma</span>
+                                <span class="text-amber-600 font-mono">41.9°</span>
+                            </button>
+                            <button onclick="setPreset(0, 'Equatore')" class="preset-btn px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium transition-all text-left flex justify-between items-center">
+                                <span>Equatore</span>
+                                <span class="text-amber-600 font-mono">0°</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Latitude Slider -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label for="lat-slider" class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Latitudine ($\theta$)</label>
+                            <span id="lat-val-display" class="font-mono text-sm text-amber-700 font-bold bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/20">48.8° N</span>
+                        </div>
+                        <input id="lat-slider" type="range" min="0" max="90" step="0.5" value="48.85" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                        <div class="flex justify-between text-[10px] text-slate-400">
+                            <span>0° (Equatore)</span>
+                            <span>45°</span>
+                            <span>90° (Polo)</span>
+                        </div>
+                    </div>
+
+                    <!-- Speed Multiplier Slider -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label for="speed-slider" class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Moltiplicatore Tempo</label>
+                            <span id="speed-val-display" class="font-mono text-sm text-slate-700 font-semibold">1200x</span>
+                        </div>
+                        <input id="speed-slider" type="range" min="100" max="5000" step="100" value="1200" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                        <div class="flex justify-between text-[10px] text-slate-400">
+                            <span>100x (Lento)</span>
+                            <span>2500x</span>
+                            <span>5000x (Veloce)</span>
+                        </div>
+                    </div>
+
+                    <!-- Reference Frame Toggle -->
+                    <div class="space-y-2 pt-2 border-t border-slate-200">
+                        <label class="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">Sistema di Riferimento Camera</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="ref-earth-btn" onclick="setReferenceFrame('earth')" class="px-3 py-2 rounded-xl text-xs font-medium border border-amber-600 bg-amber-50 text-amber-700 flex items-center justify-center space-x-2 transition-all">
+                                <i data-lucide="home" class="w-3.5 h-3.5"></i>
+                                <span>Terrestre (Stazionario)</span>
+                            </button>
+                            <button id="ref-space-btn" onclick="setReferenceFrame('space')" class="px-3 py-2 rounded-xl text-xs font-medium border border-slate-300 bg-slate-50 text-slate-600 hover:text-slate-900 flex items-center justify-center space-x-2 transition-all">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>Inerziale (Spazio)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Simulation Action Buttons -->
+                <div class="pt-4 border-t border-slate-200 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btn-play" onclick="togglePlay()" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-amber-600/20 transition-all">
+                            <i id="play-icon" data-lucide="pause" class="w-4 h-4"></i>
+                            <span id="play-text">Pausa</span>
+                        </button>
+                        <button id="btn-reset" onclick="resetSimulation()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-semibold rounded-xl flex items-center justify-center space-x-2 transition-all">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            <span>Resetta</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- SECTION 2: EDUCATIONAL EXPLANATION (Hidden by default) -->
+        <div id="education-view" class="hidden flex-grow space-y-8 max-w-5xl mx-auto w-full py-4">
+            
+            <!-- Hero Banner -->
+            <div class="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-10 shadow-2xl text-white">
+                <div class="relative z-10 space-y-4">
+                    <div class="inline-flex items-center space-x-2 bg-amber-500/20 border border-amber-400/30 px-3 py-1 rounded-full text-amber-300 text-xs font-semibold uppercase tracking-wider">
+                        <i data-lucide="award" class="w-4 h-4"></i>
+                        <span>Parigi, 1851 — Jean Bernard Léon Foucault</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                        La prima prova visibile della rotazione della Terra
+                    </h2>
+                    <p class="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl">
+                        Prima del 1851 la rotazione terrestre era dedotta astronomicamente. Foucault ne fornì la prima dimostrazione dinamica diretta con un pendolo ad ampia oscillazione sospeso nella cupola del Panthéon di Parigi.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 3 Educational Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- Card 1 -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-md flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-700 rounded-xl flex items-center justify-center">
+                            <i data-lucide="anchor" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900">L'Esperimento Storico</h3>
+                        <p class="text-slate-600 text-xs leading-relaxed">
+                            Foucault appese una sfera di ottone da **28 kg** a un filo lungo **67 metri**. Sulla punta un sottile stilo tracciava solchi sulla sabbia ad ogni passaggio, mostrando una lenta ed inesorabile rotazione.
+                        </p>
+                    </div>
+                    <div class="pt-4 border-t border-slate-100 text-xs text-slate-500 italic">
+                        "Siete invitati a venire a vedere girare la Terra" — Invito di Foucault ai dotti dell'epoca.
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-md flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-700 rounded-xl flex items-center justify-center">
+                            <i data-lucide="compass" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900">Sistemi di Riferimento</h3>
+                        <p class="text-slate-600 text-xs leading-relaxed">
+                            Dal punto di vista dello **Spazio (inerziale)**, il pendolo non ruota affatto: mantiene fisso il suo piano d'oscillazione. È il pavimento della stanza e l'osservatore che ruotano insieme alla Terra.
+                        </p>
+                    </div>
+                    <div class="pt-4 border-t border-slate-100 text-xs text-slate-500">
+                        Nel **sistema non inerziale** (sulla Terra), la rotazione apparente viene spiegata tramite la **forza apparente di Coriolis**.
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-md flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-700 rounded-xl flex items-center justify-center">
+                            <i data-lucide="variable" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900">La Legge dei Sini</h3>
+                        <p class="text-slate-600 text-xs leading-relaxed">
+                            La velocità angolare di precessione del piano ($\omega$) e il tempo di rotazione completa ($T$) dipendono dal seno della latitudine ($\theta$):
+                        </p>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono text-center text-amber-700 text-sm">
+                            $\omega = 15^\circ/\text{ora} \times \sin(\theta)$<br>
+                            $T = \frac{24\text{ ore}}{\sin(\theta)}$
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-slate-100 text-xs text-slate-500">
+                        Ai Poli ($\theta=90^\circ$): rotazione in **24 ore**.<br> All'Equatore ($\theta=0^\circ$): nessuna rotazione.
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Mathematical Table -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-4 shadow-md">
+                <h3 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                    <i data-lucide="calculator" class="w-5 h-5 text-amber-600"></i>
+                    <span>Analisi Quantitativa per Latitudini Notevoli</span>
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm text-slate-700">
+                        <thead class="bg-slate-100 text-slate-600 uppercase font-semibold text-[10px] tracking-wider">
+                            <tr>
+                                <th class="p-3 rounded-l-lg">Luogo / Posizione</th>
+                                <th class="p-3">Latitudine ($\theta$)</th>
+                                <th class="p-3">Velocità Precessione ($\omega$)</th>
+                                <th class="p-3 font-mono">Periodo Rotazione ($T$)</th>
+                                <th class="p-3 rounded-r-lg">Verso di Rotazione Apparente</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            <tr>
+                                <td class="p-3 font-medium text-slate-900">Polo Nord</td>
+                                <td class="p-3">90° N</td>
+                                <td class="p-3 text-amber-700 font-semibold">15.00° / ora</td>
+                                <td class="p-3 font-mono">24.0 ore</td>
+                                <td class="p-3">Senso Orario</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-medium text-slate-900">Parigi (Panthéon)</td>
+                                <td class="p-3">48.85° N</td>
+                                <td class="p-3 text-amber-700 font-semibold">11.29° / ora</td>
+                                <td class="p-3 font-mono">31.8 ore</td>
+                                <td class="p-3">Senso Orario</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-medium text-slate-900">Roma</td>
+                                <td class="p-3">41.90° N</td>
+                                <td class="p-3 text-amber-700 font-semibold">10.02° / ora</td>
+                                <td class="p-3 font-mono">35.9 ore</td>
+                                <td class="p-3">Senso Orario</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-medium text-slate-900">Equatore</td>
+                                <td class="p-3">0°</td>
+                                <td class="p-3 text-amber-700 font-semibold">0.00° / ora</td>
+                                <td class="p-3 font-mono">$\infty$ (Infinita)</td>
+                                <td class="p-3">Nessuna rotazione</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-medium text-slate-900">Polo Sud</td>
+                                <td class="p-3">90° S</td>
+                                <td class="p-3 text-amber-700 font-semibold">-15.00° / ora</td>
+                                <td class="p-3 font-mono">24.0 ore</td>
+                                <td class="p-3">Senso Antiorario</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 py-4 bg-white text-center text-xs text-slate-500">
+        <p>Simulazione Interattiva del Pendolo da Laboratorio di Foucault — Basata sul modello reale</p>
+    </footer>
+
+    <!-- JAVASCRIPT SIMULATION LOGIC -->
+    <script>
+        // --- Tab Switching Logic ---
+        function switchTab(tab) {
+            const simView = document.getElementById('simulation-view');
+            const eduView = document.getElementById('education-view');
+            const simBtn = document.getElementById('tab-sim-btn');
+            const eduBtn = document.getElementById('tab-edu-btn');
+
+            if (tab === 'simulation') {
+                simView.classList.remove('hidden');
+                eduView.classList.add('hidden');
+                
+                simBtn.className = "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-amber-500 text-slate-950 shadow-sm font-semibold";
+                eduBtn.className = "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-700/50";
+            } else {
+                simView.classList.add('hidden');
+                eduView.classList.remove('hidden');
+                
+                eduBtn.className = "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-amber-500 text-slate-950 shadow-sm font-semibold";
+                simBtn.className = "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-700/50";
+            }
+        }
+
+        // --- Three.js & Simulation State Variables ---
+        let scene, camera, renderer;
+        let pendulumGroup, bobMesh, cableMesh, floorGroup, traceCanvas, traceCtx, traceTexture;
+        let isPlaying = true;
+        let referenceFrame = 'earth'; // 'earth' or 'space'
+        
+        // Physical & Time Parameters
+        let latitude = 48.85; // Default: Paris
+        let timeSpeed = 1200; // Time acceleration factor
+        let simulatedSeconds = 0;
+        let pendulumAngle = 0; // Precession angle of the pendulum plane (radians)
+        let swingPhase = 0; // Phase of harmonic swing
+        const pendulumLength = 12; // Visual length in 3D scene
+        const swingAmplitude = 3.5; // Visual max displacement radius
+        const naturalPeriod = 4.0; // Seconds per full oscillation swing cycle in simulation time
+        let totalSwings = 0;
+        let lastSwingSign = 1;
+
+        // Trace texture resolution
+        const TRACE_SIZE = 1024;
+
+        // --- DOM Elements ---
+        const latSlider = document.getElementById('lat-slider');
+        const latValDisplay = document.getElementById('lat-val-display');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValDisplay = document.getElementById('speed-val-display');
+        const overlayLatName = document.getElementById('overlay-lat-name');
+        const overlayPeriod = document.getElementById('overlay-period');
+
+        const statTime = document.getElementById('stat-time');
+        const statAngle = document.getElementById('stat-angle');
+        const statSpeed = document.getElementById('stat-speed');
+        const statSwings = document.getElementById('stat-swings');
+
+        // Initial setup on window load
+        window.onload = function() {
+            lucide.createIcons();
+            initThreeJS();
+            setupTraceCanvas();
+            createEnvironment();
+            setupEventListeners();
+            updateCalculatedStats();
+            
+            // Hide loader
+            document.getElementById('canvas-loader').classList.add('opacity-0');
+            setTimeout(() => {
+                document.getElementById('canvas-loader').style.display = 'none';
+            }, 300);
+
+            // Start Animation Loop
+            animate();
+        };
+
+        // Initialize Three.js Scene, Camera, Renderer
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            // Light background matching image wall (light pale mint green wall)
+            scene.background = new THREE.Color(0xdce5dc);
+
+            camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+            camera.position.set(0, 7.5, 17);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            container.appendChild(renderer.domElement);
+
+            // Lighting Setup for bright laboratory environment
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            dirLight.position.set(10, 20, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.4);
+            fillLight.position.set(-10, 12, -10);
+            scene.add(fillLight);
+
+            // Mouse Controls setup
+            setupOrbitControls(container);
+        }
+
+        // Setup Trace Offscreen Canvas for drawing
+        function setupTraceCanvas() {
+            traceCanvas = document.createElement('canvas');
+            traceCanvas.width = TRACE_SIZE;
+            traceCanvas.height = TRACE_SIZE;
+            traceCtx = traceCanvas.getContext('2d');
+            
+            clearTraceCanvas();
+
+            traceTexture = new THREE.CanvasTexture(traceCanvas);
+        }
+
+        function clearTraceCanvas() {
+            traceCtx.clearRect(0, 0, TRACE_SIZE, TRACE_SIZE);
+            if (traceTexture) traceTexture.needsUpdate = true;
+        }
+
+        // Build 3D Pendulum Structure matching the input photo EXACTLY
+        function createEnvironment() {
+            // --- Table Surface (Beige laboratory table matching photo bottom) ---
+            const tableGeo = new THREE.BoxGeometry(30, 2, 20);
+            const tableMat = new THREE.MeshStandardMaterial({ color: 0xeddcc4, roughness: 0.6 });
+            const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+            tableMesh.position.y = -2.5;
+            tableMesh.receiveShadow = true;
+            scene.add(tableMesh);
+
+            floorGroup = new THREE.Group();
+            scene.add(floorGroup);
+
+            // --- 1. HEAVY TRIPOD BASE (Dark Metallic Cast Iron matching image) ---
+            const baseGroup = new THREE.Group();
+            scene.add(baseGroup);
+
+            const castIronMat = new THREE.MeshStandardMaterial({ color: 0x282e34, roughness: 0.7, metalness: 0.6 });
+            const knobMat = new THREE.MeshStandardMaterial({ color: 0x11161a, roughness: 0.4, metalness: 0.8 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xc49a37, roughness: 0.25, metalness: 0.9 });
+            const frameMetallicMat = new THREE.MeshStandardMaterial({ color: 0x8a929a, roughness: 0.35, metalness: 0.8 });
+
+            // Center tripod hub
+            const hubGeo = new THREE.CylinderGeometry(1.2, 1.4, 0.55, 32);
+            const hubMesh = new THREE.Mesh(hubGeo, castIronMat);
+            hubMesh.position.y = -1.2;
+            baseGroup.add(hubMesh);
+
+            // Vertical brass axis under the wooden disc (visible pin/stem in the photo)
+            const centralStemGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.85, 16);
+            const centralStemMesh = new THREE.Mesh(centralStemGeo, brassMat);
+            centralStemMesh.position.y = -0.7;
+            baseGroup.add(centralStemMesh);
+
+            // 3 Tripod legs radiating outward (matching the image layout)
+            const legAngles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+            legAngles.forEach((angle) => {
+                const legGroup = new THREE.Group();
+                legGroup.rotation.y = angle;
+
+                // Curved cast iron leg arm extending outward
+                const legGeo = new THREE.BoxGeometry(1.2, 0.45, 4.2);
+                legGeo.translate(0, -1.25, 2.2);
+                const legMesh = new THREE.Mesh(legGeo, castIronMat);
+                legGroup.add(legMesh);
+
+                // Black leveling knob at the tip of each leg
+                const knobGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.6, 24);
+                const knobMesh = new THREE.Mesh(knobGeo, knobMat);
+                knobMesh.position.set(0, -1.05, 4.2);
+                legGroup.add(knobMesh);
+
+                baseGroup.add(legGroup);
+            });
+
+            // --- 2. ROTATING WOODEN DISC (Mahogany turntable) ---
+            const discGeo = new THREE.CylinderGeometry(5.0, 5.0, 0.45, 64);
+            const woodMat = new THREE.MeshStandardMaterial({
+                color: 0x5a2310, // Rich mahogany wood tone matching photo
+                roughness: 0.35,
+                metalness: 0.05
+            });
+            const discMesh = new THREE.Mesh(discGeo, woodMat);
+            discMesh.position.y = -0.25;
+            discMesh.receiveShadow = true;
+            floorGroup.add(discMesh);
+
+            // Canvas Trace overlay attached right above the wood surface
+            const traceGeo = new THREE.PlaneGeometry(8.2, 8.2);
+            const traceMat = new THREE.MeshBasicMaterial({
+                map: traceTexture,
+                transparent: true,
+                opacity: 0.95
+            });
+            const traceMesh = new THREE.Mesh(traceGeo, traceMat);
+            traceMesh.rotation.x = -Math.PI / 2;
+            traceMesh.position.y = 0.01;
+            floorGroup.add(traceMesh);
+
+            // Center line marker across the wooden board (white orientation line as in photo)
+            const lineGeo = new THREE.BoxGeometry(0.035, 0.01, 9.6);
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const lineMesh = new THREE.Mesh(lineGeo, lineMat);
+            lineMesh.position.y = 0.015;
+            floorGroup.add(lineMesh);
+
+            // Label sticker on wooden disc (white rectangle visible in photo)
+            const stickerGeo = new THREE.PlaneGeometry(1.4, 0.4);
+            const stickerMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+            const stickerMesh = new THREE.Mesh(stickerGeo, stickerMat);
+            stickerMesh.rotation.x = -Math.PI / 2;
+            stickerMesh.position.set(-1.8, 0.02, 1.6);
+            floorGroup.add(stickerMesh);
+
+            // --- 3. METALLIC TRAPEZOIDAL FRAME STRUCTURE (EXACT PHOTO REPLICA) ---
+            const frameGroup = new THREE.Group();
+            floorGroup.add(frameGroup); // Rotating together with the disc setup
+
+            const frameHeight = pendulumLength + 0.3;
+            const bottomWidth = 5.2; // Matching lower disc width
+            const topWidth = 3.6;    // Trapezoid top taper
+
+            // Frame metallic hollow profile (thin metal rim as in photo)
+            const frameThick = 0.1;
+            const frameDepth = 0.12;
+
+            const legLength = Math.hypot(frameHeight, (bottomWidth - topWidth) / 2);
+            const legGeo = new THREE.BoxGeometry(frameThick, legLength, frameDepth);
+
+            // Left leg angle
+            const leftLegMesh = new THREE.Mesh(legGeo, frameMetallicMat);
+            leftLegMesh.position.set(-(bottomWidth + topWidth) / 4, frameHeight / 2 - 0.1, 0);
+            leftLegMesh.rotation.z = Math.atan2((bottomWidth - topWidth) / 2, frameHeight);
+            frameGroup.add(leftLegMesh);
+
+            // Right leg angle
+            const rightLegMesh = new THREE.Mesh(legGeo, frameMetallicMat);
+            rightLegMesh.position.x = (bottomWidth + topWidth) / 4;
+            rightLegMesh.position.y = frameHeight / 2 - 0.1;
+            rightLegMesh.rotation.z = -Math.atan2((bottomWidth - topWidth) / 2, frameHeight);
+            frameGroup.add(rightLegMesh);
+
+            // Bottom Horizontal Bar sitting right above disc
+            const bottomBarGeo = new THREE.BoxGeometry(bottomWidth, frameThick, frameDepth);
+            const bottomBarMesh = new THREE.Mesh(bottomBarGeo, frameMetallicMat);
+            bottomBarMesh.position.set(0, -0.01, 0);
+            frameGroup.add(bottomBarMesh);
+
+            // Top Horizontal Crossbeam
+            const topBarGeo = new THREE.BoxGeometry(topWidth, frameThick, frameDepth);
+            const topBarMesh = new THREE.Mesh(topBarGeo, frameMetallicMat);
+            topBarMesh.position.set(0, frameHeight - 0.15, 0);
+            frameGroup.add(topBarMesh);
+
+            // Top Brass Suspension Cylinder/Mount (Exact match to top cylinder in photo)
+            const mountGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.7, 24);
+            const mountMesh = new THREE.Mesh(mountGeo, brassMat);
+            mountMesh.position.set(0, frameHeight - 0.05, 0);
+            frameGroup.add(mountMesh);
+
+            // --- 4. PENDULUM WIRE & TEARDROP BOB ---
+            pendulumGroup = new THREE.Group();
+            pendulumGroup.position.set(0, pendulumLength - 0.15, 0);
+            scene.add(pendulumGroup);
+
+            // Thin steel wire
+            const cableGeo = new THREE.CylinderGeometry(0.008, 0.008, pendulumLength, 16);
+            cableGeo.translate(0, -pendulumLength / 2, 0);
+            const cableMat = new THREE.MeshBasicMaterial({ color: 0x334155 });
+            cableMesh = new THREE.Mesh(cableGeo, cableMat);
+            pendulumGroup.add(cableMesh);
+
+            // Teardrop Bob Assembly matching exact shape in photo
+            const bobGroup = new THREE.Group();
+            bobGroup.position.set(0, -pendulumLength, 0);
+
+            // Brass top connector cap
+            const capGeo = new THREE.CylinderGeometry(0.12, 0.18, 0.35, 24);
+            const capMesh = new THREE.Mesh(capGeo, brassMat);
+            capMesh.position.y = 0.2;
+            bobGroup.add(capMesh);
+
+            // Teardrop main dark metallic body
+            const teardropGeo = new THREE.SphereGeometry(0.42, 32, 32);
+            teardropGeo.scale(1, 1.45, 1);
+            const bobMat = new THREE.MeshStandardMaterial({
+                color: 0x111827,
+                metalness: 0.9,
+                roughness: 0.15,
+                envMapIntensity: 1.5
+            });
+            bobMesh = new THREE.Mesh(teardropGeo, bobMat);
+            bobMesh.position.y = -0.3;
+            bobMesh.castShadow = true;
+            bobGroup.add(bobMesh);
+
+            // Sharp Bottom Tip Pointer in brass
+            const tipGeo = new THREE.ConeGeometry(0.06, 0.28, 16);
+            const tipMesh = new THREE.Mesh(tipGeo, brassMat);
+            tipMesh.position.set(0, -0.92, 0);
+            tipMesh.rotation.x = Math.PI;
+            bobGroup.add(tipMesh);
+
+            pendulumGroup.add(bobGroup);
+        }
+
+        // Draw trace mark on ground canvas
+        function markTrace(x, z) {
+            const canvasX = TRACE_SIZE / 2 + (x / 8) * (TRACE_SIZE / 2);
+            const canvasY = TRACE_SIZE / 2 + (z / 8) * (TRACE_SIZE / 2);
+
+            traceCtx.fillStyle = '#d97706'; // Amber accent line on wooden board
+            traceCtx.beginPath();
+            traceCtx.arc(canvasX, canvasY, 2.5, 0, Math.PI * 2);
+            traceCtx.fill();
+
+            traceTexture.needsUpdate = true;
+        }
+
+        // Animation Frame Update
+        let lastTimestamp = 0;
+        function animate(timestamp = 0) {
+            requestAnimationFrame(animate);
+
+            const dt = (timestamp - lastTimestamp) / 1000 || 0;
+            lastTimestamp = timestamp;
+
+            if (isPlaying && dt < 0.2) {
+                // Calculate Effective Earth Rotation Rate based on latitude
+                // 360 deg in 86400 seconds = 0.0041666 degree/sec base angular velocity
+                const omegaEarth = (2 * Math.PI) / 86400; // rad/sec
+                const sinLat = Math.sin((latitude * Math.PI) / 180);
+                const precessionRate = omegaEarth * sinLat; // rad/sec
+
+                // Update simulated time
+                const effectiveDt = dt * timeSpeed;
+                simulatedSeconds += effectiveDt;
+
+                // Update Precession Angle
+                pendulumAngle += precessionRate * effectiveDt;
+
+                // Update Harmonic Swing Phase
+                swingPhase += ((2 * Math.PI) / naturalPeriod) * dt;
+
+                // Count Swings
+                const currentSign = Math.sign(Math.sin(swingPhase));
+                if (currentSign !== lastSwingSign && currentSign > 0) {
+                    totalSwings++;
+                }
+                lastSwingSign = currentSign;
+
+                // Pendulum Harmonic Motion Calculations
+                const displacement = Math.sin(swingPhase) * swingAmplitude;
+
+                // Rotation depending on reference frame view
+                if (referenceFrame === 'earth') {
+                    // Earth stays still, pendulum plane rotates by pendulumAngle
+                    floorGroup.rotation.y = 0;
+                    pendulumGroup.rotation.y = pendulumAngle;
+
+                    // Calculate local bob position for trace
+                    const bobX = Math.sin(pendulumAngle) * displacement;
+                    const bobZ = Math.cos(pendulumAngle) * displacement;
+                    
+                    // Cable tilt angle
+                    const tiltAngle = (displacement / pendulumLength) * 0.4;
+                    pendulumGroup.rotation.z = Math.cos(pendulumAngle) * tiltAngle;
+                    pendulumGroup.rotation.x = -Math.sin(pendulumAngle) * tiltAngle;
+
+                    markTrace(bobX, bobZ);
+
+                } else {
+                    // Inertial Frame (Space View): Pendulum plane stays fixed in space, floor rotates reverse
+                    floorGroup.rotation.y = -pendulumAngle;
+                    pendulumGroup.rotation.y = 0;
+
+                    const tiltAngle = (displacement / pendulumLength) * 0.4;
+                    pendulumGroup.rotation.z = tiltAngle;
+                    pendulumGroup.rotation.x = 0;
+
+                    // Compute floor relative coordinate for trace
+                    const relX = Math.sin(-pendulumAngle) * displacement;
+                    const relZ = Math.cos(-pendulumAngle) * displacement;
+                    markTrace(relX, relZ);
+                }
+
+                updateStatsDisplay();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Update Text / Numerical Displays
+        function updateStatsDisplay() {
+            // Formatted Simulated Time
+            const hours = Math.floor(simulatedSeconds / 3600);
+            const mins = Math.floor((simulatedSeconds % 3600) / 60);
+            statTime.textContent = `${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+
+            // Formatted Rotation Angle
+            const deg = ((pendulumAngle * 180) / Math.PI) % 360;
+            statAngle.textContent = `${deg.toFixed(1)}°`;
+
+            statSwings.textContent = totalSwings;
+        }
+
+        function updateCalculatedStats() {
+            const sinLat = Math.sin((latitude * Math.PI) / 180);
+            const degPerHour = 15.0 * sinLat;
+            statSpeed.textContent = `${Math.abs(degPerHour).toFixed(1)}°/ora`;
+
+            if (Math.abs(sinLat) < 0.01) {
+                overlayPeriod.textContent = "Infinita (Nessuna rotazione)";
+            } else {
+                const periodHours = 24 / Math.abs(sinLat);
+                overlayPeriod.textContent = `${periodHours.toFixed(1)} ore`;
+            }
+        }
+
+        // Control Actions
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const playText = document.getElementById('play-text');
+            const playIcon = document.getElementById('play-icon');
+
+            if (isPlaying) {
+                playText.textContent = "Pausa";
+                playIcon.setAttribute('data-lucide', 'pause');
+            } else {
+                playText.textContent = "Avvia";
+                playIcon.setAttribute('data-lucide', 'play');
+            }
+            lucide.createIcons();
+        }
+
+        function resetSimulation() {
+            simulatedSeconds = 0;
+            pendulumAngle = 0;
+            swingPhase = 0;
+            totalSwings = 0;
+            clearTraceCanvas();
+            updateStatsDisplay();
+        }
+
+        function setPreset(lat, name) {
+            latitude = lat;
+            latSlider.value = lat;
+            latValDisplay.textContent = `${lat}° N`;
+            overlayLatName.textContent = `${name} (${lat}°)`;
+            updateCalculatedStats();
+            resetSimulation();
+        }
+
+        function setReferenceFrame(frame) {
+            referenceFrame = frame;
+            const earthBtn = document.getElementById('ref-earth-btn');
+            const spaceBtn = document.getElementById('ref-space-btn');
+
+            if (frame === 'earth') {
+                earthBtn.className = "px-3 py-2 rounded-xl text-xs font-medium border border-amber-500 bg-amber-500/10 text-amber-400 flex items-center justify-center space-x-2 transition-all";
+                spaceBtn.className = "px-3 py-2 rounded-xl text-xs font-medium border border-slate-700 bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center space-x-2 transition-all";
+            } else {
+                spaceBtn.className = "px-3 py-2 rounded-xl text-xs font-medium border border-amber-500 bg-amber-500/10 text-amber-400 flex items-center justify-center space-x-2 transition-all";
+                earthBtn.className = "px-3 py-2 rounded-xl text-xs font-medium border border-slate-700 bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center space-x-2 transition-all";
+            }
+        }
+
+        // Setup Event Listeners
+        function setupEventListeners() {
+            // Latitude Slider
+            latSlider.addEventListener('input', (e) => {
+                latitude = parseFloat(e.target.value);
+                latValDisplay.textContent = `${latitude}° N`;
+                overlayLatName.textContent = `Personalizzata (${latitude}°)`;
+                updateCalculatedStats();
+            });
+
+            // Time Speed Slider
+            speedSlider.addEventListener('input', (e) => {
+                timeSpeed = parseInt(e.target.value);
+                speedValDisplay.textContent = `${timeSpeed}x`;
+            });
+
+            // Clear Trace Button
+            document.getElementById('btn-clear-trace').addEventListener('click', clearTraceCanvas);
+
+            // Camera Reset Button
+        document.getElementById('btn-camera-reset').addEventListener('click', () => {
+            camera.position.set(0, 7.5, 17);
+            camera.lookAt(0, 0, 0);
+        });
+
+            // Window Resize Listener
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (!container || !renderer) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        // Mouse Orbit Controls Implementation
+        function setupOrbitControls(container) {
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            const spherical = { radius: 23, theta: 0, phi: Math.PI / 4 };
+
+            function updateCameraPosition() {
+                // Clamp Phi to prevent camera flipping
+                spherical.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, spherical.phi));
+
+                camera.position.x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+                camera.position.y = spherical.radius * Math.cos(spherical.phi);
+                camera.position.z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+                camera.lookAt(0, 0, 0);
+            }
+
+            container.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+
+                spherical.theta -= deltaMove.x * 0.008;
+                spherical.phi -= deltaMove.y * 0.008;
+
+                updateCameraPosition();
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            // Touch support
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging || e.touches.length !== 1) return;
+                const deltaMove = {
+                    x: e.touches[0].clientX - previousMousePosition.x,
+                    y: e.touches[0].clientY - previousMousePosition.y
+                };
+                spherical.theta -= deltaMove.x * 0.008;
+                spherical.phi -= deltaMove.y * 0.008;
+                updateCameraPosition();
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            });
+
+            window.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+        }
+    </script>
+</body>
+</html>
