@@ -1,0 +1,352 @@
+<!-- ... existing code ... -->
+    <title>Simulatore Prisma Ottico - Officine Galileo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #080c14 0%, #172033 100%);
+            color: #f1f5f9;
+            touch-action: manipulation;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 max-w-md mx-auto select-none">
+
+    <!-- Intestazione -->
+    <header class="w-full text-center py-2">
+        <h1 class="text-lg font-bold tracking-tight text-blue-400 flex items-center justify-center gap-2">
+            <span>🔬</span> Officine Galileo - Prismi Ottici
+        </h1>
+        <p class="text-[11px] text-slate-400">Simulazione supporto a treppiede con prismi di precisione</p>
+    </header>
+
+    <!-- Canvas Principale -->
+    <main class="w-full flex flex-col space-y-3 my-1">
+        <div class="relative w-full rounded-2xl overflow-hidden glass-panel shadow-2xl p-2 border border-slate-700">
+            <!-- Targhetta Modello -->
+            <div class="absolute top-3 left-3 bg-slate-900/90 text-slate-200 px-2 py-0.5 rounded text-[9px] font-mono font-bold border border-slate-700 shadow z-10">
+                MODELLO OFFICINE GALILEO • <span id="badgePrismName">Prisma 20° (n = 1.67)</span>
+            </div>
+
+            <canvas id="opticsCanvas" class="w-full h-[300px] block rounded-xl bg-slate-950"></canvas>
+            
+            <!-- Badge Stato -->
+            <div id="statusBadge" class="absolute bottom-3 left-3 bg-blue-900/80 backdrop-blur-md px-3 py-1 rounded-lg border border-blue-600/50 text-[11px] flex items-center gap-2 shadow-lg">
+                <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse"></span>
+                <span id="statusText" class="font-medium text-slate-100">Rifrazione attiva</span>
+            </div>
+        </div>
+
+        <!-- Selettore Prisma -->
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="selectPrism('wedge20')" id="btnWedge20" class="py-2 px-3 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow transition flex flex-col items-center">
+                <span>Prisma 20°</span>
+                <span class="text-[10px] opacity-80 font-mono">n = 1.67 (Destra)</span>
+            </button>
+            <button onclick="selectPrism('reflect')" id="btnReflect" class="py-2 px-3 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700 transition flex flex-col items-center hover:text-white">
+                <span>Prisma a Riflessione</span>
+                <span class="text-[10px] opacity-80 font-mono">Deviazione 90° (Sinistra)</span>
+            </button>
+        </div>
+
+        <!-- Pannello Metriche -->
+        <div class="grid grid-cols-3 gap-2">
+            <div class="glass-panel p-2.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">Angolo (i₁)</span>
+                <span id="valIncidence" class="text-sm font-bold text-blue-400">30°</span>
+            </div>
+            <div class="glass-panel p-2.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">Indice (n)</span>
+                <span id="valIndex" class="text-sm font-bold text-emerald-400">1.67</span>
+            </div>
+            <div class="glass-panel p-2.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">Deviazione (δ)</span>
+                <span id="valDeviation" class="text-sm font-bold text-amber-400">22.4°</span>
+            </div>
+        </div>
+
+        <!-- Controlli Slider -->
+        <div class="glass-panel p-3.5 rounded-xl space-y-3">
+            <div class="space-y-1">
+                <div class="flex justify-between items-center text-[11px] text-slate-300">
+                    <label for="angleSlider">Angolo d'Incidenza</label>
+                    <span id="angleLabel" class="font-mono text-blue-400 font-bold">30°</span>
+                </div>
+                <input id="angleSlider" type="range" min="0" max="60" value="30" 
+                       class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                       oninput="updateAngle(this.value)">
+            </div>
+
+            <div class="space-y-1" id="indexSliderContainer">
+                <div class="flex justify-between items-center text-[11px] text-slate-300">
+                    <label for="nSlider">Indice di Rifrazione (n)</label>
+                    <span id="nLabel" class="font-mono text-emerald-400 font-bold">1.67</span>
+                </div>
+                <input id="nSlider" type="range" min="1.30" max="2.00" step="0.01" value="1.67" 
+                       class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                       oninput="updateRefractiveIndex(this.value)">
+            </div>
+        </div>
+
+        <!-- Formule -->
+        <div class="glass-panel p-3 rounded-xl space-y-1.5 text-xs">
+            <h2 class="font-semibold text-blue-400 text-[11px] uppercase tracking-wider">Formule Chiave</h2>
+            <div class="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[9px]">Legge di Snell</span>
+                    <span class="text-slate-200">n₁ &middot; sin(i₁) = n₂ &middot; sin(r₁)</span>
+                </div>
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[9px]">Deviazione (Prisma Sottile)</span>
+                    <span class="text-slate-200">&delta; &approx; A &middot; (n - 1)</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-1 text-[10px] text-slate-500 mt-1">
+        Simulazione Educativa HTML5 • Ottimizzata per Smartphone
+    </footer>
+
+    <!-- Script -->
+    <script>
+        const canvas = document.getElementById('opticsCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const angleSlider = document.getElementById('angleSlider');
+        const angleLabel = document.getElementById('angleLabel');
+        const nSlider = document.getElementById('nSlider');
+        const nLabel = document.getElementById('nLabel');
+        const valIncidence = document.getElementById('valIncidence');
+        const valIndex = document.getElementById('valIndex');
+        const valDeviation = document.getElementById('valDeviation');
+        const badgePrismName = document.getElementById('badgePrismName');
+        const btnWedge20 = document.getElementById('btnWedge20');
+        const btnReflect = document.getElementById('btnReflect');
+
+        let currentPrism = 'wedge20'; // 'wedge20' o 'reflect'
+        let incidenceAngleDeg = 30;
+        let refractiveIndex = 1.67;
+
+        function selectPrism(type) {
+            currentPrism = type;
+            if(type === 'wedge20') {
+                btnWedge20.className = "py-2 px-3 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow transition flex flex-col items-center";
+                btnReflect.className = "py-2 px-3 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700 transition flex flex-col items-center hover:text-white";
+                badgePrismName.textContent = "Prisma 20° (n = 1.67)";
+                refractiveIndex = 1.67;
+                nSlider.value = 1.67;
+                nLabel.textContent = "1.67";
+                valIndex.textContent = "1.67";
+            } else {
+                btnReflect.className = "py-2 px-3 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow transition flex flex-col items-center";
+                btnWedge20.className = "py-2 px-3 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700 transition flex flex-col items-center hover:text-white";
+                badgePrismName.textContent = "Prisma a Riflessione (90°)";
+                refractiveIndex = 1.50;
+            }
+        }
+
+        function updateAngle(val) {
+            incidenceAngleDeg = parseFloat(val);
+            angleLabel.textContent = incidenceAngleDeg + "°";
+            valIncidence.textContent = incidenceAngleDeg + "°";
+        }
+
+        function updateRefractiveIndex(val) {
+            refractiveIndex = parseFloat(val);
+            nLabel.textContent = refractiveIndex.toFixed(2);
+            valIndex.textContent = refractiveIndex.toFixed(2);
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawScene() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            ctx.clearRect(0, 0, width, height);
+
+            const cx = width / 2;
+            const cy = height / 2 + 10;
+
+            // 1. Disegno del supporto treppiede Officine Galileo
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 5;
+            ctx.lineCap = "round";
+            
+            // Asta verticale
+            ctx.beginPath();
+            ctx.moveTo(cx, height - 15);
+            ctx.lineTo(cx, cy + 45);
+            ctx.stroke();
+
+            // Manopola di bloccaggio (vite zigrinata)
+            ctx.fillStyle = "#64748b";
+            ctx.fillRect(cx - 14, cy + 10, 28, 12);
+            ctx.beginPath();
+            ctx.arc(cx - 14, cy + 16, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Piattaforma nera porta-prismi in alto
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(cx - 75, cy + 35, 150, 10);
+            ctx.strokeStyle = "#334155";
+            ctx.strokeRect(cx - 75, cy + 35, 150, 10);
+
+            // Base pesante a treppiede in basso
+            ctx.beginPath();
+            ctx.moveTo(cx, height - 15);
+            ctx.lineTo(cx - 50, height - 5);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, height - 15);
+            ctx.lineTo(cx + 50, height - 5);
+            ctx.stroke();
+
+            // 2. Disegno del prisma selezionato sulla piattaforma
+            if (currentPrism === 'wedge20') {
+                // Prisma a cuneo (es. 20° nd 1.67, posizionato a destra sulla piastra come in foto)
+                const px = cx + 20;
+                const py = cy + 5;
+                const pWidth = 55;
+                const pHeight = 35;
+
+                // Forma del prisma a cuneo (triangolo inclinato)
+                ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
+                ctx.beginPath();
+                ctx.moveTo(px, py - pHeight); // vertice alto
+                ctx.lineTo(px - pWidth / 2, py + pHeight); // basso sx
+                ctx.lineTo(px + pWidth / 2, py + pHeight); // basso dx
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.strokeStyle = "rgba(226, 232, 240, 0.9)";
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                // Etichetta testurizzata nera laterale (come nella foto: "20° nd 1.67")
+                ctx.fillStyle = "#0f172a";
+                ctx.fillRect(px + pWidth / 2 - 2, py - pHeight + 5, 14, pHeight + 15);
+                ctx.fillStyle = "#38bdf8";
+                ctx.font = "8px monospace";
+                ctx.save();
+                ctx.translate(px + pWidth / 2 + 6, py);
+                ctx.rotate(Math.PI / 2);
+                ctx.fillText("20° nd 1.67", -22, 0);
+                ctx.restore();
+
+                // Calcolo ottico raggio attraverso il prisma a cuneo
+                const i1 = (incidenceAngleDeg * Math.PI) / 180;
+                let sinR1 = Math.sin(i1) / refractiveIndex;
+                if(sinR1 > 1) sinR1 = 1;
+                const r1 = Math.asin(sinR1);
+                
+                const apexA = 20 * Math.PI / 180; // 20 gradi
+                const r2 = apexA - r1;
+                let sinI2 = refractiveIndex * Math.sin(r2);
+                if(sinI2 > 1) sinI2 = 1;
+                const i2 = Math.asin(sinI2);
+
+                const deviation = (incidenceAngleDeg) + (i2 * 180 / Math.PI) - 20;
+                valDeviation.textContent = deviation.toFixed(1) + "°";
+
+                // Raggio incidente (laser rosso)
+                ctx.strokeStyle = "#ef4444";
+                ctx.lineWidth = 3;
+                ctx.shadowColor = "#ef4444";
+                ctx.shadowBlur = 10;
+
+                const startX = px - 110;
+                const startY = py + 5 - Math.tan(i1) * 30;
+                const entryX = px - pWidth * 0.25;
+                const entryY = py + 5;
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(entryX, entryY);
+                ctx.stroke();
+
+                // Raggio interno e uscente
+                const exitX = px + pWidth * 0.35;
+                const exitY = py + 12;
+
+                ctx.beginPath();
+                ctx.moveTo(entryX, entryY);
+                ctx.lineTo(exitX, exitY);
+                ctx.stroke();
+
+                const outEndX = exitX + 110;
+                const outEndY = exitY - (deviation * 1.5);
+                ctx.beginPath();
+                ctx.moveTo(exitX, exitY);
+                ctx.lineTo(outEndX, outEndY);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+            } else {
+                // Prisma a riflessione totale / deviazione 90° (posizionato a sinistra in foto)
+                const px = cx - 35;
+                const py = cy + 5;
+                const pSize = 40;
+
+                ctx.fillStyle = "rgba(59, 130, 246, 0.25)";
+                ctx.beginPath();
+                ctx.moveTo(px - pSize, py + pSize);
+                ctx.lineTo(px + pSize, py + pSize);
+                ctx.lineTo(px, py - pSize);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.strokeStyle = "rgba(226, 232, 240, 0.9)";
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                valDeviation.textContent = "90.0° (Riflessione)";
+
+                // Raggio laser che entra lateralmente e viene deviato di 90 gradi
+                ctx.strokeStyle = "#3b82f6";
+                ctx.lineWidth = 3;
+                ctx.shadowColor = "#3b82f6";
+                ctx.shadowBlur = 10;
+
+                // Incidenza verticale dal basso o orizzontale
+                ctx.beginPath();
+                ctx.moveTo(px - pSize - 70, py + pSize - 10);
+                ctx.lineTo(px, py + pSize - 10);
+                // Riflessione a 90 gradi verso l'alto
+                ctx.lineTo(px, py - pSize - 50);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            requestAnimationFrame(drawScene);
+        }
+
+        window.onload = function() {
+            drawScene();
+        };
+    </script>
+</body>
+</html>
