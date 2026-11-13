@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Oscillatore di Righi (1894)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #07090e; color: #f1f5f9; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f59e0b;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+    </style>
+</head>
+<body class="flex justify-center bg-[#05070a] min-h-screen text-slate-100 select-none">
+
+    <!-- Mobile Container (Portrait optimized, max-width 480px) -->
+    <div class="w-full max-w-[480px] bg-[#0b0f17] flex flex-col min-h-screen shadow-2xl border-x border-slate-800/80 relative overflow-x-hidden">
+        
+        <!-- HEADER -->
+        <header class="px-5 py-4 bg-gradient-to-b from-[#111827] to-[#0b0f17] border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md bg-opacity-95">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs uppercase tracking-widest text-amber-500 font-semibold">Fisica Sperimentale 1894</span>
+                    <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                        Oscillatore di Righi
+                    </h1>
+                </div>
+                <div class="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700/60 shadow-inner">
+                    <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-red-500 transition-colors duration-300"></span>
+                    <span id="statusText" class="text-xs font-medium text-slate-300">Spento</span>
+                </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                Apparecchio storico per la generazione di onde elettromagnetiche centimetriche in bagno d'olio isolante.
+            </p>
+        </header>
+
+        <!-- MAIN SCROLLABLE CONTENT -->
+        <main class="flex-1 flex flex-col p-4 gap-4 pb-8 overflow-y-auto">
+
+            <!-- SIMULATION CANVAS CARD -->
+            <section class="bg-[#111827] rounded-2xl p-3 border border-slate-800/80 shadow-lg relative flex flex-col items-center">
+                <div class="w-full flex justify-between items-center mb-2 px-1">
+                    <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        Simulatore Apparecchio (3 Scintille)
+                    </span>
+                    <span class="text-[10px] bg-slate-800 text-amber-400 px-2 py-0.5 rounded-full border border-slate-700 font-mono" id="waveLengthBadge">λ = 12.0 cm</span>
+                </div>
+                
+                <!-- Canvas -->
+                <div class="w-full rounded-xl overflow-hidden bg-[#070a10] border border-slate-800 relative shadow-inner">
+                    <canvas id="simCanvas" class="w-full h-[220px] block cursor-pointer"></canvas>
+                    <div class="absolute bottom-2 left-2 pointer-events-none text-[10px] text-slate-400 bg-slate-900/80 px-2 py-1 rounded backdrop-blur border border-slate-800/60 flex gap-3">
+                        <span>⚡ Scintilla Aria</span>
+                        <span>💧 Scintilla Olio</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTROL PANEL CARD -->
+            <section class="bg-[#111827] rounded-2xl p-4 border border-slate-800/80 shadow-lg flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h2 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                        Pannello di Controllo
+                    </h2>
+                    <span class="text-[10px] text-slate-400">Interattivo</span>
+                </div>
+
+                <!-- Power Toggle Button -->
+                <button id="powerBtn" class="w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-lg shadow-red-950/40 border border-red-500/30 active:scale-[0.98]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <span id="powerBtnText">Attiva Rocchetto di Ruhmkorff</span>
+                </button>
+
+                <!-- Sliders Grid -->
+                <div class="grid grid-cols-1 gap-3.5 pt-1">
+                    <!-- Slider 1: Distanza Sfere -->
+                    <div class="flex flex-col gap-1.5 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300 font-medium">Distanza / Lunghezza d'onda (λ)</span>
+                            <span id="gapVal" class="text-amber-400 font-mono font-bold">12 mm</span>
+                        </div>
+                        <input id="gapSlider" type="range" min="4" max="25" step="1" value="12" class="w-full accent-amber-500 bg-slate-800 rounded-lg h-2 cursor-pointer slider-thumb">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>Bassa (6 cm)</span>
+                            <span>Alta (30 cm)</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 2: Smorzamento -->
+                    <div class="flex flex-col gap-1.5 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300 font-medium">Smorzamento nel Bagno d'Olio (δ)</span>
+                            <span id="dampingVal" class="text-amber-400 font-mono font-bold">1.8</span>
+                        </div>
+                        <input id="dampingSlider" type="range" min="0.5" max="4.0" step="0.1" value="1.8" class="w-full accent-amber-500 bg-slate-800 rounded-lg h-2 cursor-pointer slider-thumb">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>Oscillazioni lunghe</span>
+                            <span>Smorzamento rapido</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- OSCILLOSCOPE / GRAPH CARD -->
+            <section class="bg-[#111827] rounded-2xl p-3 border border-slate-800/80 shadow-lg flex flex-col gap-2">
+                <div class="flex justify-between items-center px-1">
+                    <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                        Corrente Oscillante Smorzata $I(t)$
+                    </span>
+                    <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">LIVE</span>
+                </div>
+
+                <!-- Rendered Formula Box -->
+                <div class="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800 text-center flex items-center justify-center gap-2 shadow-inner">
+                    <span class="text-xs text-slate-400">Modello matematico:</span>
+                    <div class="text-xs font-mono text-amber-300 font-semibold tracking-wide">
+                        I(t) = I₀ · e<sup class="text-amber-400">-δt</sup> · sin(ωt)
+                    </div>
+                </div>
+
+                <!-- Graph Canvas -->
+                <div class="w-full rounded-xl overflow-hidden bg-[#070a10] border border-slate-800 relative">
+                    <canvas id="graphCanvas" class="w-full h-[130px] block"></canvas>
+                </div>
+            </section>
+
+            <!-- HISTORICAL & EDUCATIONAL ACCORDION -->
+            <section class="bg-[#111827] rounded-2xl border border-slate-800/80 shadow-lg overflow-hidden">
+                <button id="accordionBtn" class="w-full p-4 flex justify-between items-center bg-slate-900/50 hover:bg-slate-900 transition-colors text-left">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span class="text-xs font-semibold text-slate-200 uppercase tracking-wider">Principio Fisico & Importanza Storica</span>
+                    </div>
+                    <svg id="accordionIcon" class="w-4 h-4 text-slate-400 transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="accordionContent" class="hidden p-4 pt-0 text-xs text-slate-300 space-y-3 leading-relaxed border-t border-slate-800/60 bg-slate-900/20">
+                    <p class="pt-3">
+                        <strong class="text-amber-400 font-semibold">L'invenzione (1894):</strong> L'inventore e fisico italiano Augusto Righi ideò questo oscillatore a tre scintille per superare i limiti dell'oscillatore di Hertz, producendo onde elettromagnetiche centimetriche stabili, intense e con spettro definito.
+                    </p>
+                    <p>
+                        <strong class="text-amber-400 font-semibold">Il Bagno d'Olio:</strong> La particolarità geniale consiste nell'inserire le sfere centrali in un cilindro di vetro riempito di <em class="text-slate-200">olio di vaselina</em>. L'olio estingue rapidamente la scintilla centrale, riducendo lo smorzamento anomalo e permettingendo oscillazioni elettriche più regolari e prolungate.
+                    </p>
+                    <p>
+                        <strong class="text-amber-400 font-semibold">Verifica dell'Ottica delle Onde:</strong> Grazie alla lunghezza d'onda ridotta (pochi centimetri), Righi poté utilizzare piccoli prismi, specchi e lenti di paraffina o zolfo per dimostrare sperimentalmente che le onde elettromagnetiche obbediscono alle stesse leggi dell'ottica geometrica (rifrazione, riflessione, polarizzazione), confermando in pieno la teoria di Maxwell.
+                    </p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="py-3 px-4 bg-[#070a10] border-t border-slate-900 text-center text-[10px] text-slate-500">
+            Simulazione Didattica Interattiva • Basata su Apparecchio Storico (Museo di Fisica)
+        </footer>
+
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // DOM Elements
+        const powerBtn = document.getElementById('powerBtn');
+        const powerBtnText = document.getElementById('powerBtnText');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const gapSlider = document.getElementById('gapSlider');
+        const gapVal = document.getElementById('gapVal');
+        const dampingSlider = document.getElementById('dampingSlider');
+        const dampingVal = document.getElementById('dampingVal');
+        const waveLengthBadge = document.getElementById('waveLengthBadge');
+        const accordionBtn = document.getElementById('accordionBtn');
+        const accordionContent = document.getElementById('accordionContent');
+        const accordionIcon = document.getElementById('accordionIcon');
+
+        // Simulation State
+        let isPoweredOn = false;
+        let gapDistance = 12;
+        let dampingFactor = 1.8;
+        let time = 0;
+        let sparkPhase = 0;
+        let waveRings = [];
+
+        // Canvas Setup
+        const simCanvas = document.getElementById('simCanvas');
+        const simCtx = simCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            simCanvas.width = simCanvas.parentElement.clientWidth;
+            simCanvas.height = 220;
+            graphCanvas.width = graphCanvas.parentElement.clientWidth;
+            graphCanvas.height = 130;
+        }
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        // Toggle Power
+        powerBtn.addEventListener('click', () => {
+            isPoweredOn = !isPoweredOn;
+            if (isPoweredOn) {
+                powerBtn.className = "w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-lg shadow-emerald-950/40 border border-emerald-500/30 active:scale-[0.98]";
+                powerBtnText.textContent = "Spegni Rocchetto di Ruhmkorff";
+                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] transition-colors duration-300 animate-pulse";
+                statusText.textContent = "Attivo (Scintille in corso)";
+            } else {
+                powerBtn.className = "w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-lg shadow-red-950/40 border border-red-500/30 active:scale-[0.98]";
+                powerBtnText.textContent = "Attiva Rocchetto di Ruhmkorff";
+                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-red-500 transition-colors duration-300";
+                statusText.textContent = "Spento";
+            }
+        });
+
+        // Sliders Listeners
+        gapSlider.addEventListener('input', (e) => {
+            gapDistance = parseInt(e.target.value);
+            gapVal.textContent = gapDistance + " mm";
+            let lambda = (gapDistance * 1.0).toFixed(1);
+            waveLengthBadge.textContent = "λ = " + lambda + " cm";
+        });
+
+        dampingSlider.addEventListener('input', (e) => {
+            dampingFactor = parseFloat(e.target.value);
+            dampingVal.textContent = dampingFactor.toFixed(1);
+        });
+
+        // Accordion Toggle
+        accordionBtn.addEventListener('click', () => {
+            accordionContent.classList.toggle('hidden');
+            accordionIcon.classList.toggle('rotate-180');
+        });
+
+        // DRAW APPARATUS SIMULATION
+        function drawApparatus() {
+            const w = simCanvas.width;
+            const h = simCanvas.height;
+            simCtx.clearRect(0, 0, w, h);
+
+            // Background subtle grid
+            simCtx.strokeStyle = '#0f172a';
+            simCtx.lineWidth = 1;
+            for(let x=0; x<w; x+=30) {
+                simCtx.beginPath(); simCtx.moveTo(x, 0); simCtx.lineTo(x, h); simCtx.stroke();
+            }
+
+            // Draw Electromagnetic Radiating Waves if powered ON
+            if (isPoweredOn) {
+                if (Math.random() < 0.25) {
+                    waveRings.push({ x: w / 2, y: h / 2, r: 20, alpha: 0.8 });
+                }
+            }
+            for (let i = waveRings.length - 1; i >= 0; i--) {
+                let ring = waveRings[i];
+                ring.r += 2.2;
+                ring.alpha -= 0.02;
+                if (ring.alpha <= 0) {
+                    waveRings.splice(i, 1);
+                    continue;
+                }
+                simCtx.save();
+                simCtx.strokeStyle = `rgba(56, 189, 248, ${ring.alpha})`;
+                simCtx.lineWidth = 1.5;
+                simCtx.beginPath();
+                simCtx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+                simCtx.stroke();
+                simCtx.restore();
+            }
+
+            const centerY = h / 2 + 10;
+            const centerX = w / 2;
+
+            // 1. Wooden Base
+            simCtx.fillStyle = '#2d1810';
+            simCtx.fillRect(20, centerY + 45, w - 40, 18);
+            simCtx.strokeStyle = '#4a2818';
+            simCtx.lineWidth = 2;
+            simCtx.strokeRect(20, centerY + 45, w - 40, 18);
+            // Wood shine
+            simCtx.fillStyle = 'rgba(255,255,255,0.05)';
+            simCtx.fillRect(25, centerY + 47, w - 50, 4);
+
+            // 2. Four Vertical Stands (Ebonite bases + Brass tops)
+            const standPositions = [centerX - 130, centerX - 55, centerX + 55, centerX + 130];
+            standPositions.forEach((sx, idx) => {
+                // Ebonite lower pillar (dark)
+                simCtx.fillStyle = '#111827';
+                simCtx.fillRect(sx - 7, centerY, 14, 45);
+                simCtx.strokeStyle = '#334155';
+                simCtx.strokeRect(sx - 7, centerY, 14, 45);
+
+                // Brass upper terminal/knob
+                simCtx.fillStyle = '#d4af37';
+                simCtx.beginPath();
+                simCtx.arc(sx, centerY, 7, 0, Math.PI * 2);
+                simCtx.fill();
+                simCtx.strokeStyle = '#b8860b';
+                simCtx.stroke();
+            });
+
+            // 3. Central Oil Cylinder (Vasca in vetro/legno con olio di vaselina)
+            const cylWidth = 70;
+            const cylHeight = 44;
+            const cylX = centerX - cylWidth / 2;
+            const cylY = centerY - cylHeight / 2 - 5;
+
+            // Oil translucent body
+            simCtx.fillStyle = 'rgba(245, 222, 179, 0.18)';
+            simCtx.fillRect(cylX, cylY, cylWidth, cylHeight);
+            simCtx.strokeStyle = '#cbd5e1';
+            simCtx.lineWidth = 1.5;
+            simCtx.strokeRect(cylX, cylY, cylWidth, cylHeight);
+
+            // Oil liquid level line & bubbles
+            simCtx.fillStyle = 'rgba(250, 204, 21, 0.25)';
+            simCtx.fillRect(cylX + 2, cylY + 6, cylWidth - 4, cylHeight - 8);
+
+            // Cap on cylinder
+            simCtx.fillStyle = '#1e293b';
+            simCtx.fillRect(centerX - 10, cylY - 6, 20, 6);
+
+            // 4. Rods and Spheres (Horizontal electrodes)
+            // Left outer rod
+            simCtx.strokeStyle = '#94a3b8';
+            simCtx.lineWidth = 5;
+            simCtx.beginPath();
+            simCtx.moveTo(standPositions[0], centerY - 5);
+            simCtx.lineTo(centerX - 50 - gapDistance, centerY - 5);
+            simCtx.stroke();
+
+            // Left outer sphere
+            simCtx.fillStyle = '#cbd5e1';
+            simCtx.beginPath();
+            simCtx.arc(centerX - 42 - gapDistance, centerY - 5, 10, 0, Math.PI * 2);
+            simCtx.fill();
+            simCtx.strokeStyle = '#64748b';
+            simCtx.stroke();
+
+            // Left inner sphere (inside oil cylinder, connected to stand 2)
+            simCtx.strokeStyle = '#94a3b8';
+            simCtx.lineWidth = 4;
+            simCtx.beginPath();
+            simCtx.moveTo(standPositions[1], centerY - 5);
+            simCtx.lineTo(centerX - 14, centerY - 5);
+            simCtx.stroke();
+
+            simCtx.fillStyle = '#e2e8f0';
+            simCtx.beginPath();
+            simCtx.arc(centerX - 18, centerY - 5, 8, 0, Math.PI * 2);
+            simCtx.fill();
+            simCtx.stroke();
+
+            // Right inner sphere (inside oil cylinder, connected to stand 3)
+            simCtx.strokeStyle = '#94a3b8';
+            simCtx.lineWidth = 4;
+            simCtx.beginPath();
+            simCtx.moveTo(standPositions[2], centerY - 5);
+            simCtx.lineTo(centerX + 14, centerY - 5);
+            simCtx.stroke();
+
+            simCtx.fillStyle = '#e2e8f0';
+            simCtx.beginPath();
+            simCtx.arc(centerX + 18, centerY - 5, 8, 0, Math.PI * 2);
+            simCtx.fill();
+            simCtx.stroke();
+
+            // Right outer sphere
+            simCtx.strokeStyle = '#94a3b8';
+            simCtx.lineWidth = 5;
+            simCtx.beginPath();
+            simCtx.moveTo(standPositions[3], centerY - 5);
+            simCtx.lineTo(centerX + 50 + gapDistance, centerY - 5);
+            simCtx.stroke();
+
+            simCtx.fillStyle = '#cbd5e1';
+            simCtx.beginPath();
+            simCtx.arc(centerX + 42 + gapDistance, centerY - 5, 10, 0, Math.PI * 2);
+            simCtx.fill();
+            simCtx.strokeStyle = '#64748b';
+            simCtx.stroke();
+
+            // 5. SPARK ANIMATION (3 Sparks when powered on)
+            if (isPoweredOn) {
+                sparkPhase++;
+                // Left spark (Air gap)
+                drawJaggedSpark(centerX - 52 - gapDistance, centerY - 5, centerX - 26, centerY - 5, simCtx);
+                // Central spark (Oil gap)
+                drawJaggedSpark(centerX - 18, centerY - 5, centerX + 18, centerY - 5, simCtx, true);
+                // Right spark (Air gap)
+                drawJaggedSpark(centerX + 26, centerY - 5, centerX + 52 + gapDistance, centerY - 5, simCtx);
+
+                // Spark glow on stands
+                simCtx.shadowColor = '#38bdf8';
+                simCtx.shadowBlur = 15;
+                simCtx.fillStyle = '#38bdf8';
+                simCtx.beginPath();
+                simCtx.arc(centerX, centerY - 5, 3, 0, Math.PI*2);
+                simCtx.fill();
+                simCtx.shadowBlur = 0;
+            }
+        }
+
+        function drawJaggedSpark(x1, y1, x2, y2, ctx, isOil = false) {
+            ctx.save();
+            ctx.strokeStyle = isOil ? '#a5f3fc' : '#38bdf8';
+            ctx.lineWidth = isOil ? 2.5 : 2;
+            ctx.shadowColor = isOil ? '#06b6d4' : '#60a5fa';
+            ctx.shadowBlur = 12;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            let segments = 5;
+            let dx = (x2 - x1) / segments;
+            let dy = (y2 - y1) / segments;
+
+            for (let i = 1; i < segments; i++) {
+                let rx = x1 + dx * i + (Math.random() * 8 - 4);
+                let ry = y1 + dy * i + (Math.random() * 10 - 5);
+                ctx.lineTo(rx, ry);
+            }
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // DRAW OSCILLOSCOPE GRAPH
+        function drawGraph() {
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            graphCtx.clearRect(0, 0, w, h);
+
+            // Grid lines
+            graphCtx.strokeStyle = '#1e293b';
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, h/2); graphCtx.lineTo(w, h/2); // Axis X
+            graphCtx.stroke();
+
+            // Plot damped oscillation wave: I(t) = I0 * exp(-delta * t) * sin(omega * t)
+            graphCtx.strokeStyle = '#f59e0b';
+            graphCtx.lineWidth = 2;
+            graphCtx.beginPath();
+
+            let scaleX = w / 100;
+            let omega = 0.35;
+            let I0 = h / 2.5;
+
+            for (let px = 0; px < w; px++) {
+                let t = (px / scaleX) + (isPoweredOn ? time : 0);
+                // damped oscillation formula
+                let dampedTime = px / scaleX;
+                let envelope = Math.exp(-0.04 * dampingFactor * dampedTime);
+                let val = I0 * envelope * Math.sin(omega * (t * 2));
+                let py = (h / 2) - val;
+
+                if (px === 0) graphCtx.moveTo(px, py);
+                else graphCtx.lineTo(px, py);
+            }
+            graphCtx.stroke();
+
+            // Gradient fill under curve for pro oscilloscope look
+            graphCtx.lineTo(w, h);
+            graphCtx.lineTo(0, h);
+            graphCtx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+            graphCtx.fill();
+        }
+
+        // ANIMATION LOOP
+        function animate() {
+            if (isPoweredOn) {
+                time += 0.4;
+            }
+            drawApparatus();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

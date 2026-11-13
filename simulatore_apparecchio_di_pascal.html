@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore Apparecchio di Pascal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            touch-action: manipulation;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 max-w-md mx-auto select-none">
+
+    <!-- Intestazione -->
+    <header class="w-full text-center py-2">
+        <h1 class="text-xl font-bold tracking-tight text-blue-400">Apparecchio di Pascal</h1>
+        <p class="text-xs text-slate-400">Dimostrazione interattiva della trasmissione della pressione</p>
+    </header>
+
+    <!-- Canvas Principale della Simulazione -->
+    <main class="w-full flex flex-col items-center my-2">
+        <div class="relative w-full rounded-2xl overflow-hidden glass-panel shadow-2xl p-2 border border-slate-700">
+            <canvas id="simCanvas" class="w-full h-[320px] block rounded-xl bg-slate-950"></canvas>
+            
+            <!-- Badge Informativo Sovrapposto -->
+            <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700 text-xs flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                <span id="statusText" class="font-medium text-slate-200">Stantuffo a riposo</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Pannello Controlli e Dati -->
+    <section class="w-full space-y-3 my-1">
+        <!-- Pannello Metriche -->
+        <div class="grid grid-cols-2 gap-2">
+            <div class="glass-panel p-3 rounded-xl text-center">
+                <span class="text-xs text-slate-400 block">Forza Applicata (F)</span>
+                <span id="valForce" class="text-lg font-bold text-blue-400">0.0 <span class="text-xs font-normal text-slate-400">N</span></span>
+            </div>
+            <div class="glass-panel p-3 rounded-xl text-center">
+                <span class="text-xs text-slate-400 block">Pressione (P = F / A)</span>
+                <span id="valPressure" class="text-lg font-bold text-emerald-400">0.0 <span class="text-xs font-normal text-slate-400">kPa</span></span>
+            </div>
+        </div>
+
+        <!-- Slider di Controllo Stantuffo -->
+        <div class="glass-panel p-4 rounded-xl space-y-3">
+            <div class="flex justify-between items-center text-xs font-medium text-slate-300">
+                <label for="pistonSlider">Controllo Stantuffo (Pressione)</label>
+                <span id="pistonPercent" class="text-blue-400 font-bold">0%</span>
+            </div>
+            <input id="pistonSlider" type="range" min="0" max="100" value="0" 
+                   class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb">
+            
+            <!-- Pulsanti Rapidi -->
+            <div class="grid grid-cols-3 gap-2 pt-1">
+                <button onclick="setPreset(0)" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 transition">0%</button>
+                <button onclick="setPreset(50)" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 transition">50%</button>
+                <button onclick="setPreset(100)" class="py-1.5 px-2 bg-blue-600 hover:bg-blue-500 text-xs font-semibold rounded-lg transition shadow-lg shadow-blue-600/30">100%</button>
+            </div>
+        </div>
+
+        <!-- Pannello Teorico / Formule -->
+        <div class="glass-panel p-4 rounded-xl space-y-2">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-blue-400">Principio di Pascal</h2>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                La pressione applicata a un fluido confinato si trasmette 
+                <strong class="text-slate-100">in modo inalterato</strong> a ogni porzione del fluido e alle pareti del recipiente, indipendentemente dalla forma e dall'orientamento dei tubi.
+            </p>
+            <div class="pt-2 border-t border-slate-700/60 flex items-center justify-around text-xs font-mono text-emerald-300">
+                <span>P = F / A</span>
+                <span class="text-slate-500">|</span>
+                <span>ΔP<sub>1</sub> = ΔP<sub>2</sub> = ΔP<sub>3</sub></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-1 text-[10px] text-slate-500">
+        Simulazione Educativa HTML5 • Ottimizzata per Smartphone
+    </footer>
+
+    <!-- Script di Simulazione -->
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('pistonSlider');
+        const valForce = document.getElementById('valForce');
+        const valPressure = document.getElementById('valPressure');
+        const pistonPercent = document.getElementById('pistonPercent');
+        const statusText = document.getElementById('statusText');
+
+        // Imposta dimensioni logiche e retina display per nitidezza
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let pistonValue = 0; // da 0 a 100
+
+        slider.addEventListener('input', (e) => {
+            pistonValue = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        function setPreset(val) {
+            pistonValue = val;
+            slider.value = val;
+            updateUI();
+        }
+
+        function updateUI() {
+            pistonPercent.textContent = Math.round(pistonValue) + '%';
+            const force = (pistonValue * 2.5).toFixed(1);
+            const pressure = (pistonValue * 1.8).toFixed(1);
+            valForce.innerHTML = `${force} <span class="text-xs font-normal text-slate-400">N</span>`;
+            valPressure.innerHTML = `${pressure} <span class="text-xs font-normal text-slate-400">kPa</span>`;
+
+            if(pistonValue === 0) {
+                statusText.textContent = "Stantuffo a riposo";
+            } else if(pistonValue < 50) {
+                statusText.textContent = "Compressione in corso...";
+            } else {
+                statusText.textContent = "Fluido in pressione uniforme";
+            }
+        }
+
+        // Loop di animazione e disegno
+        function draw() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Centro geometrico dell'apparecchio (sfera centrale)
+            const cx = width / 2;
+            const cy = height / 2 + 10;
+            const sphereRadius = 38;
+
+            // 1. Disegno dei supporti verticali (stand)
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 6;
+            ctx.lineCap = "round";
+            
+            // Stand sinistro
+            ctx.beginPath();
+            ctx.moveTo(cx - 110, height - 20);
+            ctx.lineTo(cx - 110, cy + 20);
+            ctx.stroke();
+            // Base stand sinistro
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(cx - 130, height - 25, 40, 10);
+
+            // Stand destro
+            ctx.beginPath();
+            ctx.moveTo(cx + 90, height - 20);
+            ctx.lineTo(cx + 90, cy + 20);
+            ctx.stroke();
+            // Base stand destro
+            ctx.fillRect(cx + 70, height - 25, 40, 10);
+
+            // 2. Tubo cilindrico sinistro e stantuffo
+            const pistonOffset = (pistonValue / 100) * 35; // Spostamento stantuffo verso destra
+            
+            // Corpo tubo cilindrico sinistro
+            ctx.fillStyle = "rgba(148, 163, 184, 0.15)";
+            ctx.strokeStyle = "rgba(226, 232, 240, 0.6)";
+            ctx.lineWidth = 2;
+            ctx.fillRect(cx - 130, cy - 12, 92, 24);
+            ctx.strokeRect(cx - 130, cy - 12, 92, 24);
+
+            // Liquido all'interno del cilindro sinistro
+            ctx.fillStyle = "rgba(59, 130, 246, 0.45)";
+            ctx.fillRect(cx - 130 + pistonOffset, cy - 10, 92 - pistonOffset, 20);
+
+            // Asta e stantuffo con anello a sinistra
+            ctx.strokeStyle = "#94a3b8";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx - 155, cy);
+            ctx.lineTo(cx - 38 + pistonOffset, cy);
+            ctx.stroke();
+
+            // Anello impugnatura stantuffo
+            ctx.beginPath();
+            ctx.arc(cx - 155, cy, 12, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Guarnizione stantuffo
+            ctx.fillStyle = "#cbd5e1";
+            ctx.fillRect(cx - 42 + pistonOffset, cy - 14, 8, 28);
+
+            // 3. Sfera centrale (ampolla di vetro)
+            ctx.fillStyle = "rgba(59, 130, 246, 0.35)";
+            ctx.beginPath();
+            ctx.arc(cx, cy, sphereRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(226, 232, 240, 0.8)";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Brillantezza vetro sfera
+            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.beginPath();
+            ctx.arc(cx - 12, cy - 12, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. Tubi divergenti radiali (ispirati alla foto: superiore, inferiore, laterali con forme a U)
+            const liquidRise = (pistonValue / 100) * 28; // Innalzamento del fluido nei tubi
+
+            const tubes = [
+                { angle: -Math.PI / 2 - 0.4, length: 65, uShape: true }, // Top-Left
+                { angle: -Math.PI / 2 + 0.4, length: 65, uShape: true }, // Top-Right
+                { angle: 0, length: 55, uShape: true },                  // Right
+                { angle: Math.PI / 2 + 0.4, length: 65, uShape: true },  // Bottom-Right
+                { angle: Math.PI / 2 - 0.4, length: 65, uShape: true }   // Bottom-Left
+            ];
+
+            tubes.forEach(t => {
+                const startX = cx + Math.cos(t.angle) * sphereRadius;
+                const startY = cy + Math.sin(t.angle) * sphereRadius;
+                const endX = startX + Math.cos(t.angle) * t.length;
+                const endY = startY + Math.sin(t.angle) * t.length;
+
+                // Tubo di vetro esterno
+                ctx.strokeStyle = "rgba(226, 232, 240, 0.7)";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                
+                // Se è un tubo a U o piegato terminale
+                if(t.uShape) {
+                    const perpX = -Math.sin(t.angle) * 16;
+                    const perpY = Math.cos(t.angle) * 16;
+                    ctx.lineTo(endX + perpX, endY + perpY);
+                }
+                ctx.stroke();
+
+                // Colonna di liquido nel tubo (sale in base alla pressione)
+                ctx.strokeStyle = "rgba(59, 130, 246, 0.75)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX - (Math.cos(t.angle) * liquidRise), endY - (Math.sin(t.angle) * liquidRise));
+                ctx.stroke();
+
+                // Indicatore particelle / livello fluido nei terminali
+                ctx.fillStyle = "#60a5fa";
+                ctx.beginPath();
+                ctx.arc(endX - (Math.cos(t.angle) * liquidRise), endY - (Math.sin(t.angle) * liquidRise), 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Vettori di pressione radiale (freccette che spingono verso l'esterno)
+            if (pistonValue > 5) {
+                ctx.strokeStyle = "rgba(52, 211, 153, 0.8)";
+                ctx.lineWidth = 1.5;
+                for (let i = 0; i < 6; i++) {
+                    const a = (i / 6) * Math.PI * 2;
+                    const fx = cx + Math.cos(a) * (sphereRadius - 8);
+                    const fy = cy + Math.sin(a) * (sphereRadius - 8);
+                    const tx = cx + Math.cos(a) * (sphereRadius + 6 + (pistonValue * 0.08));
+                    const ty = cy + Math.sin(a) * (sphereRadius + 6 + (pistonValue * 0.08));
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy);
+                    ctx.lineTo(tx, ty);
+                    ctx.stroke();
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // Avvio animazione
+        window.onload = function() {
+            updateUI();
+            draw();
+        };
+    </script>
+</body>
+</html>

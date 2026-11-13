@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voltmetro-Amperometro a Gauss</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #05070a; color: #f1f5f9; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #d4af37;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+    </style>
+</head>
+<body class="flex justify-center bg-[#05070a] min-h-screen text-slate-100 select-none">
+
+    <!-- Mobile Container (Portrait optimized, max-width 480px) -->
+    <div class="w-full max-w-[480px] bg-[#0b0f17] flex flex-col min-h-screen shadow-2xl border-x border-slate-800/80 relative overflow-x-hidden">
+        
+        <!-- HEADER -->
+        <header class="px-5 py-4 bg-gradient-to-b from-[#111827] to-[#0b0f17] border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md bg-opacity-95">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs uppercase tracking-widest text-amber-400 font-semibold">Strumento Elettromagnetico</span>
+                    <h1 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        Voltmetro-Amperometro a Gauss
+                    </h1>
+                </div>
+                <div class="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700/60 shadow-inner">
+                    <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-red-500 transition-colors duration-300"></span>
+                    <span id="statusText" class="text-xs font-medium text-slate-300">Spento</span>
+                </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                Apparecchio storico da laboratorio per la misura di tensioni e correnti con indice a barra e quadrante curvo.
+            </p>
+        </header>
+
+        <!-- MAIN SCROLLABLE CONTENT -->
+        <main class="flex-1 flex flex-col p-4 gap-4 pb-8 overflow-y-auto">
+
+            <!-- SIMULATION CANVAS CARD (Apparatus view) -->
+            <section class="bg-[#111827] rounded-2xl p-3 border border-slate-800/80 shadow-lg relative flex flex-col items-center">
+                <div class="w-full flex justify-between items-center mb-2 px-1">
+                    <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        Simulatore Strumento in Tempo Reale
+                    </span>
+                    <span class="text-[10px] bg-slate-800 text-amber-300 px-2 py-0.5 rounded-full border border-slate-700 font-mono" id="modeBadge">Modo: Voltmetro</span>
+                </div>
+                
+                <!-- Canvas -->
+                <div class="w-full rounded-xl overflow-hidden bg-[#070a10] border border-slate-800 relative shadow-inner">
+                    <canvas id="simCanvas" class="w-full h-[260px] block"></canvas>
+                    <div class="absolute bottom-2 left-2 pointer-events-none text-[10px] text-slate-400 bg-slate-900/80 px-2 py-1 rounded backdrop-blur border border-slate-800/60 flex gap-3">
+                        <span>🎯 Quadrante Graduato</span>
+                        <span>⚡ Bobina & Shunt</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTROL PANEL CARD -->
+            <section class="bg-[#111827] rounded-2xl p-4 border border-slate-800/80 shadow-lg flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h2 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                        Pannello di Controllo
+                    </h2>
+                    <span class="text-[10px] text-slate-400">Interattivo</span>
+                </div>
+
+                <!-- Power Toggle Button -->
+                <button id="powerBtn" class="w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-lg shadow-red-950/40 border border-red-500/30 active:scale-[0.98]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <span id="powerBtnText">Accendi Circuito Elettrico</span>
+                </button>
+
+                <!-- Mode Selector Buttons -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="modeVoltBtn" class="py-2.5 px-3 rounded-xl text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow-md flex items-center justify-center gap-1.5 border border-amber-400">
+                        <span>⚡ Voltmetro (V)</span>
+                    </button>
+                    <button id="modeAmpBtn" class="py-2.5 px-3 rounded-xl text-xs font-semibold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center gap-1.5 border border-slate-700">
+                        <span>🔌 Amperometro (A)</span>
+                    </button>
+                </div>
+
+                <!-- Sliders Grid -->
+                <div class="grid grid-cols-1 gap-3.5 pt-1">
+                    <!-- Slider: Grandezza d'ingresso -->
+                    <div class="flex flex-col gap-1.5 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                        <div class="flex justify-between items-center text-xs">
+                            <span id="inputLabel" class="text-slate-300 font-medium">Tensione Applicata (V)</span>
+                            <span id="inputVal" class="text-amber-400 font-mono font-bold">1.25 V</span>
+                        </div>
+                        <input id="inputSlider" type="range" min="0" max="2.5" step="0.05" value="1.25" class="w-full accent-amber-400 bg-slate-800 rounded-lg h-2 cursor-pointer slider-thumb">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span id="minRangeLabel">0.0 V</span>
+                            <span id="maxRangeLabel">2.5 V</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider: Resistenza interna / Shunt -->
+                    <div class="flex flex-col gap-1.5 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300 font-medium">Resistenza di Shunt (R)</span>
+                            <span id="shuntVal" class="text-amber-400 font-mono font-bold">5.0 Ω</span>
+                        </div>
+                        <input id="shuntSlider" type="range" min="1.0" max="20.0" step="0.5" value="5.0" class="w-full accent-amber-400 bg-slate-800 rounded-lg h-2 cursor-pointer slider-thumb">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>1.0 Ω (Sensibile)</span>
+                            <span>20.0 Ω (Resistivo)</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DIGITAL READOUT & GRAPH CARD -->
+            <section class="bg-[#111827] rounded-2xl p-3 border border-slate-800/80 shadow-lg flex flex-col gap-2">
+                <div class="flex justify-between items-center px-1">
+                    <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                        Andamento Grandezza Misurata
+                    </span>
+                    <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">LIVE</span>
+                </div>
+
+                <!-- Rendered Formula Box -->
+                <div class="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800 text-center flex flex-col items-center justify-center gap-1 shadow-inner">
+                    <div class="text-[11px] text-slate-400">Legge fondamentale dello strumento:</div>
+                    <div class="text-xs font-mono text-amber-300 font-semibold tracking-wide">
+                        I = V / R &nbsp; | &nbsp; Deflessione θ ∝ I
+                    </div>
+                </div>
+
+                <!-- Graph Canvas -->
+                <div class="w-full rounded-xl overflow-hidden bg-[#070a10] border border-slate-800 relative">
+                    <canvas id="graphCanvas" class="w-full h-[120px] block"></canvas>
+                </div>
+            </section>
+
+            <!-- HISTORICAL & EDUCATIONAL ACCORDION -->
+            <section class="bg-[#111827] rounded-2xl border border-slate-800/80 shadow-lg overflow-hidden">
+                <button id="accordionBtn" class="w-full p-4 flex justify-between items-center bg-slate-900/50 hover:bg-slate-900 transition-colors text-left">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span class="text-xs font-semibold text-slate-200 uppercase tracking-wider">Principio di Funzionamento & Storia</span>
+                    </div>
+                    <svg id="accordionIcon" class="w-4 h-4 text-slate-400 transform transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="accordionContent" class="hidden p-4 pt-0 text-xs text-slate-300 space-y-3 leading-relaxed border-t border-slate-800/60 bg-slate-900/20">
+                    <p class="pt-3">
+                        <strong class="text-amber-400 font-semibold">L'Apparecchio:</strong> Il voltmetro-amperometro a Gauss è uno strumento didattico e da laboratorio storico basato sull'interazione elettromagnetica tra una bobina fissa percorsa da corrente e un nucleo/indice mobile.
+                    </p>
+                    <p>
+                        <strong class="text-amber-400 font-semibold">Funzione Voltmetro vs Amperometro:</strong> Collegando una resistenza di shunt opportuna in parallelo o in serie, lo strumento misura rispettivamente la differenza di potenziale (in Volt) o l'intensità di corrente (in Ampere) applicata ai morsetti sulla base in legno.
+                    </p>
+                    <p>
+                        <strong class="text-amber-400 font-semibold">Il Quadrante Curvo:</strong> La grande scala graduata semicircolare permette di leggere direttamente il valore grazie allo spostamento dell'ago a barra con punta rossa, calibrato secondo la legge di Ohm (<strong class="text-amber-300 font-mono">V = R · I</strong>).
+                    </p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="py-3 px-4 bg-[#070a10] border-t border-slate-900 text-center text-[10px] text-slate-500">
+            Simulazione Didattica Interattiva • Modello Storico Laboratorio di Fisica
+        </footer>
+
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // DOM Elements
+        const powerBtn = document.getElementById('powerBtn');
+        const powerBtnText = document.getElementById('powerBtnText');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        
+        const modeVoltBtn = document.getElementById('modeVoltBtn');
+        const modeAmpBtn = document.getElementById('modeAmpBtn');
+        const modeBadge = document.getElementById('modeBadge');
+        
+        const inputSlider = document.getElementById('inputSlider');
+        const inputVal = document.getElementById('inputVal');
+        const inputLabel = document.getElementById('inputLabel');
+        const minRangeLabel = document.getElementById('minRangeLabel');
+        const maxRangeLabel = document.getElementById('maxRangeLabel');
+
+        const shuntSlider = document.getElementById('shuntSlider');
+        const shuntVal = document.getElementById('shuntVal');
+
+        const accordionBtn = document.getElementById('accordionBtn');
+        const accordionContent = document.getElementById('accordionContent');
+        const accordionIcon = document.getElementById('accordionIcon');
+
+        // Simulation State
+        let isPoweredOn = false;
+        let measurementMode = 'volt'; // 'volt' or 'amp'
+        let inputValue = 1.25;
+        let shuntResistance = 5.0;
+        let historyData = [];
+        for(let i=0; i<50; i++) historyData.push(0);
+
+        // Canvas Setup
+        const simCanvas = document.getElementById('simCanvas');
+        const simCtx = simCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            simCanvas.width = simCanvas.parentElement.clientWidth;
+            simCanvas.height = 260;
+            graphCanvas.width = graphCanvas.parentElement.clientWidth;
+            graphCanvas.height = 120;
+        }
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        // Power Toggle
+        powerBtn.addEventListener('click', () => {
+            isPoweredOn = !isPoweredOn;
+            if (isPoweredOn) {
+                powerBtn.className = "w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-lg shadow-emerald-950/40 border border-emerald-500/30 active:scale-[0.98]";
+                powerBtnText.textContent = "Spegni Circuito Elettrico";
+                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] transition-colors duration-300 animate-pulse";
+                statusText.textContent = "Circuito Attivo";
+            } else {
+                powerBtn.className = "w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-lg shadow-red-950/40 border border-red-500/30 active:scale-[0.98]";
+                powerBtnText.textContent = "Accendi Circuito Elettrico";
+                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-red-500 transition-colors duration-300";
+                statusText.textContent = "Spento";
+            }
+        });
+
+        // Mode Switching
+        modeVoltBtn.addEventListener('click', () => {
+            measurementMode = 'volt';
+            modeVoltBtn.className = "py-2.5 px-3 rounded-xl text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow-md flex items-center justify-center gap-1.5 border border-amber-400";
+            modeAmpBtn.className = "py-2.5 px-3 rounded-xl text-xs font-semibold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center gap-1.5 border border-slate-700";
+            modeBadge.textContent = "Modo: Voltmetro";
+            inputLabel.textContent = "Tensione Applicata (V)";
+            inputSlider.min = "0";
+            inputSlider.max = "2.5";
+            inputSlider.step = "0.05";
+            inputValue = 1.25;
+            inputSlider.value = inputValue;
+            inputVal.textContent = inputValue.toFixed(2) + " V";
+            minRangeLabel.textContent = "0.0 V";
+            maxRangeLabel.textContent = "2.5 V";
+        });
+
+        modeAmpBtn.addEventListener('click', () => {
+            measurementMode = 'amp';
+            modeAmpBtn.className = "py-2.5 px-3 rounded-xl text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow-md flex items-center justify-center gap-1.5 border border-amber-400";
+            modeVoltBtn.className = "py-2.5 px-3 rounded-xl text-xs font-semibold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center gap-1.5 border border-slate-700";
+            modeBadge.textContent = "Modo: Amperometro";
+            inputLabel.textContent = "Corrente Applicata (A)";
+            inputSlider.min = "0";
+            inputSlider.max = "2.0";
+            inputSlider.step = "0.02";
+            inputValue = 1.0;
+            inputSlider.value = inputValue;
+            inputVal.textContent = inputValue.toFixed(2) + " A";
+            minRangeLabel.textContent = "0.0 A";
+            maxRangeLabel.textContent = "2.0 A";
+        });
+
+        // Sliders Listeners
+        inputSlider.addEventListener('input', (e) => {
+            inputValue = parseFloat(e.target.value);
+            inputVal.textContent = inputValue.toFixed(2) + (measurementMode === 'volt' ? " V" : " A");
+        });
+
+        shuntSlider.addEventListener('input', (e) => {
+            shuntResistance = parseFloat(e.target.value);
+            shuntVal.textContent = shuntResistance.toFixed(1) + " Ω";
+        });
+
+        // Accordion Toggle
+        accordionBtn.addEventListener('click', () => {
+            accordionContent.classList.toggle('hidden');
+            accordionIcon.classList.toggle('rotate-180');
+        });
+
+        // DRAW APPARATUS (Canvas)
+        function drawApparatus() {
+            const w = simCanvas.width;
+            const h = simCanvas.height;
+            simCtx.clearRect(0, 0, w, h);
+
+            // Background subtle grid
+            simCtx.strokeStyle = '#0f172a';
+            simCtx.lineWidth = 1;
+            for(let x=0; x<w; x+=30) {
+                simCtx.beginPath(); simCtx.moveTo(x, 0); simCtx.lineTo(x, h); simCtx.stroke();
+            }
+
+            // --- 1. UPPER DIAL PANEL (Curved white scale) ---
+            const dialCenterX = w / 2;
+            const dialCenterY = 95;
+            const dialRadius = 110;
+
+            // White dial plate
+            simCtx.fillStyle = '#f8fafc';
+            simCtx.beginPath();
+            simCtx.roundRect(40, 15, w - 80, 85, [8]);
+            simCtx.fill();
+            simCtx.strokeStyle = '#cbd5e1';
+            simCtx.lineWidth = 2;
+            simCtx.stroke();
+
+            // Arc scale line on dial
+            simCtx.strokeStyle = '#334155';
+            simCtx.lineWidth = 1.5;
+            simCtx.beginPath();
+            simCtx.arc(dialCenterX, dialCenterY + 40, 85, Math.PI * 1.2, Math.PI * 1.8);
+            simCtx.stroke();
+
+            // Dial graduations & numbers (0, 0.5, 1.0, 1.5, 2.0, 2.5)
+            const marks = [
+                { val: 0.0, label: '0' },
+                { val: 0.5, label: '0.5' },
+                { val: 1.0, label: '1.0' },
+                { val: 1.5, label: '1.5' },
+                { val: 2.0, label: '2.0' },
+                { val: 2.5, label: '2.5' }
+            ];
+
+            marks.forEach((m, idx) => {
+                let angle = Math.PI * 1.2 + (idx / (marks.length - 1)) * (Math.PI * 0.6);
+                let r1 = 80;
+                let r2 = 88;
+                let x1 = dialCenterX + r1 * Math.cos(angle);
+                let y1 = (dialCenterY + 40) + r1 * Math.sin(angle);
+                let x2 = dialCenterX + r2 * Math.cos(angle);
+                let y2 = (dialCenterY + 40) + r2 * Math.sin(angle);
+
+                simCtx.strokeStyle = '#1e293b';
+                simCtx.lineWidth = 1.5;
+                simCtx.beginPath();
+                simCtx.moveTo(x1, y1);
+                simCtx.lineTo(x2, y2);
+                simCtx.stroke();
+
+                // Text labels
+                let tx = dialCenterX + 65 * Math.cos(angle);
+                let ty = (dialCenterY + 40) + 65 * Math.sin(angle);
+                simCtx.fillStyle = '#0f172a';
+                simCtx.font = '10px Inter, sans-serif';
+                simCtx.textAlign = 'center';
+                simCtx.textBaseline = 'middle';
+                simCtx.fillText(m.label, tx, ty);
+            });
+
+            // 4 Corner screws on dial
+            [ {x: 52, y: 25}, {x: w-52, y: 25}, {x: 52, y: 90}, {x: w-52, y: 90} ].forEach(scr => {
+                simCtx.fillStyle = '#94a3b8';
+                simCtx.beginPath();
+                simCtx.arc(scr.x, scr.y, 3.5, 0, Math.PI*2);
+                simCtx.fill();
+                simCtx.strokeStyle = '#475569';
+                simCtx.stroke();
+            });
+
+            // --- 2. WOODEN BASE (Bottom) ---
+            simCtx.fillStyle = '#2d1810';
+            simCtx.fillRect(25, h - 55, w - 50, 42);
+            simCtx.strokeStyle = '#4a2818';
+            simCtx.lineWidth = 2;
+            simCtx.strokeRect(25, h - 55, w - 50, 42);
+            // Wood texture highlight
+            simCtx.fillStyle = 'rgba(255,255,255,0.06)';
+            simCtx.fillRect(30, h - 52, w - 60, 6);
+
+            // --- 3. TWO VERTICAL METALLIC RODS SUPPORTING DIAL ---
+            [60, w - 60].forEach(rx => {
+                simCtx.fillStyle = '#94a3b8';
+                simCtx.fillRect(rx - 5, 95, 10, h - 95 - 55);
+                simCtx.strokeStyle = '#64748b';
+                simCtx.strokeRect(rx - 5, 95, 10, h - 95 - 55);
+            });
+
+            // --- 4. CENTRAL COPPER COIL & SHUNT RESISTOR ON BASE ---
+            const coilX = dialCenterX;
+            const coilY = h - 75;
+
+            // Copper Coil Cylinder
+            simCtx.fillStyle = '#b45309';
+            simCtx.fillRect(coilX - 16, coilY - 15, 32, 28);
+            simCtx.strokeStyle = '#d97706';
+            simCtx.lineWidth = 1.5;
+            simCtx.strokeRect(coilX - 16, coilY - 15, 32, 28);
+            
+            // Coil windings horizontal lines
+            simCtx.strokeStyle = '#78350f';
+            for(let wy = coilY - 12; wy < coilY + 10; wy += 4) {
+                simCtx.beginPath();
+                simCtx.moveTo(coilX - 16, wy);
+                simCtx.lineTo(coilX + 16, wy);
+                simCtx.stroke();
+            }
+
+            // Shunt Resistor on left of coil
+            simCtx.fillStyle = '#475569';
+            simCtx.fillRect(coilX - 85, coilY - 5, 45, 12);
+            simCtx.strokeStyle = '#334155';
+            simCtx.strokeRect(coilX - 85, coilY - 5, 45, 12);
+            // Shunt spirals
+            simCtx.strokeStyle = '#cbd5e1';
+            for(let sx = coilX - 80; sx < coilX - 45; sx += 5) {
+                simCtx.beginPath();
+                simCtx.moveTo(sx, coilY - 5);
+                simCtx.lineTo(sx + 2, coilY + 7);
+                simCtx.stroke();
+            }
+
+            // Connecting green/copper wires
+            simCtx.strokeStyle = '#059669';
+            simCtx.lineWidth = 3;
+            simCtx.beginPath();
+            simCtx.moveTo(coilX - 40, coilY + 1);
+            simCtx.lineTo(coilX - 16, coilY + 1);
+            simCtx.moveTo(coilX + 16, coilY + 1);
+            simCtx.lineTo(coilX + 45, coilY + 1);
+            simCtx.stroke();
+
+            // --- 5. MOVING NEEDLE (Bar with red tip) ---
+            let targetVal = inputValue;
+            let maxVal = measurementMode === 'volt' ? 2.5 : 2.0;
+            let ratio = isPoweredOn ? Math.min(Math.max(targetVal / maxVal, 0), 1) : 0;
+            
+            // Calculate needle angle on dial
+            let minAngle = Math.PI * 1.2;
+            let maxAngle = Math.PI * 1.8;
+            let currentAngle = minAngle + ratio * (maxAngle - minAngle);
+
+            let pivotX = dialCenterX;
+            let pivotY = coilY - 22;
+
+            // Draw pivot joint
+            simCtx.fillStyle = '#d4af37';
+            simCtx.beginPath();
+            simCtx.arc(pivotX, pivotY, 6, 0, Math.PI*2);
+            simCtx.fill();
+            simCtx.strokeStyle = '#b8860b';
+            simCtx.stroke();
+
+            // Needle arm length reaching up to dial arc
+            let needleLength = 95;
+            let tipX = pivotX + needleLength * Math.cos(currentAngle);
+            let tipY = pivotY + needleLength * Math.sin(currentAngle);
+
+            // Draw long metal bar needle
+            simCtx.strokeStyle = '#94a3b8';
+            simCtx.lineWidth = 3;
+            simCtx.beginPath();
+            simCtx.moveTo(pivotX, pivotY);
+            simCtx.lineTo(tipX, tipY);
+            simCtx.stroke();
+
+            // Red tip on needle
+            let redTipLen = 25;
+            let rTipX = pivotX + needleLength * Math.cos(currentAngle);
+            let rTipY = pivotY + needleLength * Math.sin(currentAngle);
+            let startRedX = pivotX + (needleLength - redTipLen) * Math.cos(currentAngle);
+            let startRedY = pivotY + (needleLength - redTipLen) * Math.sin(currentAngle);
+
+            simCtx.strokeStyle = '#ef4444';
+            simCtx.lineWidth = 4;
+            simCtx.beginPath();
+            simCtx.moveTo(startRedX, startRedY);
+            simCtx.lineTo(rTipX, rTipY);
+            simCtx.stroke();
+
+            // Tip point glow if active
+            if(isPoweredOn) {
+                simCtx.shadowColor = '#ef4444';
+                simCtx.shadowBlur = 10;
+                simCtx.fillStyle = '#f87171';
+                simCtx.beginPath();
+                simCtx.arc(rTipX, rTipY, 3.5, 0, Math.PI*2);
+                simCtx.fill();
+                simCtx.shadowBlur = 0;
+            }
+        }
+
+        // DRAW GRAPH (Oscilloscope / Line Chart)
+        function drawGraph() {
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            graphCtx.clearRect(0, 0, w, h);
+
+            // Grid lines
+            graphCtx.strokeStyle = '#1e293b';
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, h/2); graphCtx.lineTo(w, h/2);
+            graphCtx.stroke();
+
+            // Update history data array
+            let currentMeasured = isPoweredOn ? inputValue : 0;
+            historyData.shift();
+            historyData.push(currentMeasured);
+
+            // Draw line chart
+            graphCtx.strokeStyle = '#d4af37';
+            graphCtx.lineWidth = 2.5;
+            graphCtx.beginPath();
+
+            let maxVal = measurementMode === 'volt' ? 2.5 : 2.0;
+            let stepX = w / (historyData.length - 1);
+
+            for (let i = 0; i < historyData.length; i++) {
+                let val = historyData[i];
+                let px = i * stepX;
+                let py = h - (val / maxVal) * (h - 20) - 10;
+
+                if (i === 0) graphCtx.moveTo(px, py);
+                else graphCtx.lineTo(px, py);
+            }
+            graphCtx.stroke();
+
+            // Gradient fill under graph line
+            graphCtx.lineTo(w, h);
+            graphCtx.lineTo(0, h);
+            graphCtx.fillStyle = 'rgba(212, 175, 55, 0.08)';
+            graphCtx.fill();
+        }
+
+        // ANIMATION LOOP
+        function animate() {
+            drawApparatus();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
