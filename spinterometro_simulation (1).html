@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spinterometro Storico Interattivo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- KaTeX CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Custom Touch Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: #1e293b;
+            height: 10px;
+            border-radius: 5px;
+            outline: none;
+            border: 1px solid #334155;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+            border: 2px solid #ffffff;
+        }
+
+        input[type=range]::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+            border: 2px solid #ffffff;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between p-2.5 sm:p-4 max-w-md mx-auto">
+
+    <!-- Header Banner -->
+    <header class="w-full mb-2">
+        <div class="bg-slate-900/95 p-3 rounded-2xl border border-slate-800 shadow-xl flex items-center justify-between">
+            <div>
+                <h1 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-bolt-lightning text-amber-300"></i> Spinterometro Storico
+                </h1>
+                <p class="text-[11px] text-slate-400">Collezione Fisica • Elettrodinamica</p>
+            </div>
+            <!-- Audio toggle button -->
+            <button id="audioToggle" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 px-3 py-2 rounded-xl border border-slate-700 text-xs flex items-center gap-1.5 transition">
+                <i id="audioIcon" class="fa-solid fa-volume-xmark text-rose-400"></i>
+                <span id="audioText" class="font-medium text-[11px]">Muto</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Canvas & Interaction Container -->
+    <main class="flex-1 flex flex-col justify-center space-y-2.5">
+        
+        <!-- Interactive Canvas Card -->
+        <div class="relative w-full bg-slate-950 border-2 border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center">
+            
+            <canvas id="simCanvas" class="w-full h-72 block cursor-ew-resize"></canvas>
+
+            <!-- Touch Hint Overlay -->
+            <div class="absolute bottom-2 right-2.5 px-2.5 py-1 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-lg text-[10px] text-slate-300 flex items-center gap-1 pointer-events-none">
+                <i class="fa-solid fa-hand-pointer text-amber-400"></i> Trascina le aste nere
+            </div>
+
+            <!-- Dynamic State Badge -->
+            <div id="statusBadge" class="absolute top-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 backdrop-blur-md">
+                <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="statusText">Aria Isolante</span>
+            </div>
+
+            <!-- Dielectric Field Saturation Indicator Bar -->
+            <div class="w-full bg-slate-900/90 px-3 py-1.5 border-t border-slate-800/80 flex items-center gap-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campo $E/E_d$:</span>
+                <div class="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden relative border border-slate-700">
+                    <div id="satBar" class="bg-amber-400 h-full w-0 transition-all duration-75"></div>
+                </div>
+                <span id="satPct" class="text-[11px] font-mono font-bold text-amber-400 w-10 text-right">0%</span>
+            </div>
+        </div>
+
+        <!-- Telemetry Metrics Grid -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 flex flex-col">
+                <span class="text-slate-400 text-[10px] uppercase font-semibold">Tensione Applicata ($V$)</span>
+                <span id="valV" class="text-base font-bold font-mono text-amber-400 mt-0.5">0.0 kV</span>
+            </div>
+            <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 flex flex-col">
+                <span class="text-slate-400 text-[10px] uppercase font-semibold">Distanza Elettrodi ($d$)</span>
+                <span id="valD" class="text-base font-bold font-mono text-sky-400 mt-0.5">15.0 mm</span>
+            </div>
+            <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 flex flex-col">
+                <span class="text-slate-400 text-[10px] uppercase font-semibold">Campo Elettrico ($E$)</span>
+                <span id="valE" class="text-base font-bold font-mono text-purple-400 mt-0.5">0.00 kV/mm</span>
+            </div>
+            <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 flex flex-col">
+                <span class="text-slate-400 text-[10px] uppercase font-semibold">Tensione Critica ($V_c$)</span>
+                <span id="valVc" class="text-base font-bold font-mono text-rose-400 mt-0.5">45.0 kV</span>
+            </div>
+        </div>
+
+        <!-- Controls Box -->
+        <div class="bg-slate-900/95 p-3.5 rounded-2xl border border-slate-800 shadow-lg space-y-3">
+            
+            <!-- Voltage Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="sliderV" class="font-medium text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-amber-400"></i> Tensione Generatore ($V$)
+                    </label>
+                    <span id="sliderVLabel" class="text-amber-400 font-mono font-bold">15 kV</span>
+                </div>
+                <input type="range" id="sliderV" min="0" max="60" step="0.5" value="15">
+            </div>
+
+            <!-- Distance Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <label for="sliderD" class="font-medium text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-left-right text-sky-400"></i> Distanza Elettrodi ($d$)
+                    </label>
+                    <span id="sliderDLabel" class="text-sky-400 font-mono font-bold">15 mm</span>
+                </div>
+                <input type="range" id="sliderD" min="1" max="50" step="0.5" value="15">
+            </div>
+
+            <!-- Action Buttons Grid -->
+            <div class="grid grid-cols-2 gap-2 pt-1">
+                <button id="pwrBtn" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-slate-950 font-bold py-2.5 px-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-power-off"></i> <span id="pwrBtnText">Generatore OFF</span>
+                </button>
+                <button id="pulseBtn" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 font-bold py-2.5 px-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-bolt"></i> Impulso Scarica
+                </button>
+            </div>
+        </div>
+
+        <!-- Accordion Physics Theory -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden text-xs">
+            <button id="theoryToggle" class="w-full p-3 text-left font-semibold text-slate-300 flex justify-between items-center bg-slate-900 hover:bg-slate-800/80 transition">
+                <span class="flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap text-amber-400"></i> Principi Fisici e Formule
+                </span>
+                <i id="theoryChevron" class="fa-solid fa-chevron-down text-slate-400 transition-transform duration-200"></i>
+            </button>
+            <div id="theoryContent" class="p-3.5 hidden space-y-2 border-t border-slate-800 text-slate-300">
+                <p>Lo <strong>spinterometro</strong> misura o scarica alte tensioni quando il campo elettrico tra le due sfere supera la rigidità dielettrica dell'aria:</p>
+                <div class="bg-slate-950 p-2 rounded-xl text-center text-amber-300 overflow-x-auto border border-slate-800/80 my-1">
+                    <span id="mathEd"></span>
+                </div>
+                <p>Il campo elettrico uniforme approssimato tra le sfere vale:</p>
+                <div class="bg-slate-950 p-2 rounded-xl text-center text-sky-300 overflow-x-auto border border-slate-800/80 my-1">
+                    <span id="mathE"></span>
+                </div>
+                <p>Innesco dell'arco elettrico (scintilla) per:</p>
+                <div class="bg-slate-950 p-2 rounded-xl text-center text-rose-400 overflow-x-auto border border-slate-800/80 my-1">
+                    <span id="mathSpark"></span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-[10px] text-slate-500 py-1 font-medium">
+        Riproduzione fedele dello spinterometro d'epoca con basi a treppiede in ghisa
+    </footer>
+
+    <script>
+        // Physical Constants
+        const Ed = 3.0; // Air dielectric strength in kV/mm
+
+        // State Variables
+        let V = 15; // Applied voltage (kV)
+        let d = 15; // Distance between spark gap electrodes (mm)
+        let isPowerOn = false;
+        let isPulsing = false;
+        let pulseFrames = 0;
+        let isMuted = true;
+        let isDragging = false;
+
+        // Web Audio API Context
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playArcSound() {
+            if (isMuted || !audioCtx) return;
+
+            try {
+                const bufferSize = audioCtx.sampleRate * 0.05;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 2500 + Math.random() * 1000;
+                filter.Q.value = 4;
+
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                noise.start();
+            } catch(e) {}
+        }
+
+        // DOM Elements
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderV = document.getElementById('sliderV');
+        const sliderD = document.getElementById('sliderD');
+        const sliderVLabel = document.getElementById('sliderVLabel');
+        const sliderDLabel = document.getElementById('sliderDLabel');
+        const valV = document.getElementById('valV');
+        const valD = document.getElementById('valD');
+        const valE = document.getElementById('valE');
+        const valVc = document.getElementById('valVc');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const satBar = document.getElementById('satBar');
+        const satPct = document.getElementById('satPct');
+        const pwrBtn = document.getElementById('pwrBtn');
+        const pwrBtnText = document.getElementById('pwrBtnText');
+        const pulseBtn = document.getElementById('pulseBtn');
+        const audioToggle = document.getElementById('audioToggle');
+        const audioIcon = document.getElementById('audioIcon');
+        const audioText = document.getElementById('audioText');
+        const theoryToggle = document.getElementById('theoryToggle');
+        const theoryContent = document.getElementById('theoryContent');
+        const theoryChevron = document.getElementById('theoryChevron');
+
+        function renderMathFormulas() {
+            try {
+                katex.render("E_d \\approx 3\\text{ kV/mm}", document.getElementById('mathEd'), { displayMode: true });
+                katex.render("E = \\frac{V}{d}", document.getElementById('mathE'), { displayMode: true });
+                katex.render("E \\ge E_d \\implies V \\ge V_c = d \\cdot E_d", document.getElementById('mathSpark'), { displayMode: true });
+            } catch (err) {}
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        // Particle Spark Effect
+        const sparkParticles = [];
+        function emitSparkParticles(x, y) {
+            for (let i = 0; i < 10; i++) {
+                sparkParticles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 7,
+                    vy: (Math.random() - 0.5) * 7,
+                    radius: Math.random() * 2 + 1,
+                    life: 1.0,
+                    color: Math.random() > 0.4 ? '#38bdf8' : '#fbbf24'
+                });
+            }
+        }
+
+        function updateAndDrawParticles() {
+            for (let i = sparkParticles.length - 1; i >= 0; i--) {
+                const p = sparkParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.09;
+
+                if (p.life <= 0) {
+                    sparkParticles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // DRAW CAST-IRON TRIPOD STAND BASE (Matches Photo)
+        function drawTripodBase(x, y) {
+            ctx.save();
+            
+            // Cast iron dark bronze finish
+            const baseGrad = ctx.createLinearGradient(x - 30, y, x + 30, y);
+            baseGrad.addColorStop(0, '#1c1917');
+            baseGrad.addColorStop(0.5, '#44403c');
+            baseGrad.addColorStop(1, '#0c0a09');
+
+            // Central Hub
+            ctx.fillStyle = baseGrad;
+            ctx.beginPath();
+            ctx.ellipse(x, y + 2, 16, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tripod Legs
+            ctx.strokeStyle = '#292524';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+
+            // Left leg
+            ctx.beginPath();
+            ctx.moveTo(x, y + 2);
+            ctx.lineTo(x - 34, y + 20);
+            ctx.stroke();
+
+            // Right leg
+            ctx.beginPath();
+            ctx.moveTo(x, y + 2);
+            ctx.lineTo(x + 34, y + 20);
+            ctx.stroke();
+
+            // Center leg
+            ctx.beginPath();
+            ctx.moveTo(x, y + 2);
+            ctx.lineTo(x, y + 25);
+            ctx.stroke();
+
+            // Rounded feet pads
+            ctx.fillStyle = '#1c1917';
+            [{px: x - 34, py: y + 20}, {px: x + 34, py: y + 20}, {px: x, py: y + 25}].forEach(foot => {
+                ctx.beginPath();
+                ctx.arc(foot.px, foot.py, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Brass Collet collar at column base
+            const brassGrad = ctx.createLinearGradient(x - 7, y - 8, x + 7, y);
+            brassGrad.addColorStop(0, '#d97706');
+            brassGrad.addColorStop(0.5, '#fef08a');
+            brassGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = brassGrad;
+            ctx.fillRect(x - 7, y - 10, 14, 12);
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - 7, y - 10, 14, 12);
+
+            ctx.restore();
+        }
+
+        // DRAW TRANSPARENT GLASS COLUMN WITH BRASS FITTINGS
+        function drawGlassColumn(x, topY, bottomY) {
+            ctx.save();
+            const colWidth = 9;
+            const height = bottomY - topY;
+
+            // Glass tube transparent gradient
+            const glassGrad = ctx.createLinearGradient(x - colWidth/2, topY, x + colWidth/2, topY);
+            glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+            glassGrad.addColorStop(0.3, 'rgba(254, 243, 199, 0.45)');
+            glassGrad.addColorStop(0.7, 'rgba(253, 230, 138, 0.2)');
+            glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.2)');
+
+            ctx.fillStyle = glassGrad;
+            ctx.fillRect(x - colWidth/2, topY, colWidth, height);
+
+            // Reflection highlights
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x - colWidth/2 + 1.5, topY + 2);
+            ctx.lineTo(x - colWidth/2 + 1.5, bottomY - 2);
+            ctx.stroke();
+
+            // Inner amber column core accent
+            ctx.fillStyle = 'rgba(217, 119, 6, 0.3)';
+            ctx.fillRect(x - 1.5, topY + 2, 3, height - 4);
+
+            // Top Brass Clamp Block
+            const brassGrad = ctx.createLinearGradient(x - 9, topY - 10, x + 9, topY);
+            brassGrad.addColorStop(0, '#b45309');
+            brassGrad.addColorStop(0.5, '#fef08a');
+            brassGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = brassGrad;
+            ctx.fillRect(x - 8, topY - 10, 16, 12);
+            ctx.strokeStyle = '#78350f';
+            ctx.strokeRect(x - 8, topY - 10, 16, 12);
+
+            // Brass Top Finial Ball
+            ctx.beginPath();
+            ctx.arc(x, topY - 12, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // DRAW HORIZONTAL SLIDING METAL RODS WITH BLACK EBONITE HANDLES & SPHERES
+        function drawHorizontalAssembly(leftColX, rightColX, topY, currentGapPx) {
+            ctx.save();
+
+            const sphereRadius = 9;
+            const handleLength = 65;
+
+            // Sphere tip positions
+            const leftBallX = leftColX + (currentGapPx < 100 ? (leftColX < rightColX ? (rightColX - leftColX - currentGapPx)/2 : 0) : 0);
+            const centerPoint = (leftColX + rightColX) / 2;
+
+            const ballLeftX = centerPoint - (currentGapPx / 2);
+            const ballRightX = centerPoint + (currentGapPx / 2);
+
+            // 1. LEFT ROD ASSEMBLY
+            const leftHandleX = ballLeftX - 110;
+            
+            // Metallic rod shaft
+            const rodGrad = ctx.createLinearGradient(0, topY - 2, 0, topY + 2);
+            rodGrad.addColorStop(0, '#fef08a');
+            rodGrad.addColorStop(0.5, '#f59e0b');
+            rodGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = rodGrad;
+            ctx.fillRect(leftHandleX, topY - 2, 110, 4);
+
+            // Black Ebonite Long Handle
+            const eboniteGrad = ctx.createLinearGradient(0, topY - 4, 0, topY + 4);
+            eboniteGrad.addColorStop(0, '#374151');
+            eboniteGrad.addColorStop(0.5, '#111827');
+            eboniteGrad.addColorStop(1, '#030712');
+
+            ctx.fillStyle = eboniteGrad;
+            ctx.fillRect(leftHandleX - handleLength, topY - 4, handleLength, 8);
+            ctx.beginPath();
+            ctx.arc(leftHandleX - handleLength, topY, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Left Brass Sphere Electrode
+            const sphereLeftGrad = ctx.createRadialGradient(
+                ballLeftX + 2, topY - 3, 1,
+                ballLeftX, topY, sphereRadius
+            );
+            sphereLeftGrad.addColorStop(0, '#ffffff');
+            sphereLeftGrad.addColorStop(0.3, '#fef08a');
+            sphereLeftGrad.addColorStop(0.7, '#d97706');
+            sphereLeftGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = sphereLeftGrad;
+            ctx.beginPath();
+            ctx.arc(ballLeftX, topY, sphereRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 2. RIGHT ROD ASSEMBLY
+            const rightHandleX = ballRightX + 110;
+
+            // Metallic rod shaft
+            ctx.fillStyle = rodGrad;
+            ctx.fillRect(ballRightX, topY - 2, 110, 4);
+
+            // Black Ebonite Long Handle
+            ctx.fillStyle = eboniteGrad;
+            ctx.fillRect(rightHandleX, topY - 4, handleLength, 8);
+            ctx.beginPath();
+            ctx.arc(rightHandleX + handleLength, topY, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Right Brass Sphere Electrode
+            const sphereRightGrad = ctx.createRadialGradient(
+                ballRightX - 2, topY - 3, 1,
+                ballRightX, topY, sphereRadius
+            );
+            sphereRightGrad.addColorStop(0, '#ffffff');
+            sphereRightGrad.addColorStop(0.3, '#fef08a');
+            sphereRightGrad.addColorStop(0.7, '#d97706');
+            sphereRightGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = sphereRightGrad;
+            ctx.beginPath();
+            ctx.arc(ballRightX, topY, sphereRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#78350f';
+            ctx.stroke();
+
+            // Electric Field Field Glow
+            if (isPowerOn && V > 0) {
+                const intensity = Math.min(V / 50, 1.0);
+                [ballLeftX, ballRightX].forEach(bx => {
+                    const fieldGlow = ctx.createRadialGradient(bx, topY, sphereRadius, bx, topY, sphereRadius + 14 * intensity);
+                    fieldGlow.addColorStop(0, 'rgba(56, 189, 248, ' + (0.45 * intensity) + ')');
+                    fieldGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                    ctx.fillStyle = fieldGlow;
+                    ctx.beginPath();
+                    ctx.arc(bx, topY, sphereRadius + 14 * intensity, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            ctx.restore();
+
+            return { ballLeftX, ballRightX, ballY: topY };
+        }
+
+        // Electric Spark Generator
+        function drawElectricArc(x1, y1, x2, y2) {
+            ctx.save();
+            const distance = x2 - x1;
+            const segments = 14;
+            const points = [{ x: x1, y: y1 }];
+
+            let currentX = x1;
+            const stepX = distance / segments;
+
+            for (let i = 1; i < segments; i++) {
+                currentX += stepX;
+                const jitterY = y1 + (Math.random() - 0.5) * Math.min(22, distance * 0.45);
+                points.push({ x: currentX, y: jitterY });
+            }
+            points.push({ x: x2, y: y2 });
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 5;
+            ctx.shadowColor = '#0284c7';
+            ctx.shadowBlur = 16;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.restore();
+            emitSparkParticles((x1 + x2) / 2, y1);
+        }
+
+        // Draw 2-Euro Reference Coin Centered on Ground (Matches Photo)
+        function drawScaleCoin(x, y) {
+            ctx.save();
+            
+            // Outer silver ring
+            const coinGrad = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, 10);
+            coinGrad.addColorStop(0, '#f8fafc');
+            coinGrad.addColorStop(0.6, '#94a3b8');
+            coinGrad.addColorStop(1, '#475569');
+
+            ctx.fillStyle = coinGrad;
+            ctx.beginPath();
+            ctx.ellipse(x, y, 11, 4.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner brass/gold core
+            const coreGrad = ctx.createRadialGradient(x - 1, y - 1, 1, x, y, 5);
+            coreGrad.addColorStop(0, '#fef08a');
+            coreGrad.addColorStop(0.7, '#d97706');
+            coreGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.ellipse(x, y, 6.5, 2.8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Scale Label
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("Moneta di riferimento (scala)", x, y + 16);
+
+            ctx.restore();
+        }
+
+        // Main Simulation Render Loop
+        function render() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // LIGHT LABORATORY SURFACE (Matching Photo Background)
+            const floorGrad = ctx.createLinearGradient(0, height - 55, 0, height);
+            floorGrad.addColorStop(0, '#e2e8f0');
+            floorGrad.addColorStop(0.5, '#cbd5e1');
+            floorGrad.addColorStop(1, '#94a3b8');
+            ctx.fillStyle = floorGrad;
+            ctx.fillRect(0, height - 55, width, 55);
+
+            // Table Border Shadow Line
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, height - 55);
+            ctx.lineTo(width, height - 55);
+            ctx.stroke();
+
+            // Reference Scale Coin Centered
+            drawScaleCoin(width / 2, height - 28);
+
+            // Dynamic Gap Calculation in Pixels (d: 1mm to 50mm)
+            const minGapPx = 16;
+            const maxGapPx = width * 0.42;
+            const gapPx = minGapPx + ((d - 1) / 49) * (maxGapPx - minGapPx);
+
+            // Stand Column Center X Positions (Fixed distance apart)
+            const leftColX = (width / 2) - 65;
+            const rightColX = (width / 2) + 65;
+
+            const topY = 85;
+            const bottomY = height - 60;
+
+            // Draw Left Stand Assembly
+            drawTripodBase(leftColX, bottomY);
+            drawGlassColumn(leftColX, topY, bottomY);
+
+            // Draw Right Stand Assembly
+            drawTripodBase(rightColX, bottomY);
+            drawGlassColumn(rightColX, topY, bottomY);
+
+            // Draw Horizontal Sliding Rods with Spheres and Ebonite Handles
+            const pos = drawHorizontalAssembly(leftColX, rightColX, topY, gapPx);
+
+            // Dimension Ruler Overlay
+            ctx.save();
+            ctx.strokeStyle = '#475569';
+            ctx.fillStyle = '#0ea5e9';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+
+            ctx.beginPath();
+            ctx.moveTo(pos.ballLeftX, topY - 24);
+            ctx.lineTo(pos.ballRightX, topY - 24);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(pos.ballLeftX, topY - 28); ctx.lineTo(pos.ballLeftX, topY - 20);
+            ctx.moveTo(pos.ballRightX, topY - 28); ctx.lineTo(pos.ballRightX, topY - 20);
+            ctx.stroke();
+
+            ctx.fillText(`d = ${d.toFixed(1)} mm`, width / 2, topY - 30);
+            ctx.restore();
+
+            // Calculate Physics & Breakdown State
+            const E = d > 0 ? (V / d) : 0;
+            const Vc = d * Ed;
+
+            let isSparkActive = false;
+
+            if (isPowerOn && V > 0 && E >= Ed) {
+                isSparkActive = true;
+            } else if (isPulsing) {
+                if (V > 0 && E >= Ed) {
+                    isSparkActive = true;
+                }
+                pulseFrames--;
+                if (pulseFrames <= 0) isPulsing = false;
+            }
+
+            // Draw Spark Arc
+            if (isSparkActive) {
+                drawElectricArc(pos.ballLeftX, topY, pos.ballRightX, topY);
+                playArcSound();
+
+                statusBadge.className = "absolute top-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center gap-1.5 backdrop-blur-md shadow-lg shadow-rose-950/50";
+                statusDot.className = "w-2 h-2 rounded-full bg-rose-400 animate-ping";
+                statusText.innerText = "SCARICA DIELETTRICA!";
+            } else {
+                statusBadge.className = "absolute top-2.5 left-2.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 backdrop-blur-md";
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                statusText.innerText = "Aria Isolante";
+            }
+
+            updateAndDrawParticles();
+
+            // Update Telemetry Display
+            valV.innerText = `${V.toFixed(1)} kV`;
+            valD.innerText = `${d.toFixed(1)} mm`;
+            valE.innerText = `${E.toFixed(2)} kV/mm`;
+            valVc.innerText = `${Vc.toFixed(1)} kV`;
+
+            // Update Saturation Bar
+            const saturation = Math.min((E / Ed) * 100, 100);
+            satBar.style.width = `${saturation}%`;
+            satPct.innerText = `${Math.round(saturation)}%`;
+
+            if (saturation >= 100) {
+                satBar.className = "bg-rose-500 h-full transition-all duration-75";
+                satPct.className = "text-[11px] font-mono font-bold text-rose-400 w-10 text-right";
+            } else {
+                satBar.className = "bg-amber-400 h-full transition-all duration-75";
+                satPct.className = "text-[11px] font-mono font-bold text-amber-400 w-10 text-right";
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Touch & Drag Handling
+        function handleDragMove(clientX) {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const relX = clientX - rect.left;
+            const norm = Math.max(0.05, Math.min(0.95, relX / rect.width));
+
+            d = Math.max(1, Math.min(50, Math.round(norm * 50)));
+            sliderD.value = d;
+            sliderDLabel.innerText = `${d.toFixed(1)} mm`;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            initAudio();
+            isDragging = true;
+            handleDragMove(e.clientX);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) handleDragMove(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        canvas.addEventListener('touchstart', (e) => {
+            initAudio();
+            if (e.touches.length > 0) {
+                isDragging = true;
+                handleDragMove(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length > 0) {
+                handleDragMove(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        // Controls
+        sliderV.addEventListener('input', (e) => {
+            V = parseFloat(e.target.value);
+            sliderVLabel.innerText = `${V.toFixed(1)} kV`;
+        });
+
+        sliderD.addEventListener('input', (e) => {
+            d = parseFloat(e.target.value);
+            sliderDLabel.innerText = `${d.toFixed(1)} mm`;
+        });
+
+        pwrBtn.addEventListener('click', () => {
+            initAudio();
+            isPowerOn = !isPowerOn;
+
+            if (isPowerOn) {
+                pwrBtnText.innerText = "Generatore ON";
+                pwrBtn.className = "bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 active:scale-95 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-1.5";
+                pulseBtn.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                pwrBtnText.innerText = "Generatore OFF";
+                pwrBtn.className = "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-slate-950 font-bold py-2.5 px-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-1.5";
+                pulseBtn.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        });
+
+        pulseBtn.addEventListener('click', () => {
+            initAudio();
+            isPulsing = true;
+            pulseFrames = 15;
+        });
+
+        audioToggle.addEventListener('click', () => {
+            initAudio();
+            isMuted = !isMuted;
+
+            if (isMuted) {
+                audioIcon.className = "fa-solid fa-volume-xmark text-rose-400";
+                audioText.innerText = "Muto";
+            } else {
+                audioIcon.className = "fa-solid fa-volume-high text-emerald-400";
+                audioText.innerText = "Audio";
+            }
+        });
+
+        theoryToggle.addEventListener('click', () => {
+            const isHidden = theoryContent.classList.contains('hidden');
+            if (isHidden) {
+                theoryContent.classList.remove('hidden');
+                theoryChevron.style.transform = 'rotate(180deg)';
+            } else {
+                theoryContent.classList.add('hidden');
+                theoryChevron.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        window.onload = () => {
+            resizeCanvas();
+            renderMathFormulas();
+            pulseBtn.classList.remove('opacity-50', 'pointer-events-none');
+            requestAnimationFrame(render);
+        };
+    </script>
+</body>
+</html>
