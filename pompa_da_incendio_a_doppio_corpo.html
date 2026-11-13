@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pompa da Incendio a Doppio Corpo - Laboratorio di Fisica</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            background: #38bdf8;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sticky top-0 z-30 flex items-center justify-between shrink-0 shadow-lg">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-inner">
+                <i class="fa-solid fa-water text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xs tracking-tight text-slate-100">Pompa a Doppio Corpo</h1>
+                <p class="text-[10px] text-slate-400">Collezione Fisica (Anni '60)</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleModal(true)" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition active:scale-95 shadow-sm" aria-label="Scheda tecnica">
+                <i class="fa-solid fa-file-lines text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container (Portrait Optimized) -->
+    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3 overflow-y-auto">
+
+        <!-- Visual Simulation Card (Canvas Apparatus) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col relative shadow-xl shrink-0">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-slate-500" id="status-dot"></span>
+                    <span id="status-text-badge">Pompa in Pausa</span>
+                </span>
+                <span id="stroke-badge" class="text-xs font-mono bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md text-cyan-400 shadow-inner">
+                    Fase: 0.0 Hz
+                </span>
+            </div>
+
+            <!-- Canvas Wrapper (Apparatus Rendering) -->
+            <div class="w-full h-64 bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden relative flex items-center justify-center shadow-inner">
+                <canvas id="pumpCanvas" class="w-full h-full block"></canvas>
+                
+                <!-- Overlay Instructions -->
+                <div id="canvas-overlay" class="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 text-center transition-opacity duration-300 pointer-events-none">
+                    <p class="text-xs text-slate-300 font-medium bg-slate-900/90 border border-slate-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2">
+                        <i class="fa-solid fa-play text-cyan-400"></i>
+                        <span>Avvia la pompa per simulare il flusso continuo</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Chamber Pressure Balance Bar -->
+            <div class="mt-3 space-y-1">
+                <div class="flex justify-between text-[11px] text-slate-400 font-medium">
+                    <span>Compensazione Vaschetta d'Aria</span>
+                    <span id="balance-val">Stabile</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden shadow-inner">
+                    <div id="balance-bar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full w-1/2 transition-all duration-200"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry & Physics Dashboard -->
+        <div class="grid grid-cols-3 gap-2 shrink-0">
+            <!-- Pressure P -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Pressione (P)</span>
+                <div class="my-1">
+                    <span id="telemetry-pressure" class="text-base font-bold font-mono text-cyan-400">0.0</span>
+                    <span class="text-[10px] text-slate-400">bar</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">F / Area pistone</span>
+            </div>
+            <!-- Flow Rate Q -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Portata (Q)</span>
+                <div class="my-1">
+                    <span id="telemetry-flow" class="text-base font-bold font-mono text-emerald-400">0</span>
+                    <span class="text-[10px] text-slate-400">L/min</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">Vol / Tempo</span>
+            </div>
+            <!-- Mechanism State -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Ciclo Doppio</span>
+                <div class="my-1">
+                    <span id="telemetry-state" class="text-xs font-bold font-mono text-amber-400 uppercase">Fermo</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">180° Sfasati</span>
+            </div>
+        </div>
+
+        <!-- Control Panel Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shrink-0 shadow-xl">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Pannello di Controllo</span>
+                <!-- Start/Pause Button -->
+                <button id="power-btn" onclick="togglePump()" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-medium text-xs transition active:scale-95 bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 shadow-sm">
+                    <i class="fa-solid fa-play text-sm" id="power-icon"></i>
+                    <span id="power-text">AVVIA</span>
+                </button>
+            </div>
+
+            <!-- Frequency / Speed Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-300 font-medium">Frequenza Pompaggio (Velocità)</span>
+                    <span id="speed-label" class="font-mono font-semibold text-cyan-400">1.5 Hz</span>
+                </div>
+                <input type="range" id="speed-slider" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateSpeed(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer shadow-inner">
+            </div>
+
+            <!-- Stroke Length Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-300 font-medium">Corsa Pistoni (Volume d'Acqua)</span>
+                    <span id="stroke-label" class="font-mono font-semibold text-emerald-400">80%</span>
+                </div>
+                <input type="range" id="stroke-slider" min="30" max="100" step="5" value="80" oninput="updateStroke(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer shadow-inner">
+            </div>
+
+            <!-- Preset Operating Modes -->
+            <div class="space-y-2 pt-1">
+                <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Preset Operativi</span>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setPreset('gentle')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-2 rounded-xl font-medium transition active:scale-95 flex flex-col items-center justify-center space-y-1 shadow-sm">
+                        <i class="fa-solid fa-feather text-cyan-400 text-xs"></i>
+                        <span>Lento</span>
+                    </button>
+                    <button onclick="setPreset('normal')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-2 rounded-xl font-medium transition active:scale-95 flex flex-col items-center justify-center space-y-1 shadow-sm">
+                        <i class="fa-solid fa-gauge text-emerald-400 text-xs"></i>
+                        <span>Standard</span>
+                    </button>
+                    <button onclick="setPreset('turbo')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-2 rounded-xl font-medium transition active:scale-95 flex flex-col items-center justify-center space-y-1 shadow-sm">
+                        <i class="fa-solid fa-fire text-amber-400 text-xs"></i>
+                        <span>Massimo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Educational & Technical Card Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open text-cyan-400"></i>
+                    <span>Scheda Tecnica dell'Oggetto</span>
+                </h3>
+                <button onclick="toggleModal(false)" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-1.5 font-mono text-[11px]">
+                    <div class="text-slate-400"><strong class="text-slate-200">Denominazione:</strong> Pompa da incendio a doppio corpo con vaschetta</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Data:</strong> Anni '60</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Collezione:</strong> Fisica (Sezione Meccanica)</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Materiali:</strong> Vetro, Metallo, Gomma</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Conservazione:</strong> Buono</div>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-cyan-400 mb-1">Descrizione e Funzione:</h4>
+                    <p class="text-slate-400">
+                        Apparecchio didattico che riproduce il funzionamento di una pompa antincendio. È costituita da due corpi cilindrici (primario e secondario), una vaschetta di raccolta e compensazione, valvole di non ritorno e condotti di mandata.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-emerald-400 mb-1">Principio di Funzionamento:</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                        <li><strong>Aspirazione:</strong> L'acqua viene prelevata dalla vaschetta inferiore attraverso valvole unidirezionali.</li>
+                        <li><strong>Compressione a Doppio Corpo:</strong> I due pistoni si muovono in opposizione di fase (180°). Quando un cilindro comprime, l'altro aspira.</li>
+                        <li><strong>Compensazione:</strong> La vaschetta d'aria intermedia attenua le pulsazioni, garantendo un getto d'acqua continuo e a pressione costante.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button onclick="toggleModal(false)" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold py-2.5 rounded-xl text-xs transition shadow-lg shadow-cyan-500/10">
+                Chiudi Scheda
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Simulation Engine -->
+    <script>
+        const state = {
+            running: false,
+            speed: 1.5, // Hz
+            stroke: 80, // %
+            time: 0,
+            pressure: 0,
+            flowRate: 0
+        };
+
+        const canvas = document.getElementById('pumpCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            requestAnimationFrame(loop);
+        });
+
+        // UI Elements
+        const powerBtn = document.getElementById('power-btn');
+        const powerIcon = document.getElementById('power-icon');
+        const powerText = document.getElementById('power-text');
+        const canvasOverlay = document.getElementById('canvas-overlay');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedLabel = document.getElementById('speed-label');
+        const strokeSlider = document.getElementById('stroke-slider');
+        const strokeLabel = document.getElementById('stroke-label');
+        const statusDot = document.getElementById('status-dot');
+        const statusTextBadge = document.getElementById('status-text-badge');
+        const strokeBadge = document.getElementById('stroke-badge');
+        const balanceBar = document.getElementById('balance-bar');
+        const balanceVal = document.getElementById('balance-val');
+        
+        const telemetryPressure = document.getElementById('telemetry-pressure');
+        const telemetryFlow = document.getElementById('telemetry-flow');
+        const telemetryState = document.getElementById('telemetry-state');
+
+        function togglePump() {
+            state.running = !state.running;
+            if (state.running) {
+                powerBtn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                powerBtn.classList.add('bg-cyan-500/20', 'border-cyan-500/50', 'text-cyan-400');
+                powerIcon.className = "fa-solid fa-pause text-sm text-cyan-400";
+                powerText.innerText = "PAUSA";
+                canvasOverlay.style.opacity = '0';
+                canvasOverlay.style.pointerEvents = 'none';
+            } else {
+                powerBtn.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                powerBtn.classList.remove('bg-cyan-500/20', 'border-cyan-500/50', 'text-cyan-400');
+                powerIcon.className = "fa-solid fa-play text-sm";
+                powerText.innerText = "AVVIA";
+                canvasOverlay.style.opacity = '1';
+                canvasOverlay.style.pointerEvents = 'auto';
+            }
+        }
+
+        function updateSpeed(val) {
+            state.speed = parseFloat(val);
+            speedLabel.innerText = state.speed.toFixed(1) + ' Hz';
+        }
+
+        function updateStroke(val) {
+            state.stroke = parseInt(val);
+            strokeLabel.innerText = state.stroke + '%';
+        }
+
+        function setPreset(type) {
+            if (!state.running) togglePump();
+            switch(type) {
+                case 'gentle':
+                    state.speed = 0.8;
+                    state.stroke = 50;
+                    break;
+                case 'normal':
+                    state.speed = 1.8;
+                    state.stroke = 80;
+                    break;
+                case 'turbo':
+                    state.speed = 3.5;
+                    state.stroke = 100;
+                    break;
+            }
+            speedSlider.value = state.speed;
+            speedLabel.innerText = state.speed.toFixed(1) + ' Hz';
+            strokeSlider.value = state.stroke;
+            strokeLabel.innerText = state.stroke + '%';
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('info-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        // Animation Loop
+        let animTime = 0;
+        function loop() {
+            if (state.running) {
+                animTime += 0.016 * state.speed * 2.5;
+                state.pressure = (1.2 + Math.sin(animTime * 6) * 0.2 * (state.stroke/100)).toFixed(1);
+                state.flowRate = Math.round(state.speed * state.stroke * 1.2);
+                
+                statusDot.className = "w-2 h-2 rounded-full bg-cyan-400 animate-pulse";
+                statusTextBadge.innerText = "Pompa in Funzione";
+                strokeBadge.innerText = `${state.speed.toFixed(1)} Hz`;
+                telemetryPressure.innerText = state.pressure;
+                telemetryFlow.innerText = state.flowRate;
+                telemetryState.innerText = "Alternato";
+                balanceBar.style.width = (75 + Math.sin(animTime * 12) * 15) + '%';
+                balanceVal.innerText = "Attiva (Compensata)";
+            } else {
+                statusDot.className = "w-2 h-2 rounded-full bg-slate-500";
+                statusTextBadge.innerText = "Pompa in Pausa";
+                strokeBadge.innerText = "0.0 Hz";
+                telemetryPressure.innerText = "0.0";
+                telemetryFlow.innerText = "0";
+                telemetryState.innerText = "Fermo";
+                balanceBar.style.width = "50%";
+                balanceVal.innerText = "Inerte";
+            }
+
+            renderPump();
+            requestAnimationFrame(loop);
+        }
+
+        function renderPump() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            ctx.clearRect(0, 0, width, height);
+
+            // Background
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            bgGrad.addColorStop(0, '#090d16');
+            bgGrad.addColorStop(1, '#020617');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const basinY = height - 40;
+
+            // 1. Water Basin (Vaschetta Inferiore)
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(centerX - 90, basinY - 35, 180, 45, [6, 6, 0, 0]);
+            ctx.fill(); ctx.stroke();
+
+            // Water inside basin
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+            ctx.fillRect(centerX - 86, basinY - 20, 172, 26);
+
+            // Water surface ripples
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let x = centerX - 80; x <= centerX + 80; x += 10) {
+                const waveY = basinY - 20 + Math.sin(animTime * 5 + x * 0.1) * 2;
+                ctx.moveTo(x, waveY);
+                ctx.lineTo(x + 5, waveY);
+            }
+            ctx.stroke();
+
+            // Suction pipe from basin to cylinders
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(centerX - 4, basinY - 65, 8, 45);
+
+            // 2. Dual Cylinders (Doppio Corpo Cilindrico)
+            const cylY = basinY - 110;
+            const cylWidth = 36;
+            const cylHeight = 65;
+            
+            const leftCylX = centerX - 55;
+            const rightCylX = centerX + 19;
+
+            // Left Cylinder
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(leftCylX, cylY, cylWidth, cylHeight, 4);
+            ctx.fill(); ctx.stroke();
+
+            // Right Cylinder
+            ctx.beginPath();
+            ctx.roundRect(rightCylX, cylY, cylWidth, cylHeight, 4);
+            ctx.fill(); ctx.stroke();
+
+            // 3. Pistons with 180 degree phase shift
+            const maxStrokeOffset = 25 * (state.stroke / 100);
+            const leftPistonOffset = state.running ? Math.sin(animTime * 4) * maxStrokeOffset : 0;
+            const rightPistonOffset = state.running ? Math.sin(animTime * 4 + Math.PI) * maxStrokeOffset : 0;
+
+            const basePistonY = cylY + 25;
+            
+            // Left Piston
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(leftCylX + 4, basePistonY + leftPistonOffset, cylWidth - 8, 12);
+            // Rod left
+            ctx.fillRect(centerX - 37, cylY - 25, 6, 30 + leftPistonOffset);
+
+            // Right Piston
+            ctx.fillRect(rightCylX + 4, basePistonY + rightPistonOffset, cylWidth - 8, 12);
+            // Rod right
+            ctx.fillRect(centerX + 31, cylY - 25, 6, 30 + rightPistonOffset);
+
+            // Rocking Lever / Beam at top connecting pistons
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            const leftTipY = cylY - 25 + leftPistonOffset * 0.3;
+            const rightTipY = cylY - 25 + rightPistonOffset * 0.3;
+            ctx.moveTo(centerX - 34, leftTipY);
+            ctx.lineTo(centerX + 34, rightTipY);
+            ctx.lineTo(centerX + 34, rightTipY + 8);
+            ctx.lineTo(centerX - 34, leftTipY + 8);
+            ctx.fill();
+
+            // Central Pivot
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.arc(centerX, cylY - 18, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. Air / Compensation Chamber (Vaschetta di compensazione al centro)
+            const compX = centerX - 18;
+            const compY = cylY - 60;
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(compX, compY, 36, 45, 8);
+            ctx.fill(); ctx.stroke();
+
+            // Water level in compensation chamber
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+            ctx.fillRect(compX + 2, compY + 15, 32, 26);
+
+            // 5. Output Nozzle & Water Jet
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(centerX - 4, compY - 15, 8, 20);
+
+            if (state.running) {
+                // Water stream jet shooting upward/outward
+                const jetGrad = ctx.createLinearGradient(0, compY - 15, 0, compY - 75);
+                jetGrad.addColorStop(0, '#38bdf8');
+                jetGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                
+                ctx.fillStyle = jetGrad;
+                ctx.beginPath();
+                ctx.moveTo(centerX - 3, compY - 15);
+                ctx.lineTo(centerX + 3, compY - 15);
+                ctx.lineTo(centerX + 6, compY - 75);
+                ctx.lineTo(centerX - 6, compY - 75);
+                ctx.fill();
+
+                // Spray droplets
+                for (let i = 0; i < 5; i++) {
+                    const dropY = compY - 30 - Math.random() * 50;
+                    const dropX = centerX + (Math.random() - 0.5) * 20;
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.fillRect(dropX, dropY, 2, 3);
+                }
+            }
+
+            // Labels on apparatus
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Vaschetta d\'Aria', centerX, compY - 20);
+            ctx.fillText('Corpo 1', leftCylX + cylWidth/2, cylY + cylHeight + 12);
+            ctx.fillText('Corpo 2', rightCylX + cylWidth/2, cylY + cylHeight + 12);
+        }
+    </script>
+</body>
+</html>
