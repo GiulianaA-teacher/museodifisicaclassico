@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Storica Macchina di Pacinotti</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #72bc44;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-[#72bc44] text-gray-800 antialiased select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay Header -->
+    <header class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/40 max-w-sm">
+        <h1 class="text-xl font-bold text-amber-900 flex items-center gap-2">
+            <svg class="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Macchina di Pacinotti (1860)
+        </h1>
+        <p class="text-xs text-gray-600 mt-1">
+            Simulazione fisica interattiva ad alta fedeltà. Dinamo-motore reversibile con indotto ad anello dentato.
+        </p>
+    </header>
+
+    <!-- Physics Dashboard Overlay (Top Right) -->
+    <div class="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/40 max-w-xs space-y-3">
+        <div class="flex items-center justify-between border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Telemetria Dinamo</span>
+            <span id="led-status" class="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                <span id="led-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> <span id="led-text">Generazione Attiva</span>
+            </span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-center">
+            <div class="bg-gray-50 p-2 rounded-xl border border-gray-200">
+                <div class="text-[10px] text-gray-500 font-medium">Tensione Indotta</div>
+                <div id="voltage-disp" class="text-lg font-bold text-amber-800">0.00 V</div>
+            </div>
+            <div class="bg-gray-50 p-2 rounded-xl border border-gray-200">
+                <div class="text-[10px] text-gray-500 font-medium">Corrente (I)</div>
+                <div id="current-disp" class="text-lg font-bold text-blue-700">0.00 A</div>
+            </div>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+            <span class="text-xs text-gray-600">Linee Campo Magnetico</span>
+            <button id="toggle-field" class="bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer">
+                Mostra
+            </button>
+        </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 bg-white/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl border border-white/40 flex flex-wrap items-center gap-6 max-w-xl w-full justify-center">
+        
+        <!-- Play / Pause Button -->
+        <button id="toggle-anim" class="flex items-center gap-2 bg-amber-700 hover:bg-amber-800 text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition-all transform active:scale-95 cursor-pointer">
+            <svg id="play-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+            <span id="play-text">Pausa</span>
+        </button>
+
+        <!-- Speed Slider -->
+        <div class="flex flex-col gap-1">
+            <div class="flex justify-between text-xs font-semibold text-gray-700">
+                <span>Velocità Manovella</span>
+                <span id="speed-val">1.0x</span>
+            </div>
+            <input id="speed-slider" type="range" min="0" max="3" step="0.1" value="1.0" class="w-36 accent-amber-700 cursor-pointer">
+        </div>
+
+        <!-- Reset Camera -->
+        <button id="reset-cam" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-medium text-sm transition-all border border-gray-300 cursor-pointer">
+            Reimposta Vista
+        </button>
+        
+        <!-- Info Button -->
+        <button id="info-btn" class="bg-amber-100 hover:bg-amber-200 text-amber-900 p-2.5 rounded-xl transition-all border border-amber-300 cursor-pointer" title="Informazioni Storiche">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 relative animate-in fade-in zoom-in duration-200">
+            <button id="close-modal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h2 class="text-2xl font-bold text-amber-900 mb-3">Macchina di Pacinotti (1860)</h2>
+            <div class="space-y-3 text-sm text-gray-600 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+                <p>Progettata da Antonio Pacinotti nel Laboratorio di Fisica dell'Università di Pisa, questa macchina è il prototipo fondamentale di ogni moderna dinamo e motore elettrico in corrente continua.</p>
+                <p><strong>Caratteristiche Fisiche e Strutturali:</strong></p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Base in Legno Lucido:</strong> Base massiccia con bordi modanati storici e l'autentico numero d'inventario museale <em>"3714"</em>.</li>
+                    <li><strong>Asse Verticale Rigido:</strong> Sostenuto saldamente tra la base inferiore e la traversa orizzontale superiore in legno sorretta da colonne metalliche.</li>
+                    <li><strong>Indotto ad Anello Orizzontale:</strong> Anello dentato con avvolgimenti in rame e sezioni colorate storiche, fissato rigidamente all'asse centrale rotante.</li>
+                    <li><strong>Bobine Elettromagnetiche:</strong> Due grandi cilindri verticali avvolti da filo color avorio invecchiato.</li>
+                    <li><strong>Magnete a Ferro di Cavallo:</strong> Magnete permanente verde posizionato sopra l'indotto.</li>
+                    <li><strong>Trasmissione Meccanica:</strong> Manovella frontale collegata tramite cinghia di trasmissione alla puleggia dell'asse centrale per rispettare i vincoli cinematici reali.</li>
+                </ul>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="close-modal-btn" class="bg-amber-700 hover:bg-amber-800 text-white px-5 py-2 rounded-xl font-medium text-sm transition-all cursor-pointer">
+                    Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script JavaScript per la simulazione 3D e Fisica -->
+    <script>
+        let scene, camera, renderer, controls;
+        let armatureGroup, crankGroup, commutatorGroup, fieldLinesGroup;
+        let isRunning = true;
+        let rotationSpeed = 1.0;
+        let currentAngle = 0;
+        let showFieldLines = false;
+        let clock = new THREE.Clock();
+
+        function init() {
+            // 1. Scena
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x72bc44);
+
+            // 2. Telecamera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 4.2, 7.5);
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // 4. OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02;
+            controls.minDistance = 3;
+            controls.maxDistance = 14;
+            controls.target.set(0, 1.2, 0);
+
+            // 5. Illuminazione
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff8ee, 1.2);
+            dirLight.position.set(6, 9, 5);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.bias = -0.0001;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x8cb4ff, 0.45);
+            fillLight.position.set(-6, 5, -5);
+            scene.add(fillLight);
+
+            // 6. Piano d'appoggio bianco
+            const floorGeo = new THREE.PlaneGeometry(40, 40);
+            const floorMat = new THREE.MeshStandardMaterial({ 
+                color: 0xfafafa, 
+                roughness: 0.85,
+                metalness: 0.05
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -0.5;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // 7. Costruzione Modello Macchina di Pacinotti ad alta fedeltà
+            buildPacinottiMachine();
+
+            // 8. Eventi
+            window.addEventListener('resize', onWindowResize);
+            setupUI();
+
+            // 9. Loop animazione
+            animate();
+        }
+
+        function createWoodTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#8B5A2B';
+            ctx.fillRect(0, 0, 512, 512);
+
+            ctx.fillStyle = 'rgba(101, 67, 33, 0.25)';
+            for (let i = 0; i < 45; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, Math.random() * 512);
+                ctx.bezierCurveTo(170, Math.random() * 512, 340, Math.random() * 512, 512, Math.random() * 512);
+                ctx.lineWidth = 3 + Math.random() * 7;
+                ctx.strokeStyle = 'rgba(60, 30, 10, 0.35)';
+                ctx.stroke();
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        function buildPacinottiMachine() {
+            const machineGroup = new THREE.Group();
+            scene.add(machineGroup);
+
+            const woodTexture = createWoodTexture();
+            const woodMaterial = new THREE.MeshStandardMaterial({ map: woodTexture, roughness: 0.28, metalness: 0.05 });
+            const brassMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.2, metalness: 0.88 });
+            const darkIronMaterial = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.45, metalness: 0.85 });
+            const copperMaterial = new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.3, metalness: 0.85 });
+            const coilThreadMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f2eb, roughness: 0.85, metalness: 0.05 });
+            const magnetMaterial = new THREE.MeshStandardMaterial({ color: 0x236b69, roughness: 0.35, metalness: 0.65 });
+            const leatherBeltMaterial = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.75 });
+
+            // --- 1. BASE IN LEGNO LISCIO CON BORDER MODANATI E NUMERO 3714 ---
+            const baseGroup = new THREE.Group();
+            const baseMain = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.35, 3.2), woodMaterial);
+            baseMain.position.y = -0.325;
+            baseMain.castShadow = true;
+            baseMain.receiveShadow = true;
+            baseGroup.add(baseMain);
+
+            const baseBorder = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.18, 3.4), woodMaterial);
+            baseBorder.position.y = -0.46;
+            baseBorder.castShadow = true;
+            baseBorder.receiveShadow = true;
+            baseGroup.add(baseBorder);
+
+            // Targhetta inventario "3714"
+            const labelCanvas = document.createElement('canvas');
+            labelCanvas.width = 128;
+            labelCanvas.height = 64;
+            const lCtx = labelCanvas.getContext('2d');
+            lCtx.fillStyle = '#f5f2eb';
+            lCtx.fillRect(0, 0, 128, 64);
+            lCtx.strokeStyle = '#c0b090';
+            lCtx.lineWidth = 4;
+            lCtx.strokeRect(2, 2, 124, 60);
+            lCtx.fillStyle = '#1a1a1a';
+            lCtx.font = 'bold 26px monospace';
+            lCtx.textAlign = 'center';
+            lCtx.textBaseline = 'middle';
+            lCtx.fillText('3714', 64, 32);
+            
+            const labelTex = new THREE.CanvasTexture(labelCanvas);
+            const labelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.18), new THREE.MeshBasicMaterial({ map: labelTex }));
+            labelMesh.position.set(2.15, -0.3, 1.35);
+            labelMesh.rotation.y = -Math.PI / 2;
+            baseGroup.add(labelMesh);
+            machineGroup.add(baseGroup);
+
+            // --- 2. BOBINE ELETTROMAGNETICHE VERTICALI LATERALI ---
+            const coilGeo = new THREE.CylinderGeometry(0.42, 0.42, 1.3, 32);
+            const plateGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.07, 32);
+
+            const leftCoilGroup = new THREE.Group();
+            leftCoilGroup.add(new THREE.Mesh(coilGeo, coilThreadMaterial));
+            const topPL = new THREE.Mesh(plateGeo, darkIronMaterial); topPL.position.y = 0.65;
+            const botPL = new THREE.Mesh(plateGeo, darkIronMaterial); botPL.position.y = -0.65;
+            leftCoilGroup.add(topPL, botPL);
+            leftCoilGroup.position.set(-1.55, 0.35, 0);
+            machineGroup.add(leftCoilGroup);
+
+            const rightCoilGroup = new THREE.Group();
+            rightCoilGroup.add(new THREE.Mesh(coilGeo, coilThreadMaterial));
+            const topPR = new THREE.Mesh(plateGeo, darkIronMaterial); topPR.position.y = 0.65;
+            const botPR = new THREE.Mesh(plateGeo, darkIronMaterial); botPR.position.y = -0.65;
+            rightCoilGroup.add(topPR, botPR);
+            rightCoilGroup.position.set(1.55, 0.35, 0);
+            machineGroup.add(rightCoilGroup);
+
+            // --- 3. TELAIO SUPERIORE (COLONNE E TRAVERSA IN LEGNO) ---
+            const pillarGeo = new THREE.CylinderGeometry(0.09, 0.09, 1.7, 16);
+            const pillarL = new THREE.Mesh(pillarGeo, darkIronMaterial); pillarL.position.set(-1.55, 1.1, -0.75);
+            const pillarR = new THREE.Mesh(pillarGeo, darkIronMaterial); pillarR.position.set(1.55, 1.1, -0.75);
+            machineGroup.add(pillarL, pillarR);
+
+            const crossbar = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.28, 0.48), woodMaterial);
+            crossbar.position.set(0, 1.98, -0.75);
+            crossbar.castShadow = true;
+            machineGroup.add(crossbar);
+
+            // Piattaforma di supporto orizzontale centrale
+            const platform = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 2.2), new THREE.MeshStandardMaterial({ color: 0x1f1f1f, roughness: 0.55 }));
+            platform.position.set(0, 1.05, 0);
+            platform.receiveShadow = true;
+            machineGroup.add(platform);
+
+            // --- 4. ASSE VERTICALE E INDOTTO ROTANTE (A NELLA ORIZZONTALE) ---
+            const centralAxisGroup = new THREE.Group();
+            
+            // Asse metallico centrale che attraversa l'intera struttura
+            const mainShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.4, 16), darkIronMaterial);
+            mainShaft.position.set(0, 0.78, 0);
+            centralAxisGroup.add(mainShaft);
+
+            // Puleggia inferiore sull'asse per la cinghia
+            const shaftPulley = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.1, 32), brassMaterial);
+            shaftPulley.rotation.x = Math.PI / 2;
+            shaftPulley.position.set(0, 0.3, 0);
+            centralAxisGroup.add(shaftPulley);
+
+            // Indotto ad anello orizzontale dentato (Anello di Pacinotti)
+            const ringMesh = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.2, 16, 48), copperMaterial);
+            ringMesh.rotation.x = Math.PI / 2;
+            ringMesh.position.y = 1.32;
+            ringMesh.castShadow = true;
+            centralAxisGroup.add(ringMesh);
+
+            // Segmenti e bobine avvolte sull'anello con dettagli cromatici storici
+            const colors = [0xb87333, 0x8b3a3a, 0x2e8b57, 0xb87333, 0x8b3a3a, 0x2e8b57, 0xb87333, 0x8b3a3a, 0x2e8b57, 0xb87333, 0x8b3a3a, 0x2e8b57];
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                const segMat = new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.3, metalness: 0.8 });
+                const coilWrap = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.22, 12), segMat);
+                coilWrap.rotation.z = Math.PI / 2;
+                coilWrap.position.set(Math.cos(angle) * 0.95, 1.32, Math.sin(angle) * 0.95);
+                coilWrap.rotation.y = -angle;
+                centralAxisGroup.add(coilWrap);
+            }
+
+            // Collettore a lamelle alla base dell'asse con fili di connessione
+            const commMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.35, 12), brassMaterial);
+            commMesh.position.set(0, 0.52, 0);
+            centralAxisGroup.add(commMesh);
+
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const curve = new THREE.CatmullRomCurve3([
+                    new THREE.Vector3(Math.cos(angle) * 0.8, 1.22, Math.sin(angle) * 0.8),
+                    new THREE.Vector3(Math.cos(angle + 0.4) * 0.35, 0.85, Math.sin(angle + 0.4) * 0.35),
+                    new THREE.Vector3(Math.cos(angle) * 0.18, 0.65, Math.sin(angle) * 0.18)
+                ]);
+                centralAxisGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.012, 8, false), copperMaterial));
+            }
+
+            armatureGroup = centralAxisGroup;
+            machineGroup.add(armatureGroup);
+
+            // --- 5. MAGNETE A FERRO DI CAVALLO ---
+            const magnetGroup = new THREE.Group();
+            const horseshoe = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.32, 1.7), magnetMaterial);
+            horseshoe.position.set(0.75, 1.62, 0);
+            horseshoe.castShadow = true;
+            magnetGroup.add(horseshoe);
+            
+            const pole1 = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 0.75), magnetMaterial); pole1.position.set(1.35, 1.48, 0.55);
+            const pole2 = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 0.75), magnetMaterial); pole2.position.set(1.35, 1.48, -0.55);
+            magnetGroup.add(pole1, pole2);
+            machineGroup.add(magnetGroup);
+
+            // --- 6. MANOVELLA E SISTEMA DI TRASMISSIONE A CINGHIA ---
+            crankGroup = new THREE.Group();
+            const crankPulley = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.14, 32), darkIronMaterial);
+            crankPulley.rotation.x = Math.PI / 2;
+            crankPulley.position.set(0, 0.3, 1.25);
+            crankGroup.add(crankPulley);
+
+            const crankArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.75, 0.1), brassMaterial);
+            crankArm.position.set(0, 0.68, 1.25);
+            crankGroup.add(crankArm);
+
+            const crankHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.38, 16), new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.4 }));
+            crankHandle.position.set(0, 1.05, 1.25);
+            crankGroup.add(crankHandle);
+            machineGroup.add(crankGroup);
+
+            // Cinghia di trasmissione in cuoio tra le due pulegge
+            const beltCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0, 0.3, 1.25),
+                new THREE.Vector3(0, 0.3, 0.6),
+                new THREE.Vector3(0, 0.3, 0.3),
+                new THREE.Vector3(0, 0.3, 0.6)
+            ]);
+            const beltMesh = new THREE.Mesh(new THREE.TubeGeometry(beltCurve, 32, 0.035, 8, false), leatherBeltMaterial);
+            machineGroup.add(beltMesh);
+
+            // --- 7. LINEE DI CAMPO MAGNETICO (OPZIONALI) ---
+            fieldLinesGroup = new THREE.Group();
+            const fieldMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4 });
+            for (let i = 0; i < 8; i++) {
+                const zOffset = -0.6 + i * 0.18;
+                const curve = new THREE.CatmullRomCurve3([
+                    new THREE.Vector3(1.35, 1.48, zOffset),
+                    new THREE.Vector3(0.5, 1.7, zOffset * 0.8),
+                    new THREE.Vector3(0, 1.32, zOffset * 0.5),
+                    new THREE.Vector3(-0.5, 1.7, zOffset * 0.8),
+                    new THREE.Vector3(-1.35, 1.48, zOffset)
+                ]);
+                const lineMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 30, 0.008, 6, false), fieldMat);
+                fieldLinesGroup.add(lineMesh);
+            }
+            fieldLinesGroup.visible = false;
+            machineGroup.add(fieldLinesGroup);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function setupUI() {
+            const toggleBtn = document.getElementById('toggle-anim');
+            const playText = document.getElementById('play-text');
+            const speedSlider = document.getElementById('speed-slider');
+            const speedVal = document.getElementById('speed-val');
+            const resetCamBtn = document.getElementById('reset-cam');
+            const infoBtn = document.getElementById('info-btn');
+            const infoModal = document.getElementById('info-modal');
+            const closeModal = document.getElementById('close-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const toggleFieldBtn = document.getElementById('toggle-field');
+            const voltageDisp = document.getElementById('voltage-disp');
+            const currentDisp = document.getElementById('current-disp');
+            const ledStatus = document.getElementById('led-status');
+            const ledDot = document.getElementById('led-dot');
+            const ledText = document.getElementById('led-text');
+
+            toggleBtn.addEventListener('click', () => {
+                isRunning = !isRunning;
+                playText.textContent = isRunning ? 'Pausa' : 'Avvia';
+                if (!isRunning) {
+                    voltageDisp.textContent = '0.00 V';
+                    currentDisp.textContent = '0.00 A';
+                    ledDot.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
+                    ledText.textContent = 'Fermo';
+                } else {
+                    ledDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+                    ledText.textContent = 'Generazione Attiva';
+                }
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                rotationSpeed = parseFloat(e.target.value);
+                speedVal.textContent = rotationSpeed.toFixed(1) + 'x';
+            });
+
+            resetCamBtn.addEventListener('click', () => {
+                camera.position.set(0, 4.2, 7.5);
+                controls.target.set(0, 1.2, 0);
+                controls.update();
+            });
+
+            toggleFieldBtn.addEventListener('click', () => {
+                showFieldLines = !showFieldLines;
+                if (fieldLinesGroup) fieldLinesGroup.visible = showFieldLines;
+                toggleFieldBtn.textContent = showFieldLines ? 'Nascondi' : 'Mostra';
+                toggleFieldBtn.className = showFieldLines ? 'bg-amber-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer' : 'bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer';
+            });
+
+            infoBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+            closeModal.addEventListener('click', () => infoModal.classList.add('hidden'));
+            closeModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+            infoModal.addEventListener('click', (e) => {
+                if (e.target === infoModal) infoModal.classList.add('hidden');
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (isRunning && armatureGroup && crankGroup) {
+                const rotDelta = delta * rotationSpeed * 1.8;
+                currentAngle += rotDelta;
+                
+                // Vincolo cinematico rigoroso: trasmissione a cinghia con rapporto 1.4:1
+                armatureGroup.rotation.y += rotDelta * 1.4;
+                crankGroup.rotation.z += rotDelta * 2.0;
+
+                // Calcolo fisico simulato della tensione indotta (Legge di Faraday-Neumann-Lenz)
+                const voltage = Math.abs(Math.sin(currentAngle * 3) * rotationSpeed * 4.25);
+                const current = voltage / 12.5;
+
+                document.getElementById('voltage-disp').textContent = voltage.toFixed(2) + ' V';
+                document.getElementById('current-disp').textContent = current.toFixed(2) + ' A';
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            init();
+        };
+    </script>
+</body>
+</html>
