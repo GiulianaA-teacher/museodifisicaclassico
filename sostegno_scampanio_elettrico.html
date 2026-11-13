@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sostegno Scampanio Elettrico - Laboratorio di Fisica</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            background: #38bdf8;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sticky top-0 z-30 flex items-center justify-between shrink-0 shadow-lg">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner">
+                <i class="fa-solid fa-bell text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xs tracking-tight text-slate-100">Scampanio Elettrico</h1>
+                <p class="text-[10px] text-slate-400">Collezione Fisica (Elettrostatica)</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleModal(true)" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition active:scale-95 shadow-sm" aria-label="Scheda tecnica">
+                <i class="fa-solid fa-file-lines text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container (Portrait Optimized) -->
+    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3 overflow-y-auto">
+
+        <!-- Visual Simulation Card (Canvas Apparatus) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col relative shadow-xl shrink-0">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-slate-500" id="status-dot"></span>
+                    <span id="status-text-badge">Generatore Spento</span>
+                </span>
+                <span id="freq-badge" class="text-xs font-mono bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md text-amber-400 shadow-inner">
+                    0.0 Rintocchi/s
+                </span>
+            </div>
+
+            <!-- Canvas Wrapper (Apparatus Rendering) -->
+            <div class="w-full h-72 bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden relative flex items-center justify-center shadow-inner">
+                <canvas id="bellCanvas" class="w-full h-full block"></canvas>
+                
+                <!-- Overlay Instructions -->
+                <div id="canvas-overlay" class="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 text-center transition-opacity duration-300 pointer-events-none">
+                    <p class="text-xs text-slate-300 font-medium bg-slate-900/90 border border-slate-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        <span>Attiva il generatore di tensione per avviare il pendolo</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Charge Transfer Status Bar -->
+            <div class="mt-3 space-y-1">
+                <div class="flex justify-between text-[11px] text-slate-400 font-medium">
+                    <span>Polarizzazione & Carica Pallina (q)</span>
+                    <span id="charge-val" class="font-mono text-cyan-400">0.0 nC</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden shadow-inner flex">
+                    <div id="charge-bar" class="bg-gradient-to-r from-blue-500 to-amber-500 h-full w-1/2 transition-all duration-150"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry & Physics Dashboard -->
+        <div class="grid grid-cols-3 gap-2 shrink-0">
+            <!-- Voltage V -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Tensione (V)</span>
+                <div class="my-1">
+                    <span id="telemetry-voltage" class="text-base font-bold font-mono text-amber-400">0</span>
+                    <span class="text-[10px] text-slate-400">kV</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">Generatore</span>
+            </div>
+            <!-- Electric Force Fe -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Forza (Fe)</span>
+                <div class="my-1">
+                    <span id="telemetry-force" class="text-base font-bold font-mono text-cyan-400">0.0</span>
+                    <span class="text-[10px] text-slate-400">mN</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">Elettrostatica</span>
+            </div>
+            <!-- Frequency f -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Frequenza</span>
+                <div class="my-1">
+                    <span id="telemetry-freq" class="text-xs font-bold font-mono text-emerald-400 uppercase">0 Hz</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">Oscillazione</span>
+            </div>
+        </div>
+
+        <!-- Control Panel Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shrink-0 shadow-xl">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Pannello di Controllo</span>
+                <!-- Power Button -->
+                <button id="power-btn" onclick="toggleGenerator()" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-medium text-xs transition active:scale-95 bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 shadow-sm">
+                    <i class="fa-solid fa-power-off text-sm" id="power-icon"></i>
+                    <span id="power-text">ACCENDI</span>
+                </button>
+            </div>
+
+            <!-- Voltage Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-300 font-medium">Tensione Applicata (kV)</span>
+                    <span id="voltage-label" class="font-mono font-semibold text-amber-400">0.0 kV</span>
+                </div>
+                <input type="range" id="voltage-slider" min="0" max="30" step="1" value="0" oninput="updateVoltage(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer shadow-inner">
+            </div>
+
+            <!-- Preset Operating Modes -->
+            <div class="space-y-2 pt-1">
+                <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Preset Operativi</span>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setPreset('off')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-2 rounded-xl font-medium transition active:scale-95 flex flex-col items-center justify-center space-y-1 shadow-sm">
+                        <i class="fa-solid fa-ban text-slate-400 text-xs"></i>
+                        <span>Spento</span>
+                    </button>
+                    <button onclick="setPreset('normal')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-2 rounded-xl font-medium transition active:scale-95 flex flex-col items-center justify-center space-y-1 shadow-sm">
+                        <i class="fa-solid fa-bell text-cyan-400 text-xs"></i>
+                        <span>Normale</span>
+                    </button>
+                    <button onclick="setPreset('fast')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-2 rounded-xl font-medium transition active:scale-95 flex flex-col items-center justify-center space-y-1 shadow-sm">
+                        <i class="fa-solid fa-bolt text-amber-400 text-xs"></i>
+                        <span>Rapido</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Educational & Technical Card Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open text-amber-400"></i>
+                    <span>Scheda Tecnica & Fisica</span>
+                </h3>
+                <button onclick="toggleModal(false)" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-1.5 font-mono text-[11px]">
+                    <div class="text-slate-400"><strong class="text-slate-200">Denominazione:</strong> Sostegno scampanio elettrico</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Collezione:</strong> Fisica (Sezione Elettrostatica)</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Dimensioni:</strong> 30 cm x 7 cm</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Materiali:</strong> Metallo, vetro, nylon</div>
+                    <div class="text-slate-400"><strong class="text-slate-200">Conservazione:</strong> Ottimo</div>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-amber-400 mb-1">Descrizione e Componenti:</h4>
+                    <p class="text-slate-400">
+                        Lo strumento è composto da una base circolare, un'asta verticale isolante in vetro/materiale plastico, una traversa orizzontale che sostiene due campane emisferiche metalliche affiancate, e un braccio laterale superiore che sostiene tramite un filo isolante una pallina conduttrice sospesa nel mezzo.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-cyan-400 mb-1">Principio Fisico (Elettrostatica):</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                        <li><strong>Induzione e Attrazione:</strong> Collegando una campana al generatore ad alta tensione, la pallina neutra viene polarizzata e attratta dalla campana carica.</li>
+                        <li><strong>Scambio di Carica per Contatto:</strong> Al momento dell'impatto, la pallina acquisisce la stessa carica della campana attiva.</li>
+                        <li><strong>Repulsione e Rintocco:</strong> Cariche dello stesso segno si respingono; la pallina viene scagliata verso l'altra campana (neutra o a potenziale diverso), dove cede la carica, invertendola o scaricandosi, e ricomincia l'oscillazione periodica producendo il suono continuo.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button onclick="toggleModal(false)" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold py-2.5 rounded-xl text-xs transition shadow-lg shadow-amber-500/10">
+                Chiudi Scheda
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Simulation Engine -->
+    <script>
+        const state = {
+            running: false,
+            voltage: 0, // kV (0 to 30)
+            theta: 0, // Pendulum angle in radians
+            omega: 0, // Angular velocity
+            length: 110, // Pendulum length in pixels
+            ballCharge: 0, // -1 to 1 (negative or positive charge state)
+            impactFlashTimer: 0,
+            lastImpactSide: 0 // -1 left bell, 1 right bell
+        };
+
+        const canvas = document.getElementById('bellCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            requestAnimationFrame(loop);
+        });
+
+        // UI Elements
+        const powerBtn = document.getElementById('power-btn');
+        const powerIcon = document.getElementById('power-icon');
+        const powerText = document.getElementById('power-text');
+        const canvasOverlay = document.getElementById('canvas-overlay');
+        const voltageSlider = document.getElementById('voltage-slider');
+        const voltageLabel = document.getElementById('voltage-label');
+        const statusDot = document.getElementById('status-dot');
+        const statusTextBadge = document.getElementById('status-text-badge');
+        const freqBadge = document.getElementById('freq-badge');
+        const chargeBar = document.getElementById('charge-bar');
+        const chargeVal = document.getElementById('charge-val');
+        
+        const telemetryVoltage = document.getElementById('telemetry-voltage');
+        const telemetryForce = document.getElementById('telemetry-force');
+        const telemetryFreq = document.getElementById('telemetry-freq');
+
+        function toggleGenerator() {
+            state.running = !state.running;
+            if (state.running) {
+                if (state.voltage === 0) {
+                    state.voltage = 15;
+                    voltageSlider.value = 15;
+                    voltageLabel.innerText = "15.0 kV";
+                }
+                powerBtn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                powerBtn.classList.add('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+                powerIcon.className = "fa-solid fa-power-off text-sm text-amber-400";
+                powerText.innerText = "SPEGNIMI";
+                canvasOverlay.style.opacity = '0';
+                canvasOverlay.style.pointerEvents = 'none';
+            } else {
+                powerBtn.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                powerBtn.classList.remove('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+                powerIcon.className = "fa-solid fa-power-off text-sm";
+                powerText.innerText = "ACCENDI";
+                canvasOverlay.style.opacity = '1';
+                canvasOverlay.style.pointerEvents = 'auto';
+            }
+        }
+
+        function updateVoltage(val) {
+            state.voltage = parseFloat(val);
+            voltageLabel.innerText = state.voltage.toFixed(1) + ' kV';
+            if (state.voltage > 0 && !state.running) {
+                toggleGenerator();
+            } else if (state.voltage === 0 && state.running) {
+                toggleGenerator();
+            }
+        }
+
+        function setPreset(type) {
+            switch(type) {
+                case 'off':
+                    state.voltage = 0;
+                    if (state.running) toggleGenerator();
+                    break;
+                case 'normal':
+                    state.voltage = 12;
+                    if (!state.running) toggleGenerator();
+                    break;
+                case 'fast':
+                    state.voltage = 28;
+                    if (!state.running) toggleGenerator();
+                    break;
+            }
+            voltageSlider.value = state.voltage;
+            voltageLabel.innerText = state.voltage.toFixed(1) + ' kV';
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('info-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        // Physics & Animation Loop
+        let animTime = 0;
+        let impactCount = 0;
+        let lastTimeCheck = performance.now();
+        let currentFrequency = 0;
+
+        function loop(timestamp) {
+            // Delta time
+            const dt = 0.016;
+
+            if (state.running && state.voltage > 0) {
+                // Pendulum physics with electrostatic force
+                const g = 9.81;
+                const L = state.length / 100; // meters roughly
+                
+                // Gravity restoring torque: - (g / L) * sin(theta)
+                const gravityAcc = -(g / L) * Math.sin(state.theta);
+                
+                // Damping
+                const damping = -1.2 * state.omega;
+
+                // Electrostatic attraction/repulsion towards bells at x = -55px and x = +55px (approx angle ~ 0.45 rad)
+                const targetAngle = 0.46;
+                let electrostaticAcc = 0;
+
+                // If ball is near left bell (-targetAngle) or right bell (+targetAngle)
+                const distToLeft = state.theta - (-targetAngle);
+                const distToRight = targetAngle - state.theta;
+
+                const voltageFactor = (state.voltage / 30);
+                
+                // Force pushes away if charged with same sign as the bell, attracts if opposite/neutral
+                if (state.ballCharge === 0) {
+                    // Neutral: attracted to whichever is closer and powered (right bell is powered)
+                    electrostaticAcc = (state.theta > 0 ? -1 : 1) * voltageFactor * 4.0;
+                } else {
+                    // Charged: repelled from right bell if positive, attracted to left bell
+                    electrostaticAcc = -state.ballCharge * voltageFactor * 6.0;
+                }
+
+                state.omega += (gravityAcc + damping + electrostaticAcc) * dt;
+                state.theta += state.omega * dt;
+
+                // Collision detection with bells
+                const collisionLimit = 0.42;
+                if (state.theta <= -collisionLimit) {
+                    state.theta = -collisionLimit;
+                    state.omega = -state.omega * 0.4; // restitution
+                    if (state.ballCharge !== -1) {
+                        state.ballCharge = -1; // acquired negative/neutralized charge from left bell
+                        state.impactFlashTimer = 10;
+                        state.lastImpactSide = -1;
+                        impactCount++;
+                    }
+                } else if (state.theta >= collisionLimit) {
+                    state.theta = collisionLimit;
+                    state.omega = -state.omega * 0.4;
+                    if (state.ballCharge !== 1) {
+                        state.ballCharge = 1; // acquired positive charge from right powered bell
+                        state.impactFlashTimer = 10;
+                        state.lastImpactSide = 1;
+                        impactCount++;
+                    }
+                }
+
+                if (state.impactFlashTimer > 0) state.impactFlashTimer--;
+
+                // Frequency calculation every second
+                if (timestamp - lastTimeCheck >= 1000) {
+                    currentFrequency = impactCount * 0.5; // each full cycle or impact count
+                    impactCount = 0;
+                    lastTimeCheck = timestamp;
+                }
+
+                statusDot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                statusTextBadge.innerText = "Scampanio Attivo";
+                freqBadge.innerText = `${(state.voltage * 0.25).toFixed(1)} Rintocchi/s`;
+                telemetryVoltage.innerText = state.voltage.toFixed(0);
+                telemetryForce.innerText = (state.voltage * 0.35).toFixed(1);
+                telemetryFreq.innerText = (state.voltage * 0.25).toFixed(1) + ' Hz';
+                chargeVal.innerText = (state.ballCharge * state.voltage * 0.1).toFixed(1) + ' nC';
+                chargeBar.style.width = (50 + state.ballCharge * 40) + '%';
+            } else {
+                // Return to center damping
+                state.omega += (-2.5 * state.theta - 1.5 * state.omega) * dt;
+                state.theta += state.omega * dt;
+                state.ballCharge = 0;
+                currentFrequency = 0;
+
+                statusDot.className = "w-2 h-2 rounded-full bg-slate-500";
+                statusTextBadge.innerText = "Generatore Spento";
+                freqBadge.innerText = "0.0 Rintocchi/s";
+                telemetryVoltage.innerText = "0";
+                telemetryForce.innerText = "0.0";
+                telemetryFreq.innerText = "0 Hz";
+                chargeVal.innerText = "0.0 nC";
+                chargeBar.style.width = "50%";
+            }
+
+            renderApparatus();
+            requestAnimationFrame(loop);
+        }
+
+        function renderApparatus() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            ctx.clearRect(0, 0, width, height);
+
+            // Background gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            bgGrad.addColorStop(0, '#090d16');
+            bgGrad.addColorStop(1, '#020617');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const baseY = height - 35;
+
+            // 1. Circular Base (Base circolare grigia)
+            ctx.fillStyle = '#334155';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.ellipse(centerX, baseY, 65, 14, 0, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+
+            // 2. Vertical Glass/Transparent Rod (Asta verticale)
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+            ctx.fillRect(centerX - 6, baseY - 140, 12, 128);
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(centerX - 6, baseY - 140, 12, 128);
+
+            // Metal connector ring at top of vertical rod
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(centerX - 9, baseY - 150, 18, 12);
+
+            // 3. Horizontal Crossbar holding the two bells (Traversa orizzontale)
+            const crossY = baseY - 100;
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(centerX - 65, crossY - 4, 130, 8);
+
+            // Insulator sleeve on right side of crossbar
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(centerX + 15, crossY - 5, 30, 10);
+
+            // 4. Two Hemispherical Bells (Campane emisferiche)
+            const leftBellX = centerX - 55;
+            const rightBellX = centerX + 55;
+            const bellY = crossY - 4;
+
+            // Draw Left Bell
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.arc(leftBellX, bellY, 26, Math.PI, 0, false);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Right Bell (Powered / High Voltage)
+            ctx.fillStyle = state.running ? '#fbbf24' : '#94a3b8';
+            ctx.beginPath();
+            ctx.arc(rightBellX, bellY, 26, Math.PI, 0, false);
+            ctx.fill();
+            ctx.strokeStyle = state.running ? '#f59e0b' : '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Spark effect on right bell if running
+            if (state.running && Math.random() > 0.7) {
+                ctx.strokeStyle = '#fef08a';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(rightBellX + 15, bellY - 20);
+                ctx.lineTo(rightBellX + 25 + (Math.random() - 0.5) * 10, bellY - 30);
+                ctx.stroke();
+            }
+
+            // 5. Upper supporting arm for the pendulum (Asta superiore a elle)
+            // Goes up from right bell support to top right, then bends left
+            const topArmY = crossY - 110;
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(centerX + 35, topArmY, 6, bellY - topArmY); // vertical part going up from right bell
+            ctx.fillRect(centerX - 10, topArmY, 51, 6); // horizontal bent arm pointing to center
+
+            // 6. Insulating thread & Hanging Ball (Filo isolante e pallina)
+            const pivotX = centerX - 10;
+            const pivotY = topArmY + 6;
+            
+            // Calculate ball position using pendulum angle theta
+            const ballX = pivotX + Math.sin(state.theta) * state.length;
+            const ballY = pivotY + Math.cos(state.theta) * state.length;
+
+            // Draw thread (Nylon string)
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pivotX, pivotY);
+            ctx.lineTo(ballX, ballY);
+            ctx.stroke();
+
+            // Draw Ball (Pallina conduttrice)
+            ctx.fillStyle = state.ballCharge > 0 ? '#fbbf24' : (state.ballCharge < 0 ? '#38bdf8' : '#cbd5e1');
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Impact Flash Effect ("Rintocco!")
+            if (state.impactFlashTimer > 0) {
+                ctx.fillStyle = 'rgba(251, 191, 36, 0.4)';
+                ctx.beginPath();
+                ctx.arc(state.lastImpactSide < 0 ? leftBellX : rightBellX, bellY, 38, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Sound waves lines
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                const flashX = state.lastImpactSide < 0 ? leftBellX - 30 : rightBellX + 30;
+                ctx.arc(flashX, bellY, 15, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Electrostatic charge indicator signs (+ / -) around bells and ball
+            if (state.running) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = 'bold 10px Inter, sans-serif';
+                ctx.fillText('+', rightBellX - 4, bellY - 32);
+                
+                if (state.ballCharge !== 0) {
+                    ctx.fillStyle = state.ballCharge > 0 ? '#fbbf24' : '#38bdf8';
+                    ctx.fillText(state.ballCharge > 0 ? '+' : '-', ballX - 3, ballY - 12);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
