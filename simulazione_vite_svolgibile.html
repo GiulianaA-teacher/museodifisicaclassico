@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Coltello da Scarnire / Vite Svolgebile</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(229, 231, 235, 0.9);
+        }
+    </style>
+</head>
+<body class="bg-white text-stone-800">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- UI Overlay -->
+    <div class="relative z-10 flex flex-col justify-between h-screen pointer-events-none p-4 md:p-6">
+        
+        <!-- Header -->
+        <header class="pointer-events-auto glass rounded-2xl p-4 md:p-6 shadow-xl max-w-md text-stone-800">
+            <h1 class="text-xl md:text-2xl font-bold tracking-tight text-amber-900">Coltello da Scarnire 3D</h1>
+            <p class="text-xs md:text-sm text-stone-600 mt-1">
+                Modello 3D realistico con nucleo in legno (corpo cilindrico e pomolo sferico) e lama metallica ricurva a sviluppo geometrico.
+            </p>
+        </header>
+
+        <!-- Control Panel -->
+        <div class="pointer-events-auto glass rounded-2xl p-4 md:p-6 shadow-xl max-w-md w-full self-end text-stone-800 space-y-4">
+            
+            <!-- Rotation Speed Slider -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="speed-slider" class="text-xs font-semibold uppercase tracking-wider text-stone-700">
+                        Velocità di Rotazione
+                    </label>
+                    <span id="speed-value" class="text-xs font-mono font-bold text-amber-800">1.0x</span>
+                </div>
+                <input id="speed-slider" type="range" min="0" max="3" step="0.1" value="1" 
+                    class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-700">
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btn-rotate" class="py-2.5 px-3 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded-xl transition shadow-md flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Pausa Rotazione
+                </button>
+                <button id="btn-wireframe" class="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl transition shadow-sm border border-stone-200">
+                    Wireframe
+                </button>
+                <button id="btn-reset" class="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl transition shadow-sm border border-stone-200">
+                    Reimposta
+                </button>
+            </div>
+
+            <!-- Info Footer -->
+            <div class="text-[11px] text-stone-500 pt-2 border-t border-stone-200 flex justify-between">
+                <span>Illuminazione Studio</span>
+                <span>Trascina per ruotare manualmente</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-300 bg-stone-900/90 text-stone-100 text-xs py-2 px-4 rounded-xl shadow-xl">
+        Messaggio di sistema
+    </div>
+
+    <script>
+        // --- Setup Three.js Scene, Camera, Renderer ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff); // Pure white background
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 9);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 + 0.1;
+
+        // --- Studio Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        keyLight.position.set(6, 10, 8);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 2048;
+        keyLight.shadow.mapSize.height = 2048;
+        keyLight.shadow.bias = -0.0001;
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0xf5f5f4, 0.5);
+        fillLight.position.set(-8, 5, -5);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight(0xfffbeb, 0.6);
+        rimLight.position.set(0, -5, -8);
+        scene.add(rimLight);
+
+        // --- Ground Shadow Plane ---
+        const shadowPlaneGeo = new THREE.PlaneGeometry(20, 20);
+        const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.12 });
+        const shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
+        shadowPlane.rotation.x = -Math.PI / 2;
+        shadowPlane.position.y = -2.1;
+        shadowPlane.receiveShadow = true;
+        scene.add(shadowPlane);
+
+        // --- Master Group for Rotation ---
+        const knifeGroup = new THREE.Group();
+        scene.add(knifeGroup);
+
+        // --- Procedural Wood Texture Generator ---
+        function createWoodTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Rich wood base color (warm walnut/beech)
+            ctx.fillStyle = '#a0522d';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Fine wood grain lines
+            for (let i = 0; i < 60; i++) {
+                ctx.beginPath();
+                let y = Math.random() * 512;
+                ctx.moveTo(0, y);
+                ctx.bezierCurveTo(170, y + (Math.random() - 0.5) * 80, 340, y + (Math.random() - 0.5) * 80, 512, y);
+                ctx.lineWidth = Math.random() * 8 + 2;
+                ctx.strokeStyle = 'rgba(70, 30, 10, 0.25)';
+                ctx.stroke();
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const woodMaterial = new THREE.MeshStandardMaterial({
+            map: createWoodTexture(),
+            roughness: 0.45,
+            metalness: 0.05
+        });
+
+        // --- 1. Wooden Handle Construction ---
+        const handleRadius = 0.75;
+        const handleHeight = 2.4;
+
+        // Main cylindrical body
+        const bodyGeo = new THREE.CylinderGeometry(handleRadius, handleRadius, handleHeight, 32);
+        const bodyMesh = new THREE.Mesh(bodyGeo, woodMaterial);
+        bodyMesh.position.y = -0.8;
+        bodyMesh.castShadow = true;
+        bodyMesh.receiveShadow = true;
+        knifeGroup.add(bodyMesh);
+
+        // Neck connector below sphere
+        const neckGeo = new THREE.CylinderGeometry(0.35, handleRadius, 0.6, 32);
+        const neckMesh = new THREE.Mesh(neckGeo, woodMaterial);
+        neckMesh.position.y = 0.5;
+        neckMesh.castShadow = true;
+        knifeGroup.add(neckMesh);
+
+        // Spherical knob on top
+        const knobGeo = new THREE.SphereGeometry(0.65, 32, 32);
+        const knobMesh = new THREE.Mesh(knobGeo, woodMaterial);
+        knobMesh.position.y = 1.15;
+        knobMesh.scale.set(1, 1.25, 1);
+        knobMesh.castShadow = true;
+        knifeGroup.add(knobMesh);
+
+        // Base cap
+        const baseGeo = new THREE.CylinderGeometry(handleRadius + 0.02, handleRadius + 0.02, 0.2, 32);
+        const baseMesh = new THREE.Mesh(baseGeo, woodMaterial);
+        baseMesh.position.y = -2.0;
+        baseMesh.castShadow = true;
+        knifeGroup.add(baseMesh);
+
+        // --- 2. Metallic Blade Construction (Skiving Knife Crescent Blade) ---
+        // We use a custom parametric geometry to shape the curved, tapered crescent blade
+        const bladeGeo = new THREE.ParametricGeometry((u, v, target) => {
+            // u: 0 (inner edge attached to cylinder) to 1 (outer sharp crescent edge)
+            // v: 0 (top of blade) to 1 (bottom tip of blade)
+            
+            const y = 0.4 - v * 2.8; // spans from upper cylinder down to bottom tip
+            
+            // Width and sweep of the blade
+            const innerRadius = handleRadius;
+            const maxExtension = 2.6;
+            
+            // Crescent curve profile
+            const widthFactor = Math.sin(v * Math.PI * 0.85) * maxExtension * (1.0 - u * 0.15) + (1.0 - v) * 0.2;
+            const r = innerRadius + u * widthFactor;
+            
+            // Angle sweep around the wooden cylinder
+            const angle = -u * (0.6 + v * 1.4);
+            
+            const x = r * Math.cos(angle);
+            const z = r * Math.sin(angle);
+            
+            // Blade taper thickness (thicker near handle, razor sharp at outer edge)
+            const thickness = (1.0 - u) * 0.05;
+            
+            target.set(x, y + thickness * (v - 0.5), z);
+        }, 40, 40);
+
+        const bladeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xd4af37, // Polished steel / brass finish
+            metalness: 0.95,
+            roughness: 0.2,
+            side: THREE.DoubleSide
+        });
+
+        const bladeMesh = new THREE.Mesh(bladeGeo, bladeMaterial);
+        bladeMesh.castShadow = true;
+        bladeMesh.receiveShadow = true;
+        knifeGroup.add(bladeMesh);
+
+        // --- Red Tag Detail (matching the reference photo sticker) ---
+        const tagGeo = new THREE.BoxGeometry(0.35, 0.25, 0.02);
+        const tagMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.5 }); // Red label
+        const tagMesh = new THREE.Mesh(tagGeo, tagMat);
+        tagMesh.position.set(handleRadius + 0.01, -0.6, 0.2);
+        tagMesh.rotation.y = Math.PI / 2;
+        knifeGroup.add(tagMesh);
+
+        // Position the entire knife model upright and centered
+        knifeGroup.position.y = 0.5;
+
+        // --- UI Interactions ---
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValueLabel = document.getElementById('speed-value');
+        const btnRotate = document.getElementById('btn-rotate');
+        const btnWireframe = document.getElementById('btn-wireframe');
+        const btnReset = document.getElementById('btn-reset');
+        const toast = document.getElementById('toast');
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+        }
+
+        let isRotating = true;
+        let rotationSpeed = 1.0;
+
+        speedSlider.addEventListener('input', (e) => {
+            rotationSpeed = parseFloat(e.target.value);
+            speedValueLabel.textContent = rotationSpeed.toFixed(1) + 'x';
+        });
+
+        btnRotate.addEventListener('click', () => {
+            isRotating = !isRotating;
+            if (isRotating) {
+                btnRotate.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Pausa Rotazione`;
+                showToast("Rotazione avviata");
+            } else {
+                btnRotate.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Avvia Rotazione`;
+                showToast("Rotazione in pausa");
+            }
+        });
+
+        let wireframeMode = false;
+        btnWireframe.addEventListener('click', () => {
+            wireframeMode = !wireframeMode;
+            bladeMaterial.wireframe = wireframeMode;
+            woodMaterial.wireframe = wireframeMode;
+            btnWireframe.classList.toggle('bg-amber-700', wireframeMode);
+            btnWireframe.classList.toggle('text-white', wireframeMode);
+            showToast(wireframeMode ? "Modalità Wireframe attiva" : "Modalità Solida attiva");
+        });
+
+        btnReset.addEventListener('click', () => {
+            isRotating = true;
+            rotationSpeed = 1.0;
+            speedSlider.value = 1.0;
+            speedValueLabel.textContent = "1.0x";
+            btnRotate.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Pausa Rotazione`;
+            controls.reset();
+            camera.position.set(0, 3, 9);
+            knifeGroup.rotation.set(0, 0, 0);
+            showToast("Vista e impostazioni reimpostate");
+        });
+
+        // --- Window Resize ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            if (isRotating) {
+                knifeGroup.rotation.y += 0.5 * rotationSpeed * delta;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Start animation loop on window load
+        window.onload = function() {
+            animate();
+        };
+    </script>
+</body>
+</html>
