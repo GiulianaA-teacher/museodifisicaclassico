@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tubo di Quincke — Interferenza Acustica</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- KaTeX per il rendering matematico -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });"></script>
+
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0b1120;
+            color: #f1f5f9;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        #quinckeCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 0.75rem;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 4px;
+            background: #1e293b;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #38bdf8;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+            border: 2px solid #0f172a;
+        }
+
+        .katex-display {
+            margin: 0.4em 0 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col max-w-md mx-auto px-3 py-2.5 select-none">
+
+    <!-- Header Compatto -->
+    <header class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <div>
+            <h1 class="text-base sm:text-lg font-bold text-sky-400 flex items-center gap-2 leading-tight">
+                <i class="fa-solid fa-wave-square"></i>
+                <span>Tubo di Quincke</span>
+            </h1>
+            <p class="text-[11px] text-slate-400">Interferenza e onde sonore stazionarie</p>
+        </div>
+        <div id="stateBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+            <span id="stateDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="stateText">Costruttiva</span>
+        </div>
+    </header>
+
+    <!-- Navigazione a Schede (Mobile Portrait) -->
+    <nav class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5" role="tablist">
+        <button id="tabSimBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all">
+            <i class="fa-solid fa-flask"></i> Simulazione
+        </button>
+        <button id="tabTheoryBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all">
+            <i class="fa-solid fa-book-open"></i> Teoria & Formule
+        </button>
+    </nav>
+
+    <!-- SCHEDA 1: SIMULAZIONE INTERATTIVA -->
+    <main id="simSection" class="flex-1 flex flex-col gap-2.5 pb-4">
+
+        <!-- Contenitore Canvas Responsivo con Design Fedele alla Foto -->
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-xl border border-slate-700/80 shadow-xl overflow-hidden touch-none">
+            <canvas id="quinckeCanvas"></canvas>
+
+            <!-- Overlay informazioni superiori -->
+            <div class="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                <span class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] text-slate-300 px-2 py-0.5 rounded-md">
+                    Apparecchio: <strong class="text-sky-400">Modello Metallico Quincke</strong>
+                </span>
+                <span id="intensityBadge" class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-emerald-300 px-2 py-0.5 rounded-md">
+                    Interferenza: Max
+                </span>
+            </div>
+
+            <!-- Hint interattivo touch -->
+            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none bg-slate-950/80 border border-slate-800 px-2.5 py-0.5 rounded-full text-[9px] text-sky-300 font-medium">
+                <i class="fa-solid fa-hand-pointer mr-1"></i> Trascina il blocco destro sul canvas per variare $L_2$
+            </div>
+        </div>
+
+        <!-- Telemetria in Tempo Reale (4 Card) -->
+        <div class="grid grid-cols-2 gap-1.5">
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Differenza Cammino ($\Delta L$)</div>
+                <div id="telDeltaL" class="text-xs font-mono font-bold text-sky-400 mt-0.5">0.0 cm</div>
+                <div class="text-[9px] text-slate-500"> $|L_2 - L_1| $</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Lunghezza d'onda ($\lambda$)</div>
+                <div id="telLambda" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">77.9 cm</div>
+                <div class="text-[9px] text-slate-500"> $\lambda = v / f $</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Rapporto $\Delta L / \lambda$</div>
+                <div id="telRatio" class="text-xs font-mono font-bold text-amber-400 mt-0.5">0.00</div>
+                <div class="text-[9px] text-slate-500">Fase relativa</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Sensore Microfono</div>
+                <div id="telIntensityVal" class="text-xs font-mono font-bold text-indigo-400 mt-0.5">100%</div>
+                <div class="text-[9px] text-slate-500">Ampiezza sonora</div>
+            </div>
+        </div>
+
+        <!-- Pannello Controlli Touch-Friendly -->
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3 space-y-3 shadow-lg">
+
+            <!-- Toggle Audio Sound (BEEP opzionale) -->
+            <button id="audioBtn" class="w-full py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 text-slate-300 active:scale-[0.98] transition-all">
+                <i id="audioIcon" class="fa-solid fa-volume-xmark"></i>
+                <span id="audioLabel">Audio Sintetizzatore: OFF</span>
+            </button>
+
+            <!-- Riga Sliders Frequenza f e Lunghezza L2 -->
+            <div class="space-y-2.5 pt-1 border-t border-slate-800/80">
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="freqSlider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-wave-square text-sky-400 mr-1"></i>Frequenza del Suono ($f$)
+                        </label>
+                        <span id="freqValLabel" class="font-mono text-sky-300 font-semibold">440 Hz</span>
+                    </div>
+                    <input type="range" id="freqSlider" min="200" max="1000" step="10" value="440" class="w-full">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="l2Slider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-arrows-left-right text-amber-400 mr-1"></i>Lunghezza Ramo $L_2$
+                        </label>
+                        <span id="l2ValLabel" class="font-mono text-amber-300 font-semibold">50.0 cm</span>
+                    </div>
+                    <input type="range" id="l2Slider" min="30" max="100" step="0.5" value="50" class="w-full">
+                </div>
+            </div>
+        </div>
+
+        <!-- Osservazione Contestuale -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
+            <div class="flex items-start gap-2.5">
+                <div class="mt-0.5 w-6 h-6 rounded-lg bg-sky-950 border border-sky-700/60 flex items-center justify-center shrink-0 text-sky-400">
+                    <i class="fa-solid fa-lightbulb text-xs"></i>
+                </div>
+                <div id="observationText">
+                    <strong class="text-emerald-300 block mb-0.5">Interferenza Costruttiva ($\Delta L = n\lambda$):</strong>
+                    Con $L_1 = L_2 = 50\text{ cm}$, le onde percorrono la stessa distanza, arrivando in fase e sommandosi con ampiezza massima.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SCHEDA 2: TEORIA & FORMULE -->
+    <section id="theorySection" class="hidden flex-1 flex-col gap-3 pb-6 text-xs text-slate-300 leading-relaxed">
+
+        <!-- Card 1: Cos'è il Tubo di Quincke -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-sky-400 flex items-center gap-2">
+                <i class="fa-solid fa-landmark"></i> 1. Principio del Tubo di Quincke
+            </h2>
+            <p>
+                Il <strong>tubo di Quincke</strong> è un classico apparecchio di acustica utilizzato per dimostrare il fenomeno dell'interferenza delle onde sonore. Un'onda sonora emessa da una sorgente si divide in due rami paralleli ($L_1$ e $L_2$) per poi ricongiungersi all'uscita verso un ricevitore.
+            </p>
+        </article>
+
+        <!-- Card 2: Lunghezza d'onda -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> 2. Velocità del Suono e Lunghezza d'Onda
+            </h2>
+            <p>
+                La lunghezza d'onda $\lambda$ del suono nell'aria dipende dalla frequenza $f$ della sorgente e dalla velocità di propagazione del suono ($v \approx 343 \, \text{m/s}$ a $20^\circ\text{C}$):
+            </p>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-center text-emerald-300">
+                $$\lambda = \frac{v}{f}$$
+            </div>
+        </article>
+
+        <!-- Card 3: Condizioni di Interferenza -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-wave-square"></i> 3. Interferenza Costruttiva e Distruttiva
+            </h2>
+            <p>
+                La differenza di cammino ottico tra i due percorsi è data da $\Delta L = |L_2 - L_1|$. A seconda del rapporto con $\lambda$:
+            </p>
+            <ul class="space-y-1.5 text-[11px] text-slate-300 pt-1">
+                <li>• <strong class="text-emerald-300">Interferenza Costruttiva (Massimo):</strong> Si verifica quando la differenza di cammino è un multiplo intero della lunghezza d'onda:
+                    <div class="my-1 text-center">$$\Delta L = n \cdot \lambda \quad (n = 0, 1, 2, \dots)$$</div>
+                </li>
+                <li>• <strong class="text-rose-300">Interferenza Distruttiva (Minimo / Silenzio):</strong> Si verifica quando la differenza di cammino è un multiplo dispari di mezza lunghezza d'onda:
+                    <div class="my-1 text-center">$$\Delta L = \left(n + \frac{1}{2}\right) \lambda$$</div>
+                </li>
+            </ul>
+        </article>
+
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('quinckeCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const tabSimBtn = document.getElementById('tabSimBtn');
+            const tabTheoryBtn = document.getElementById('tabTheoryBtn');
+            const simSection = document.getElementById('simSection');
+            const theorySection = document.getElementById('theorySection');
+
+            const stateBadge = document.getElementById('stateBadge');
+            const stateDot = document.getElementById('stateDot');
+            const stateText = document.getElementById('stateText');
+            const freqOverlayLbl = document.getElementById('freqOverlayLbl');
+            const intensityBadge = document.getElementById('intensityBadge');
+
+            const telDeltaL = document.getElementById('telDeltaL');
+            const telLambda = document.getElementById('telLambda');
+            const telRatio = document.getElementById('telRatio');
+            const telIntensityVal = document.getElementById('telIntensityVal');
+
+            const audioBtn = document.getElementById('audioBtn');
+            const audioIcon = document.getElementById('audioIcon');
+            const audioLabel = document.getElementById('audioLabel');
+
+            const freqSlider = document.getElementById('freqSlider');
+            const l2Slider = document.getElementById('l2Slider');
+            const freqValLabel = document.getElementById('freqValLabel');
+            const l2ValLabel = document.getElementById('l2ValLabel');
+            const observationText = document.getElementById('observationText');
+
+            // Parametri Fisici
+            const L1_CM = 50.0;     // Ramo fisso costante (50 cm)
+            let frequency = 440;    // Hz
+            let l2_cm = 50.0;       // Ramo variabile [30 .. 100 cm]
+            const SOUND_SPEED = 34300; // cm/s (343 m/s)
+
+            let isAudioOn = false;
+            let audioCtx = null;
+            let oscillator = null;
+            let gainNode = null;
+
+            let waveTime = 0;
+
+            // Gestione Tabs
+            tabSimBtn.addEventListener('click', () => {
+                simSection.classList.remove('hidden');
+                simSection.classList.add('flex');
+                theorySection.classList.add('hidden');
+                theorySection.classList.remove('flex');
+
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+                resizeCanvas();
+            });
+
+            tabTheoryBtn.addEventListener('click', () => {
+                theorySection.classList.remove('hidden');
+                theorySection.classList.add('flex');
+                simSection.classList.add('hidden');
+                simSection.classList.remove('flex');
+
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+            });
+
+            // Resize Canvas ad alta definizione
+            let logicalW = 360;
+            let logicalH = 270;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                logicalW = rect.width;
+                logicalH = rect.height;
+
+                canvas.width = Math.round(logicalW * dpr);
+                canvas.height = Math.round(logicalH * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Web Audio API Sintetizzatore
+            function toggleAudio() {
+                isAudioOn = !isAudioOn;
+                if (isAudioOn) {
+                    audioBtn.className = 'w-full py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-emerald-600 border border-emerald-500 text-white active:scale-[0.98] transition-all';
+                    audioIcon.className = 'fa-solid fa-volume-high';
+                    audioLabel.textContent = 'Audio Sintetizzatore: ON';
+                    startAudio();
+                } else {
+                    audioBtn.className = 'w-full py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 text-slate-300 active:scale-[0.98] transition-all';
+                    audioIcon.className = 'fa-solid fa-volume-xmark';
+                    audioLabel.textContent = 'Audio Sintetizzatore: OFF';
+                    stopAudio();
+                }
+            }
+
+            function startAudio() {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    oscillator = audioCtx.createOscillator();
+                    gainNode = audioCtx.createGain();
+
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+                    // Regola guadagno in base all'intensità di interferenza attuale
+                    updateAudioGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    oscillator.start();
+                } catch (e) {
+                    console.error("Web Audio non supportato", e);
+                }
+            }
+
+            function stopAudio() {
+                if (oscillator) {
+                    try { oscillator.stop(); } catch(e){}
+                    oscillator.disconnect();
+                    oscillator = null;
+                }
+                if (audioCtx) {
+                    audioCtx.close();
+                    audioCtx = null;
+                }
+            }
+
+            function updateAudioGain() {
+                if (!isAudioOn || !gainNode || !audioCtx) return;
+                const deltaL = Math.abs(l2_cm - L1_CM);
+                const lambda = SOUND_SPEED / frequency;
+                const phaseDiff = (2 * Math.PI * deltaL) / lambda;
+                const intensity = Math.pow(Math.cos(phaseDiff / 2), 2);
+                gainNode.gain.setValueAtTime(intensity * 0.15, audioCtx.currentTime);
+                if (oscillator) {
+                    oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                }
+            }
+
+            audioBtn.addEventListener('click', toggleAudio);
+
+            freqSlider.addEventListener('input', (e) => {
+                frequency = parseInt(e.target.value, 10);
+                freqValLabel.textContent = `${frequency} Hz`;
+                freqOverlayLbl.textContent = `${frequency} Hz`;
+                updateAudioGain();
+            });
+
+            l2Slider.addEventListener('input', (e) => {
+                l2_cm = parseFloat(e.target.value);
+                l2ValLabel.textContent = `${l2_cm.toFixed(1)} cm`;
+                updateAudioGain();
+            });
+
+            // Gestione Drag & Drop Touch / Mouse direttamente sul Canvas per il Ramo Mobile Destro
+            let isDragging = false;
+            canvas.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                updateDragPos(e);
+            });
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                updateDragPos(e);
+            });
+            window.addEventListener('pointerup', () => { isDragging = false; });
+
+            function updateDragPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.clientX - rect.left;
+                // Mappa la posizione X del cursore/touch alla lunghezza L2 [30 .. 100 cm]
+                const minX = logicalW * 0.55;
+                const maxX = logicalW * 0.85;
+                const clampedX = Math.max(minX, Math.min(maxX, clientX));
+                const normalized = (clampedX - minX) / (maxX - minX);
+                l2_cm = 30 + normalized * 70;
+                l2Slider.value = l2_cm;
+                l2ValLabel.textContent = `${l2_cm.toFixed(1)} cm`;
+                updateAudioGain();
+            }
+
+            // Ciclo principale di simulazione e rendering (60 FPS)
+            function animate(now) {
+                const dt = 0.016;
+                waveTime += dt * (frequency / 220);
+
+                const w = logicalW;
+                const h = logicalH;
+
+                // Calcoli Fisici
+                const lambda = SOUND_SPEED / frequency; // cm
+                const deltaL = Math.abs(l2_cm - L1_CM);
+                const ratio = deltaL / lambda;
+                const phaseDiff = (2 * Math.PI * deltaL) / lambda;
+                const intensity = Math.pow(Math.cos(phaseDiff / 2), 2); // 0 (min) a 1 (max)
+
+                // Aggiornamento Telemetria UI
+                telDeltaL.textContent = `${deltaL.toFixed(1)} cm`;
+                telLambda.textContent = `${lambda.toFixed(1)} cm`;
+                telRatio.textContent = ratio.toFixed(2);
+                telIntensityVal.textContent = `${Math.round(intensity * 100)}%`;
+
+                if (intensity > 0.8) {
+                    stateBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60';
+                    stateDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                    stateText.textContent = 'Costruttiva (Max)';
+                    intensityBadge.textContent = 'Interferenza: Max';
+                    intensityBadge.className = 'bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-emerald-300 px-2 py-0.5 rounded-md';
+                    observationText.innerHTML = `<strong class="text-emerald-300 block mb-0.5">Interferenza Costruttiva ($\\Delta L = ${deltaL.toFixed(1)}\\text{ cm} \\approx n\\lambda$):</strong> Le onde sonore arrivano in fase all'uscita, sommandosi con ampiezza massima.`;
+                } else if (intensity < 0.2) {
+                    stateBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-950/80 text-rose-300 border border-rose-700/60';
+                    stateDot.className = 'w-2 h-2 rounded-full bg-rose-400';
+                    stateText.textContent = 'Distruttiva (Min)';
+                    intensityBadge.textContent = 'Interferenza: Silenzio';
+                    intensityBadge.className = 'bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-rose-300 px-2 py-0.5 rounded-md';
+                    observationText.innerHTML = `<strong class="text-rose-300 block mb-0.5">Interferenza Distruttiva ($\\Delta L = ${deltaL.toFixed(1)}\\text{ cm} \\approx (n+\\frac{1}{2})\\lambda$):</strong> Le onde sono in opposizione di fase ($180^\\circ$) e si annullano (minimo acustico).`;
+                } else {
+                    stateBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-950/80 text-amber-300 border border-amber-700/60';
+                    stateDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                    stateText.textContent = 'Interferenza Parziale';
+                    intensityBadge.textContent = `Interferenza: ${Math.round(intensity * 100)}%`;
+                    intensityBadge.className = 'bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded-md';
+                    observationText.innerHTML = `<strong class="text-amber-300 block mb-0.5">Interferenza Parziale:</strong> Sfasamento intermedio tra i due rami dell'apparecchio.`;
+                }
+
+                // --- RENDERING CANVAS FEDELE ALLA FOTO ---
+                ctx.clearRect(0, 0, w, h);
+
+                // Sfondo laboratorio tecnico
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, w, h);
+
+                // Griglia di sfondo sottile
+                ctx.strokeStyle = 'rgba(51, 65, 85, 0.18)';
+                ctx.lineWidth = 1;
+                for (let gx = 0; gx < w; gx += 20) {
+                    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+                }
+                for (let gy = 0; gy < h; gy += 20) {
+                    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+                }
+
+                // Coordinate strutturali ispirate all'apparecchio reale nella foto
+                const leftBendX = 50;
+                const rightBendX = w - 50;
+                const cy = h * 0.50;
+                const branchHalfH = 38;
+
+                const topY = cy - branchHalfH;
+                const botY = cy + branchHalfH;
+
+                // Calcolo posizione blocco scorrevole destro (L2) in base a l2_cm
+                const normalizedL2 = (l2_cm - 30) / 70;
+                const sliderNodeX = w * 0.52 + normalizedL2 * (w * 0.28);
+
+                // 1. Struttura Metallica Grigio-Argento (Tubi Paralleli e Raccordi)
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 12;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                // Curva a U sinistra (collegamento fisso)
+                ctx.beginPath();
+                ctx.arc(leftBendX, cy, branchHalfH, Math.PI / 2, -Math.PI / 2, false);
+                ctx.stroke();
+
+                // Tubo orizzontale superiore (Ramo fisso L1)
+                ctx.beginPath();
+                ctx.moveTo(leftBendX, topY);
+                ctx.lineTo(sliderNodeX, topY);
+                ctx.stroke();
+
+                // Tubo orizzontale inferiore (Ramo inferiore)
+                ctx.beginPath();
+                ctx.moveTo(leftBendX, botY);
+                ctx.lineTo(sliderNodeX, botY);
+                ctx.stroke();
+
+                // Blocco scorrevole destro (Trombone U-bend mobile)
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.moveTo(sliderNodeX, topY);
+                ctx.arc(sliderNodeX + 25, cy, branchHalfH, -Math.PI / 2, Math.PI / 2, false);
+                ctx.lineTo(sliderNodeX, botY);
+                ctx.stroke();
+
+                // Supporto / Morsetto di bloccaggio sulla destra (simile alla foto)
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(sliderNodeX - 6, topY - 14, 12, 10);
+                ctx.fillStyle = '#f59e0b'; // vite di serraggio
+                ctx.beginPath(); ctx.arc(sliderNodeX, topY - 18, 4, 0, Math.PI * 2); ctx.fill();
+
+                // 2. Imbuto Superiore (Ingresso Audio)
+                const funnelX = w * 0.38;
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.moveTo(funnelX, topY);
+                ctx.lineTo(funnelX, topY - 32);
+                ctx.stroke();
+
+                // Tromba/Coppa conica superiore
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.moveTo(funnelX - 16, topY - 44);
+                ctx.lineTo(funnelX + 16, topY - 44);
+                ctx.lineTo(funnelX + 6, topY - 32);
+                ctx.lineTo(funnelX - 6, topY - 32);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 3. Imbuto Inferiore (Base d'appoggio sul tavolo)
+                ctx.beginPath();
+                ctx.moveTo(funnelX, botY);
+                ctx.lineTo(funnelX, botY + 32);
+                ctx.stroke();
+
+                // Base conica inferiore
+                ctx.beginPath();
+                ctx.moveTo(funnelX - 22, botY + 44);
+                ctx.lineTo(funnelX + 22, botY + 44);
+                ctx.lineTo(funnelX + 6, botY + 32);
+                ctx.lineTo(funnelX - 6, botY + 32);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 4. Particelle sonore animate nei due rami
+                const particleCount = 20;
+                for (let i = 0; i < particleCount; i++) {
+                    const progress = (waveTime * 0.7 + i / particleCount) % 1;
+
+                    // Particelle ramo superiore
+                    const pTopX = funnelX + progress * (sliderNodeX - funnelX);
+                    if (pTopX >= funnelX && pTopX <= sliderNodeX) {
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.beginPath(); ctx.arc(pTopX, topY, 2.5, 0, Math.PI * 2); ctx.fill();
+                    }
+
+                    // Particelle ramo inferiore/mobile
+                    const pBotX = sliderNodeX - progress * (sliderNodeX - funnelX);
+                    if (pBotX >= funnelX && pBotX <= sliderNodeX) {
+                        ctx.fillStyle = '#fbbf24';
+                        ctx.beginPath(); ctx.arc(pBotX, botY, 2.5, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+
+                // Indicatore visivo di ampiezza all'uscita basato sull'interferenza
+                ctx.fillStyle = intensity > 0.5 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(244, 63, 94, 0.2)';
+                ctx.beginPath();
+                ctx.arc(funnelX, topY - 44, 18 + intensity * 10, 0, Math.PI * 2);
+                ctx.fill();
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>
