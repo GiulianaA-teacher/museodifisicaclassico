@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore Motore a Scoppio (4 Tempi)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #090d16 0%, #1a233a 100%);
+            color: #f1f5f9;
+            touch-action: manipulation;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .wood-accent {
+            background: linear-gradient(135deg, #3d2314 0%, #29170c 100%);
+            border: 1px solid #5c341e;
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ef4444;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 max-w-md mx-auto select-none">
+
+    <!-- Intestazione -->
+    <header class="w-full text-center py-2">
+        <h1 class="text-lg font-bold tracking-tight text-red-500 flex items-center justify-center gap-2">
+            <span>⚙️</span> Motore a Scoppio (4 Tempi)
+        </h1>
+        <p class="text-[11px] text-slate-400">Simulazione didattica basata su modello sezionato</p>
+    </header>
+
+    <!-- Navigazione Tab (Simulazione vs Anatomia) -->
+    <nav class="flex rounded-xl p-1 glass-card mb-2 text-xs font-medium">
+        <button onclick="switchTab('sim')" id="tabSimBtn" class="flex-1 py-1.5 rounded-lg bg-red-600 text-white transition shadow-md">Simulazione</button>
+        <button onclick="switchTab('anatomy')" id="tabAnatomyBtn" class="flex-1 py-1.5 rounded-lg text-slate-300 hover:text-white transition">Componenti</button>
+    </nav>
+
+    <!-- Sezione Simulazione -->
+    <main id="viewSim" class="w-full flex flex-col space-y-3">
+        <!-- Canvas Canvas Container con Base in Legno -->
+        <div class="relative w-full rounded-2xl overflow-hidden wood-accent shadow-2xl p-3 border-b-4 border-[#1c0f08]">
+            <!-- Etichetta Modello / Targhetta stile Museo -->
+            <div class="absolute top-2 left-3 bg-[#e2e8f0] text-slate-900 px-2 py-0.5 rounded text-[9px] font-mono font-bold shadow">
+                MOD. 4T - SEZIONE DIDATTICA
+            </div>
+
+            <canvas id="engineCanvas" class="w-full h-[280px] block rounded-xl bg-slate-950/80 mt-4"></canvas>
+            
+            <!-- Badge Tempo Attuale -->
+            <div class="absolute bottom-4 left-6 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700 text-xs flex items-center gap-2 shadow-lg">
+                <span id="strokeIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                <span id="currentStrokeTitle" class="font-bold text-slate-100">Fase: Aspirazione</span>
+            </div>
+        </div>
+
+        <!-- Pannello Telemetria in Tempo Reale -->
+        <div class="grid grid-cols-3 gap-2">
+            <div class="glass-card p-2.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">Pressione</span>
+                <span id="valPressure" class="text-sm font-bold text-red-400">1.0 <span class="text-[10px] text-slate-400">bar</span></span>
+            </div>
+            <div class="glass-card p-2.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">Temperatura</span>
+                <span id="valTemp" class="text-sm font-bold text-amber-400">25 <span class="text-[10px] text-slate-400">°C</span></span>
+            </div>
+            <div class="glass-card p-2.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block">Giri Motore</span>
+                <span id="valRpm" class="text-sm font-bold text-blue-400">60 <span class="text-[10px] text-slate-400">RPM</span></span>
+            </div>
+        </div>
+
+        <!-- Controlli di Riproduzione -->
+        <div class="glass-card p-3 rounded-xl space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+                <button id="playPauseBtn" onclick="togglePlay()" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold py-2 px-3 rounded-lg transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-1.5">
+                    <span id="playIcon">⏸️</span> <span id="playText">Pausa</span>
+                </button>
+                <button onclick="stepEngine()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2 px-3 rounded-lg border border-slate-700 transition">
+                    ⏭️ Step
+                </button>
+                <button onclick="resetEngine()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2 px-3 rounded-lg border border-slate-700 transition">
+                    🔄 Reset
+                </button>
+            </div>
+
+            <!-- Slider Velocità / RPM -->
+            <div class="space-y-1">
+                <div class="flex justify-between items-center text-[11px] text-slate-300">
+                    <span>Velocità Simulazione (RPM)</span>
+                    <span id="speedLabel" class="font-mono text-red-400 font-bold">60 RPM</span>
+                </div>
+                <input id="speedSlider" type="range" min="10" max="180" value="60" 
+                       class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                       oninput="updateSpeed(this.value)">
+            </div>
+
+            <!-- Bottoni Selezione Diretta Tempi -->
+            <div class="grid grid-cols-4 gap-1.5 pt-1">
+                <button onclick="setStroke(0)" class="py-1.5 bg-slate-800/80 hover:bg-slate-700 text-[10px] font-medium rounded-lg border border-slate-700 text-blue-400 transition">Aspiraz.</button>
+                <button onclick="setStroke(1)" class="py-1.5 bg-slate-800/80 hover:bg-slate-700 text-[10px] font-medium rounded-lg border border-slate-700 text-amber-400 transition">Compres.</button>
+                <button onclick="setStroke(2)" class="py-1.5 bg-slate-800/80 hover:bg-slate-700 text-[10px] font-medium rounded-lg border border-slate-700 text-red-400 transition">Scoppio</button>
+                <button onclick="setStroke(3)" class="py-1.5 bg-slate-800/80 hover:bg-slate-700 text-[10px] font-medium rounded-lg border border-slate-700 text-purple-400 transition">Scarico</button>
+            </div>
+        </div>
+
+        <!-- Formule Matematiche -->
+        <div class="glass-card p-3 rounded-xl space-y-1.5 text-xs">
+            <h2 class="font-semibold text-red-400 text-[11px] uppercase tracking-wider">Formule Chiave del Motore</h2>
+            <div class="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[9px]">Cilindrata ($V_d$)</span>
+                    <span class="text-slate-200">V = &pi; &middot; (B/2)<sup>2</sup> &middot; S</span>
+                </div>
+                <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[9px]">Compressione (&epsilon;)</span>
+                    <span class="text-slate-200">&epsilon; = (V<sub>h</sub> + V<sub>c</sub>) / V<sub>c</sub></span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sezione Anatomia / Componenti (Nascosta di default) -->
+    <section id="viewAnatomy" class="w-full flex-col space-y-2.5 hidden">
+        <div class="glass-card p-3 rounded-xl space-y-2">
+            <h2 class="text-xs font-semibold text-red-400 uppercase tracking-wider">Anatomia del Modello</h2>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+                Il modello sezionato riproduce fedelmente i componenti meccanici essenziali di un propulsore termico a quattro tempi. Clicca sui componenti per approfondire:
+            </p>
+        </div>
+
+        <!-- Lista Componenti Interattivi -->
+        <div class="space-y-2">
+            <div class="glass-card p-3 rounded-xl border-l-4 border-blue-500">
+                <h3 class="text-xs font-bold text-slate-100 flex items-center justify-between">
+                    <span>1. Pistone e Cilindro</span>
+                    <span class="text-[10px] text-blue-400 font-mono">Lega di Alluminio</span>
+                </h3>
+                <p class="text-[11px] text-slate-300 mt-1">
+                    Scorre verticalmente nel cilindro guidato dalla pressione della combustione. Trasmette la forza lineare all'albero motore tramite la biella.
+                </p>
+            </div>
+
+            <div class="glass-card p-3 rounded-xl border-l-4 border-amber-500">
+                <h3 class="text-xs font-bold text-slate-100 flex items-center justify-between">
+                    <span>2. Biella e Albero Motore</span>
+                    <span class="text-[10px] text-amber-400 font-mono">Acciaio Bonificato</span>
+                </h3>
+                <p class="text-[11px] text-slate-300 mt-1">
+                    Trasformano il moto alternativo (rettilineo) del pistone in moto rotatorio continuo grazie alla manovella del volano.
+                </p>
+            </div>
+
+            <div class="glass-card p-3 rounded-xl border-l-4 border-purple-500">
+                <h3 class="text-xs font-bold text-slate-100 flex items-center justify-between">
+                    <span>3. Valvole (Aspirazione / Scarico)</span>
+                    <span class="text-[10px] text-purple-400 font-mono">Acciaio Speciale</span>
+                </h3>
+                <p class="text-[11px] text-slate-300 mt-1">
+                    Controllano l'afflusso della miscela aria-benzina (valvola di aspirazione blu) e l'espulsione dei gas combusti (valvola di scarico rossa).
+                </p>
+            </div>
+
+            <div class="glass-card p-3 rounded-xl border-l-4 border-red-500">
+                <h3 class="text-xs font-bold text-slate-100 flex items-center justify-between">
+                    <span>4. Candela d'Accensione</span>
+                    <span class="text-[10px] text-red-400 font-mono">Ceramica & Acciaio</span>
+                </h3>
+                <p class="text-[11px] text-slate-300 mt-1">
+                    Genera la scintilla elettrica ad alta tensione che innesca la combustione della miscela compressa nella camera superiore.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-1 text-[10px] text-slate-500 mt-2">
+        Simulazione Educativa HTML5 • Ottimizzata per Smartphone
+    </footer>
+
+    <!-- Script di Simulazione Motore -->
+    <script>
+        const canvas = document.getElementById('engineCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Elementi UI
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedLabel = document.getElementById('speedLabel');
+        const valPressure = document.getElementById('valPressure');
+        const valTemp = document.getElementById('valTemp');
+        const valRpm = document.getElementById('valRpm');
+        const currentStrokeTitle = document.getElementById('currentStrokeTitle');
+        const strokeIndicatorDot = document.getElementById('strokeIndicatorDot');
+
+        let isPlaying = true;
+        let rpm = 60;
+        let crankAngle = 0; // 0 a 720 gradi per ciclo completo a 4 tempi
+
+        function switchTab(tab) {
+            const simView = document.getElementById('viewSim');
+            const anatomyView = document.getElementById('viewAnatomy');
+            const simBtn = document.getElementById('tabSimBtn');
+            const anatomyBtn = document.getElementById('tabAnatomyBtn');
+
+            if(tab === 'sim') {
+                simView.classList.remove('hidden');
+                simView.classList.add('flex');
+                anatomyView.classList.add('hidden');
+                anatomyView.classList.remove('flex');
+                simBtn.className = "flex-1 py-1.5 rounded-lg bg-red-600 text-white transition shadow-md";
+                anatomyBtn.className = "flex-1 py-1.5 rounded-lg text-slate-300 hover:text-white transition";
+            } else {
+                simView.classList.add('hidden');
+                simView.classList.remove('flex');
+                anatomyView.classList.remove('hidden');
+                anatomyView.classList.add('flex');
+                anatomyBtn.className = "flex-1 py-1.5 rounded-lg bg-red-600 text-white transition shadow-md";
+                simBtn.className = "flex-1 py-1.5 rounded-lg text-slate-300 hover:text-white transition";
+            }
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if(isPlaying) {
+                playIcon.textContent = "⏸️";
+                playText.textContent = "Pausa";
+                playPauseBtn.className = "flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold py-2 px-3 rounded-lg transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-1.5";
+            } else {
+                playIcon.textContent = "▶️";
+                playText.textContent = "Avvia";
+                playPauseBtn.className = "flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-3 rounded-lg transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-1.5";
+            }
+        }
+
+        function updateSpeed(val) {
+            rpm = parseInt(val);
+            speedLabel.textContent = rpm + " RPM";
+            valRpm.innerHTML = `${rpm} <span class="text-[10px] text-slate-400">RPM</span>`;
+        }
+
+        function setStroke(strokeIndex) {
+            // strokeIndex: 0=Aspirazione (0°), 1=Compressione (180°), 2=Scoppio (360°), 3=Scarico (540°)
+            crankAngle = strokeIndex * 180;
+        }
+
+        function stepEngine() {
+            crankAngle = (crankAngle + 90) % 720;
+        }
+
+        function resetEngine() {
+            crankAngle = 0;
+        }
+
+        // Loop principale di rendering
+        let lastTime = 0;
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            if (isPlaying) {
+                // 360 gradi per rivoluzione, 2 rivoluzioni (720 deg) per ciclo 4 tempi
+                // dAngle = (rpm * 360 / 60) * dt
+                const dAngle = (rpm * 6 / 60) * (dt * 60) * 0.8;
+                crankAngle = (crankAngle + dAngle) % 720;
+            }
+
+            drawEngine();
+            requestAnimationFrame(animate);
+        }
+
+        function drawEngine() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            ctx.clearRect(0, 0, width, height);
+
+            const cx = width / 2;
+            const cy = height / 2 + 10;
+
+            // Determina la fase (0-180: Aspirazione, 180-360: Compressione, 360-540: Scoppio, 540-720: Scarico)
+            let strokeIdx = Math.floor(crankAngle / 180) % 4;
+            let strokeNames = ["1. Aspirazione", "2. Compressione", "3. Scoppio / Espansione", "4. Scarico"];
+            let strokeColors = ["#3b82f6", "#f59e0b", "#ef4444", "#a855f7"];
+            
+            currentStrokeTitle.textContent = "Fase: " + strokeNames[strokeIdx];
+            strokeIndicatorDot.className = `w-2.5 h-2.5 rounded-full animate-pulse`;
+            
+            // Colore pallino in base alla fase
+            if(strokeIdx === 0) strokeIndicatorDot.style.background = "#3b82f6";
+            if(strokeIdx === 1) strokeIndicatorDot.style.background = "#f59e0b";
+            if(strokeIdx === 2) strokeIndicatorDot.style.background = "#ef4444";
+            if(strokeIdx === 3) strokeIndicatorDot.style.background = "#a855f7";
+
+            // Telemetria dinamica in base all'angolo
+            let pVal = 1.0;
+            let tVal = 25;
+            let normalizedCycleAngle = crankAngle % 360;
+            if(strokeIdx === 0) { // Aspirazione
+                pVal = 0.8; tVal = 30;
+            } else if(strokeIdx === 1) { // Compressione
+                pVal = (1.0 + (normalizedCycleAngle / 180) * 8.5).toFixed(1);
+                tVal = Math.round(30 + (normalizedCycleAngle / 180) * 280);
+            } else if(strokeIdx === 2) { // Scoppio
+                let prog = (crankAngle - 360) / 180;
+                pVal = (25.0 - prog * 18.0).toFixed(1);
+                tVal = Math.round(900 - prog * 500);
+            } else { // Scarico
+                pVal = 1.2; tVal = 400 - ((crankAngle - 540) / 180) * 350;
+            }
+
+            valPressure.innerHTML = `${pVal} <span class="text-[10px] text-slate-400">bar</span>`;
+            valTemp.innerHTML = `${Math.max(25, Math.round(tVal))} <span class="text-[10px] text-slate-400">°C</span>`;
+
+            // Geometria del motore sul canvas
+            const cylinderWidth = 90;
+            const cylinderHeight = 130;
+            const cylinderX = cx - cylinderWidth / 2;
+            const cylinderY = cy - 75;
+
+            // 1. Corpo Motore (Sezione rosso/grigio stile cutaway)
+            ctx.fillStyle = "rgba(100, 116, 139, 0.2)";
+            ctx.fillRect(cylinderX - 25, cylinderY, cylinderWidth + 50, cylinderHeight);
+            
+            ctx.strokeStyle = "rgba(226, 232, 240, 0.7)";
+            ctx.lineWidth = 3;
+            // Pareti cilindro sezionate
+            ctx.strokeRect(cylinderX, cylinderY, cylinderWidth, cylinderHeight);
+
+            // Alette di raffreddamento laterali (stile modello fisico)
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
+            ctx.lineWidth = 3;
+            for(let i = 0; i < 5; i++) {
+                let fy = cylinderY + 15 + i * 22;
+                ctx.beginPath();
+                ctx.moveTo(cylinderX - 25, fy);
+                ctx.lineTo(cylinderX, fy);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(cylinderX + cylinderWidth, fy);
+                ctx.lineTo(cylinderX + cylinderWidth + 25, fy);
+                ctx.stroke();
+            }
+
+            // 2. Calcolo cinematismo pistone (Manovellismo)
+            // crankAngle da 0 a 720
+            const rad = (crankAngle * Math.PI) / 180;
+            const crankRadius = 25;
+            const rodLength = 70;
+            
+            // Angolo della manovella (2 giri completi per 1 ciclo 4 tempi)
+            const crankTheta = rad * 2;
+            const crankX = cx;
+            const crankY = cylinderY + cylinderHeight + 35;
+            
+            const pinX = crankX + Math.sin(crankTheta) * crankRadius;
+            const pinY = crankY - Math.cos(crankTheta) * crankRadius;
+
+            // Posizione verticale pistone calcolata con approssimazione biella-manovella
+            const pistonTopY = cylinderY + 25 + (1 - Math.cos(crankTheta)) * 20 + (crankRadius * 0.4);
+            const pistonHeight = 35;
+
+            // 3. Colore fluido interno alla camera di combustione
+            let chamberH = pistonTopY - cylinderY;
+            if(strokeIdx === 2 && crankAngle >= 360) { // Scintilla / Scoppio
+                ctx.fillStyle = "rgba(239, 68, 68, 0.45)";
+            } else if(strokeIdx === 0) { // Aspirazione miscela fresca
+                ctx.fillStyle = "rgba(59, 130, 246, 0.35)";
+            } else {
+                ctx.fillStyle = "rgba(148, 163, 184, 0.25)";
+            }
+            ctx.fillRect(cylinderX + 2, cylinderY + 2, cylinderWidth - 4, chamberH - 2);
+
+            // 4. Candela in alto al centro
+            ctx.fillStyle = "#cbd5e1";
+            ctx.fillRect(cx - 6, cylinderY - 14, 12, 14);
+            ctx.fillStyle = "#38bdf8";
+            ctx.fillRect(cx - 3, cylinderY - 18, 6, 4);
+
+            // Scintilla elettrica durante lo scoppio
+            if(strokeIdx === 2 && Math.sin(crankAngle * 0.5) > 0.3) {
+                ctx.strokeStyle = "#facc15";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cylinderY);
+                ctx.lineTo(cx - 8, cylinderY + 12);
+                ctx.lineTo(cx + 6, cylinderY + 16);
+                ctx.lineTo(cx, cylinderY + 22);
+                ctx.stroke();
+            }
+
+            // 5. Valvole (Aspirazione a sinistra, Scarico a destra)
+            let intakeOpen = (strokeIdx === 0);
+            let exhaustOpen = (strokeIdx === 3);
+
+            let intakeLift = intakeOpen ? 10 : 0;
+            let exhaustLift = exhaustOpen ? 10 : 0;
+
+            // Valvola Aspirazione (Sinistra)
+            ctx.strokeStyle = "#3b82f6";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cylinderX + 15, cylinderY - 12 - intakeLift);
+            ctx.lineTo(cylinderX + 25, cylinderY - intakeLift);
+            ctx.stroke();
+            // Stelo valvola
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cylinderX + 20, cylinderY - 35 - intakeLift);
+            ctx.lineTo(cylinderX + 20, cylinderY - intakeLift);
+            ctx.stroke();
+
+            // Condotto Aspirazione (colore rosso sezionato come nel modello fisico)
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.8)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cylinderX - 25, cylinderY - 20);
+            ctx.lineTo(cylinderX + 20, cylinderY - 20);
+            ctx.stroke();
+
+            // Valvola Scarico (Destra)
+            ctx.strokeStyle = "#a855f7";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cylinderX + cylinderWidth - 25, cylinderY - 12 - exhaustLift);
+            ctx.lineTo(cylinderX + cylinderWidth - 15, cylinderY - exhaustLift);
+            ctx.stroke();
+            // Stelo valvola
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cylinderX + cylinderWidth - 20, cylinderY - 35 - exhaustLift);
+            ctx.lineTo(cylinderX + cylinderWidth - 20, cylinderY - exhaustLift);
+            ctx.stroke();
+
+            // Condotto Scarico
+            ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cylinderX + cylinderWidth, cylinderY - 20);
+            ctx.lineTo(cylinderX + cylinderWidth + 25, cylinderY - 20);
+            ctx.stroke();
+
+            // 6. Pistone
+            ctx.fillStyle = "#94a3b8";
+            ctx.fillRect(cylinderX + 2, pistonTopY, cylinderWidth - 4, pistonHeight);
+            // Fasce elastiche pistone
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(cylinderX + 1, pistonTopY + 4, cylinderWidth - 2, 3);
+            ctx.fillRect(cylinderX + 1, pistonTopY + 12, cylinderWidth - 2, 3);
+
+            // Perno di manovella sul pistone
+            ctx.fillStyle = "#cbd5e1";
+            ctx.beginPath();
+            ctx.arc(cx, pistonTopY + pistonHeight / 2, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 7. Biella (connessione tra pistone e perno manovella)
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 8;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(cx, pistonTopY + pistonHeight / 2);
+            ctx.lineTo(pinX, pinY);
+            ctx.stroke();
+
+            // 8. Volano / Albero motore inferiore
+            ctx.fillStyle = "rgba(71, 85, 105, 0.6)";
+            ctx.beginPath();
+            ctx.arc(crankX, crankY, crankRadius + 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Perno manovella volano
+            ctx.fillStyle = "#ef4444";
+            ctx.beginPath();
+            ctx.arc(pinX, pinY, 7, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Avvio animazione al caricamento
+        window.onload = function() {
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>
