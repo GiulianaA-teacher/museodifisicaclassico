@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Giroscopio Cardanico - Simulazione 3D</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX per rendering matematico sincrono e pulito -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+            user-select: none;
+        }
+
+        /* Layout rigoroso Portrait a 3 fasce senza sovrapposizioni */
+        .app-shell {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100dvh;
+            max-width: 640px;
+            margin: 0 auto;
+            background-color: #0f172a;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 1. Header compatto */
+        .app-header {
+            flex: 0 0 auto;
+            padding: 10px 14px;
+            padding-top: max(10px, env(safe-area-inset-top));
+            background-color: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        /* 2. Viewport 3D dedicata (~47% altezza) */
+        .viewport-section {
+            flex: 0 0 47%;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            background: radial-gradient(circle at 50% 42%, #1e293b 0%, #090d16 100%);
+            border-bottom: 1px solid #334155;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Barra telemetria integrata sopra il canvas (zero sovrapposizione sul modello) */
+        .telemetry-strip {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            padding: 6px 10px;
+            background-color: rgba(15, 23, 42, 0.85);
+            border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+            font-size: 11px;
+        }
+
+        .canvas-wrapper {
+            flex: 1 1 auto;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            touch-action: none;
+        }
+
+        #gyro-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* 3. Pannello Controlli inferiore (~53% rimanente) */
+        .controls-section {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background-color: #0f172a;
+        }
+
+        /* Barra Tab */
+        .tab-bar {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            background-color: #1e293b;
+            border-bottom: 1px solid #334155;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .tab-btn {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            color: #94a3b8;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background-color: #d97706; /* Amber 600 */
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+        }
+
+        /* Contenuto Tab scrollabile */
+        .tab-content-area {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 12px 14px;
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-panel {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tab-panel.active {
+            display: flex;
+        }
+
+        /* Custom Range Sliders Touch-Friendly */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #334155;
+            border-radius: 999px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #f59e0b;
+            border: 3px solid #fef3c7;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.15);
+            background: #fbbf24;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #f59e0b;
+            border: 3px solid #fef3c7;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Scrollbar discreta */
+        .tab-content-area::-webkit-scrollbar {
+            width: 4px;
+        }
+        .tab-content-area::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .tab-content-area::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        /* KaTeX Styling adjustments */
+        .katex {
+            font-size: 1.05em;
+            color: #f8fafc;
+        }
+        .formula-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-left: 3px solid #f59e0b;
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-shell">
+    <!-- 1. HEADER -->
+    <header class="app-header">
+        <div class="min-w-0 flex-1">
+            <h1 class="text-base sm:text-lg font-bold text-amber-400 tracking-tight truncate leading-tight">
+                Giroscopio Cardanico
+            </h1>
+            <p class="text-[11px] text-slate-400 truncate">
+                Conservazione del momento angolare e precessione
+            </p>
+        </div>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button id="btn-center-view" title="Centra inquadratura" class="min-h-[40px] px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-600 text-xs font-medium text-slate-200 flex items-center gap-1 transition">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>Vista</span>
+            </button>
+            <button id="btn-reset-sim" title="Ripristina stato iniziale" class="min-h-[40px] px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-600 text-xs font-medium text-slate-200 flex items-center gap-1 transition">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Reset</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. VIEWPORT 3D DEDICATA -->
+    <section class="viewport-section" aria-label="Simulazione 3D Giroscopio">
+        <!-- Barra Telemetria Live -->
+        <div class="telemetry-strip">
+            <div class="flex flex-col items-center bg-slate-800/80 rounded px-1.5 py-1 border border-slate-700/70">
+                <span class="text-[10px] text-cyan-400 font-medium">Spin (<span class="katex-inline" data-tex="\omega"></span>)</span>
+                <span id="tel-omega" class="font-mono font-bold text-slate-100 text-xs">0 RPM</span>
+            </div>
+            <div class="flex flex-col items-center bg-slate-800/80 rounded px-1.5 py-1 border border-slate-700/70">
+                <span class="text-[10px] text-emerald-400 font-medium">Mom. Ang. (<span class="katex-inline" data-tex="L"></span>)</span>
+                <span id="tel-L" class="font-mono font-bold text-slate-100 text-xs">0.00 N·m·s</span>
+            </div>
+            <div class="flex flex-col items-center bg-slate-800/80 rounded px-1.5 py-1 border border-slate-700/70">
+                <span class="text-[10px] text-amber-400 font-medium">Precess. (<span class="katex-inline" data-tex="\Omega_p"></span>)</span>
+                <span id="tel-prec" class="font-mono font-bold text-slate-100 text-xs">0.00 rad/s</span>
+            </div>
+        </div>
+
+        <!-- Area Canvas Three.js -->
+        <div class="canvas-wrapper" id="canvas-container">
+            <canvas id="gyro-canvas"></canvas>
+        </div>
+    </section>
+
+    <!-- 3. PANNELLO CONTROLLI A TAB -->
+    <main class="controls-section">
+        <!-- Navigazione a 3 Schede -->
+        <nav class="tab-bar" role="tablist">
+            <button class="tab-btn active" role="tab" aria-selected="true" data-tab="controlli">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                <span>Controlli</span>
+            </button>
+            <button class="tab-btn" role="tab" aria-selected="false" data-tab="struttura">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span>Struttura</span>
+            </button>
+            <button class="tab-btn" role="tab" aria-selected="false" data-tab="teoria">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span>Teoria</span>
+            </button>
+        </nav>
+
+        <!-- Area Contenuto Scrollabile -->
+        <div class="tab-content-area">
+            
+            <!-- TAB 1: CONTROLLI & ESPERIMENTI -->
+            <div id="panel-controlli" class="tab-panel active" role="tabpanel">
+                
+                <!-- CONTROLLO PRINCIPALE: AVVIA / FERMA ROTAZIONE -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+                            <span>Motore del Volano</span>
+                            <span class="katex-inline text-amber-400" data-tex="(\omega)"></span>
+                        </span>
+                        <span id="spin-status-badge" class="text-[11px] font-bold px-2.5 py-0.5 rounded bg-slate-900 text-rose-400 border border-slate-700">Fermo (0 RPM)</span>
+                    </div>
+                    
+                    <button id="btn-toggle-spin" class="min-h-[48px] px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-lg transition flex items-center justify-center gap-2">
+                        <svg id="spin-icon" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span id="spin-btn-text">Avvia Rotazione</span>
+                    </button>
+                </div>
+
+                <!-- Controllo: Velocità Target Volano -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <label for="slider-rpm" class="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+                            <span>Velocità Target</span>
+                            <span class="katex-inline text-cyan-400" data-tex="(\omega_{\text{target}})"></span>
+                        </label>
+                        <span id="val-rpm" class="text-xs font-mono font-bold bg-slate-900 text-amber-400 px-2 py-0.5 rounded border border-slate-700">6000 RPM</span>
+                    </div>
+                    <input type="range" id="slider-rpm" min="500" max="10000" step="100" value="6000">
+                    <div class="flex justify-between text-[11px] text-slate-400">
+                        <span>500 RPM</span>
+                        <span>5.000 RPM</span>
+                        <span>10.000 RPM</span>
+                    </div>
+                </div>
+
+                <!-- Controllo 2: Esperimento Inerzia (Rotazione Base/Supporto) -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <label for="slider-base" class="text-sm font-semibold text-slate-100">
+                            Exp. 1: Ruota Sostegno Esterno
+                        </label>
+                        <span id="val-base" class="text-xs font-mono font-bold bg-slate-900 text-emerald-400 px-2 py-0.5 rounded border border-slate-700">0°</span>
+                    </div>
+                    <input type="range" id="slider-base" min="-180" max="180" step="1" value="0">
+                    <p class="text-xs text-slate-400 leading-snug">
+                        Ruota la base: ad alto regime di spin il giroscopio compensa mantenendo l'asse fisso nello spazio; a rotazione ferma il supporto trascina l'asse.
+                    </p>
+                </div>
+
+                <!-- Controllo 3: Esperimento Precessione (Momento Torcente) -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-2.5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+                            <span>Exp. 2: Coppia Perturbatrice</span>
+                            <span class="katex-inline text-orange-400" data-tex="(\vec{\tau})"></span>
+                        </span>
+                        <span id="status-torque" class="text-[11px] font-medium text-slate-400">In equilibrio</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btn-impulse" class="min-h-[44px] px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-semibold text-xs sm:text-sm shadow transition flex items-center justify-center gap-1.5">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span>Impulso Laterale</span>
+                        </button>
+                        
+                        <button id="btn-gravity-toggle" aria-pressed="false" class="min-h-[44px] px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-100 font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-1.5">
+                            <svg class="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                            <span id="txt-gravity-btn">Contrappeso: OFF</span>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-snug">
+                        Con rotazione attiva, il contrappeso genera precessione ortogonale. Con rotazione ferma, il sistema cade come un normale pendolo.
+                    </p>
+                </div>
+
+                <!-- Controllo 4: Visibilità Vettori 3D -->
+                <div class="bg-slate-800/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Vettori Fisici 3D</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="toggle-vec-omega" class="vec-toggle min-h-[44px] px-2 py-1.5 rounded-lg bg-cyan-950/80 border border-cyan-500/60 text-cyan-300 text-xs font-semibold flex flex-col items-center justify-center transition" data-active="true">
+                            <span class="katex-inline" data-tex="\vec{\omega}"></span>
+                            <span class="text-[10px] opacity-80">Vel. Ang.</span>
+                        </button>
+                        <button id="toggle-vec-L" class="vec-toggle min-h-[44px] px-2 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-semibold flex flex-col items-center justify-center transition" data-active="true">
+                            <span class="katex-inline" data-tex="\vec{L}"></span>
+                            <span class="text-[10px] opacity-80">Mom. Ang.</span>
+                        </button>
+                        <button id="toggle-vec-tau" class="vec-toggle min-h-[44px] px-2 py-1.5 rounded-lg bg-orange-950/80 border border-orange-500/60 text-orange-300 text-xs font-semibold flex flex-col items-center justify-center transition" data-active="true">
+                            <span class="katex-inline" data-tex="\vec{\tau}"></span>
+                            <span class="text-[10px] opacity-80">Mom. Torc.</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: STRUTTURA E COMPONENTI -->
+            <div id="panel-struttura" class="tab-panel" role="tabpanel">
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Tocca un componente dell'apparato storico per evidenziarlo nel modello 3D e scoprirne la funzione meccanica:
+                </p>
+
+                <!-- Scheda dettaglio componente selezionato -->
+                <div id="part-detail-card" class="bg-amber-950/40 border border-amber-500/50 rounded-xl p-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 id="part-title" class="text-sm font-bold text-amber-400">Tutti i Componenti</h3>
+                        <button id="btn-clear-highlight" class="text-[11px] text-amber-300 underline hidden">Mostra tutto</button>
+                    </div>
+                    <p id="part-desc" class="text-xs text-slate-200 leading-relaxed">
+                        Il giroscopio cardanico consente al volano centrale di orientare il proprio asse di simmetria in qualsiasi direzione dello spazio tridimensionale (3 gradi di libertà rotazionali).
+                    </p>
+                </div>
+
+                <!-- Lista interattiva dei 6 componenti -->
+                <div class="grid grid-cols-1 gap-2" id="parts-list">
+                    <button class="part-btn min-h-[46px] text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between transition" data-part="volano">
+                        <div>
+                            <div class="text-sm font-semibold text-amber-300">1. Volano a Ellissoide (Ottone)</div>
+                            <div class="text-xs text-slate-400">Rotore simmetrico ad alto momento d'inerzia</div>
+                        </div>
+                        <span class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300">Evidenzia</span>
+                    </button>
+
+                    <button class="part-btn min-h-[46px] text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between transition" data-part="anello1">
+                        <div>
+                            <div class="text-sm font-semibold text-amber-300">2. Primo Anello (Cardano Interno)</div>
+                            <div class="text-xs text-slate-400">Asse di rotazione orizzontale (beccheggio)</div>
+                        </div>
+                        <span class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300">Evidenzia</span>
+                    </button>
+
+                    <button class="part-btn min-h-[46px] text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between transition" data-part="anello2">
+                        <div>
+                            <div class="text-sm font-semibold text-amber-300">3. Secondo Anello (Cardano Esterno)</div>
+                            <div class="text-xs text-slate-400">Asse di rotazione verticale (imbardata)</div>
+                        </div>
+                        <span class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300">Evidenzia</span>
+                    </button>
+
+                    <button class="part-btn min-h-[46px] text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between transition" data-part="anello3">
+                        <div>
+                            <div class="text-sm font-semibold text-amber-300">4. Terzo Anello Fisso</div>
+                            <div class="text-xs text-slate-400">Anello esterno di supporto in ottone</div>
+                        </div>
+                        <span class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300">Evidenzia</span>
+                    </button>
+
+                    <button class="part-btn min-h-[46px] text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between transition" data-part="colonna">
+                        <div>
+                            <div class="text-sm font-semibold text-amber-300">5. Sostegno in Legno Tornito</div>
+                            <div class="text-xs text-slate-400">Colonna isolante e strutturale</div>
+                        </div>
+                        <span class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300">Evidenzia</span>
+                    </button>
+
+                    <button class="part-btn min-h-[46px] text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between transition" data-part="base">
+                        <div>
+                            <div class="text-sm font-semibold text-amber-300">6. Base Circolare in Ottone</div>
+                            <div class="text-xs text-slate-400">Piedistallo pesante di stabilizzazione</div>
+                        </div>
+                        <span class="text-xs bg-slate-900 px-2 py-1 rounded text-slate-300">Evidenzia</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 3: FISICA E TEORIA -->
+            <div id="panel-teoria" class="tab-panel" role="tabpanel">
+                <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 space-y-2.5 text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    <h2 class="text-base font-bold text-amber-400">Descrizione dell'Apparato</h2>
+                    <p>
+                        Il termine <strong>giroscopio</strong> indica un corpo di forma simmetrica che ruota mantenendo fisso un punto del suo asse di simmetria. Questo strumento storico è costituito da due anelli concentrici di ottone, posti uno all'interno dell'altro, e da un volano di ottone a forma di ellissoide.
+                    </p>
+                    <p>
+                        Il sistema è montato all'interno di un terzo anello fisso di ottone, sorretto da una colonna di legno tornito e da una pesante base in ottone. L'asse di rotazione del secondo anello è <strong>verticale</strong>, mentre quello del primo anello interno è <strong>orizzontale</strong>. Il volano è sospeso nell'anello più interno fra gli estremi del diametro perpendicolare all'asse di rotazione di quell'anello: in questo modo l'asse di rotazione del volano può assumere qualunque direzione nello spazio.
+                    </p>
+                </div>
+
+                <div class="formula-box">
+                    <div class="text-xs font-semibold text-amber-400 uppercase tracking-wide">1. Momento Angolare</div>
+                    <div class="py-1 flex justify-center katex-block" data-tex="\vec{L} = I \vec{\omega}"></div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Dove <span class="katex-inline" data-tex="I"></span> è il momento d'inerzia del volano ellissoidale rispetto al suo asse di simmetria e <span class="katex-inline" data-tex="\vec{\omega}"></span> è la velocità angolare di rotazione (spin).
+                    </p>
+                </div>
+
+                <div class="formula-box">
+                    <div class="text-xs font-semibold text-emerald-400 uppercase tracking-wide">2. Inerzia Giroscopica</div>
+                    <div class="py-1 flex justify-center katex-block" data-tex="\vec{\tau}_{\text{est}} = \frac{d\vec{L}}{dt} = 0 \implies \vec{L} = \text{costante}"></div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        In assenza di momenti torcenti esterni (garantita dalla sospensione cardanica priva di attrito), il vettore <span class="katex-inline" data-tex="\vec{L}"></span> conserva modulo e direzione nello spazio assoluto anche ruotando il supporto esterno.
+                    </p>
+                </div>
+
+                <div class="formula-box">
+                    <div class="text-xs font-semibold text-orange-400 uppercase tracking-wide">3. Velocità di Precessione</div>
+                    <div class="py-1 flex justify-center katex-block" data-tex="\Omega_p = \frac{\tau}{L \sin\theta} = \frac{m g r}{I \omega}"></div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Applicando una coppia esterna <span class="katex-inline" data-tex="\vec{\tau} = \vec{r} \times \vec{F}"></span>, la variazione <span class="katex-inline" data-tex="d\vec{L}"></span> è parallela a <span class="katex-inline" data-tex="\vec{\tau}"></span>: l'asse non cade ma ruota (precede) a 90° rispetto alla forza, tanto più lentamente quanto maggiore è <span class="katex-inline" data-tex="\omega"></span>.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+/**
+ * 1. RENDERING MATEMATICO SINCRONO CON KATEX
+ */
+function renderAllMath() {
+    if (typeof katex === 'undefined') return;
+    
+    document.querySelectorAll('.katex-inline').forEach(el => {
+        const tex = el.getAttribute('data-tex');
+        if (tex) {
+            katex.render(tex, el, { throwOnError: false, displayMode: false });
+        }
+    });
+
+    document.querySelectorAll('.katex-block').forEach(el => {
+        const tex = el.getAttribute('data-tex');
+        if (tex) {
+            katex.render(tex, el, { throwOnError: false, displayMode: true });
+        }
+    });
+}
+
+renderAllMath();
+
+/**
+ * 2. STATO FISICO E PARAMETRI DELLA SIMULAZIONE
+ */
+const simState = {
+    isSpinning: false,          // Volano fermo di default (l'utente decide quando avviarlo)
+    targetRpm: 6000,            // Velocità desiderata impostata da slider
+    rpm: 0,                     // Velocità effettiva attuale (con transizione di avvio/arresto)
+    inertia: 0.0025,            // Momento d'inerzia volano (kg·m²)
+    
+    baseAngleY: 0,              // Angolo supporto esterno (rad)
+    
+    psi: 0.45,                  // Angolo assoluto di precessione/imbardata (rad)
+    theta: 0.22,                // Angolo assoluto di inclinazione (rad)
+    phi: 0,                     // Angolo di spin del volano (rad)
+    
+    psiVel: 0,
+    thetaVel: 0,
+    
+    gravityTorqueActive: false, 
+    impulseTorqueX: 0,          
+    impulseTorqueY: 0,          
+    
+    showOmega: true,
+    showL: true,
+    showTau: true,
+    
+    highlightedPart: null
+};
+
+/**
+ * 3. SETUP SCENA THREE.JS, LUCI E MATERIALI PBR
+ */
+const canvas = document.getElementById('gyro-canvas');
+const container = document.getElementById('canvas-container');
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
+const defaultCamPos = new THREE.Vector3(0, 2.3, 6.4);
+const defaultTarget = new THREE.Vector3(0, 0.35, 0);
+camera.position.copy(defaultCamPos);
+
+const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: true,
+    alpha: true,
+    powerPreference: 'high-performance'
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.copy(defaultTarget);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.enablePan = false;
+controls.minDistance = 3.2;
+controls.maxDistance = 11.0;
+controls.maxPolarAngle = Math.PI * 0.85;
+controls.update();
+
+// Illuminazione laboratorio
+const hemiLight = new THREE.HemisphereLight(0xfffbeb, 0x1e293b, 0.85);
+scene.add(hemiLight);
+
+const mainLight = new THREE.DirectionalLight(0xfff7ed, 1.8);
+mainLight.position.set(5, 8, 6);
+mainLight.castShadow = true;
+mainLight.shadow.mapSize.width = 1024;
+mainLight.shadow.mapSize.height = 1024;
+scene.add(mainLight);
+
+const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.9);
+rimLight.position.set(-6, 4, -5);
+scene.add(rimLight);
+
+const warmFill = new THREE.PointLight(0xf59e0b, 0.7, 15);
+warmFill.position.set(2, -1, 4);
+scene.add(warmFill);
+
+// Texture legno e volano
+function createWoodTexture() {
+    const texCanvas = document.createElement('canvas');
+    texCanvas.width = 256;
+    texCanvas.height = 256;
+    const ctx = texCanvas.getContext('2d');
+    ctx.fillStyle = '#5c3317';
+    ctx.fillRect(0, 0, 256, 256);
+    for (let y = 0; y < 256; y++) {
+        const wave = Math.sin(y * 0.15) * 12 + Math.sin(y * 0.5) * 5;
+        const shade = Math.floor(65 + wave);
+        ctx.fillStyle = `rgb(${shade + 35}, ${Math.floor(shade * 0.65)}, ${Math.floor(shade * 0.35)})`;
+        ctx.fillRect(0, y, 256, 1);
+    }
+    const tex = new THREE.CanvasTexture(texCanvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+}
+
+function createFlywheelTexture() {
+    const texCanvas = document.createElement('canvas');
+    texCanvas.width = 512;
+    texCanvas.height = 256;
+    const ctx = texCanvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#b47b2b');
+    grad.addColorStop(0.5, '#eab308');
+    grad.addColorStop(1, '#925e18');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 256);
+    
+    ctx.strokeStyle = 'rgba(120, 70, 10, 0.25)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < 256; y += 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(512, y);
+        ctx.stroke();
+    }
+    
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(40, 0, 28, 256);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(48, 0, 6, 256);
+    
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(296, 0, 20, 256);
+    
+    return new THREE.CanvasTexture(texCanvas);
+}
+
+const materials = {
+    brassPolished: new THREE.MeshStandardMaterial({ color: 0xd9a036, metalness: 0.85, roughness: 0.22 }),
+    brassSatin: new THREE.MeshStandardMaterial({ color: 0xc89028, metalness: 0.80, roughness: 0.34 }),
+    brassDark: new THREE.MeshStandardMaterial({ color: 0x8f6219, metalness: 0.82, roughness: 0.42 }),
+    flywheelMat: new THREE.MeshStandardMaterial({ map: createFlywheelTexture(), metalness: 0.82, roughness: 0.20 }),
+    woodMat: new THREE.MeshStandardMaterial({ map: createWoodTexture(), roughness: 0.55, metalness: 0.05 }),
+    highlightMat: new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.65, metalness: 0.4, roughness: 0.2 })
+};
+
+/**
+ * 4. COSTRUZIONE GERARCHICA DEL GIROSCOPIO CARDANICO 3D
+ */
+const gyroRoot = new THREE.Group();
+scene.add(gyroRoot);
+
+const tableGeo = new THREE.CylinderGeometry(3.2, 3.2, 0.08, 64);
+const tableMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, metalness: 0.1 });
+const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+tableMesh.position.y = -2.15;
+tableMesh.receiveShadow = true;
+gyroRoot.add(tableMesh);
+
+const gridHelper = new THREE.PolarGridHelper(3.1, 16, 6, 64, 0x334155, 0x1e293b);
+gridHelper.position.y = -2.105;
+gyroRoot.add(gridHelper);
+
+const supportGroup = new THREE.Group();
+gyroRoot.add(supportGroup);
+
+const partGroups = { base: [], colonna: [], anello3: [], anello2: [], anello1: [], volano: [] };
+
+function registerMesh(partKey, mesh, originalMat) {
+    mesh.userData.originalMat = originalMat;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    partGroups[partKey].push(mesh);
+    return mesh;
+}
+
+// Base
+const baseGroup = new THREE.Group();
+supportGroup.add(baseGroup);
+
+const baseLower = registerMesh('base', new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.25, 0.14, 48), materials.brassPolished), materials.brassPolished);
+baseLower.position.y = -2.04;
+baseGroup.add(baseLower);
+
+const baseStep = registerMesh('base', new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.05, 0.12, 48), materials.brassSatin), materials.brassSatin);
+baseStep.position.y = -1.91;
+baseGroup.add(baseStep);
+
+const baseCollar = registerMesh('base', new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 0.14, 32), materials.brassPolished), materials.brassPolished);
+baseCollar.position.y = -1.78;
+baseGroup.add(baseCollar);
+
+// Colonna in legno
+const woodPoints = [
+    new THREE.Vector2(0.0, 0.0), new THREE.Vector2(0.26, 0.0), new THREE.Vector2(0.28, 0.08),
+    new THREE.Vector2(0.18, 0.16), new THREE.Vector2(0.24, 0.24), new THREE.Vector2(0.15, 0.45),
+    new THREE.Vector2(0.13, 0.72), new THREE.Vector2(0.21, 0.80), new THREE.Vector2(0.15, 0.88),
+    new THREE.Vector2(0.22, 0.96), new THREE.Vector2(0.0, 0.96)
+];
+const woodColumn = registerMesh('colonna', new THREE.Mesh(new THREE.LatheGeometry(woodPoints, 36), materials.woodMat), materials.woodMat);
+woodColumn.position.y = -1.72;
+supportGroup.add(woodColumn);
+
+const topNeck = registerMesh('anello3', new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.14, 32), materials.brassPolished), materials.brassPolished);
+topNeck.position.y = -0.72;
+supportGroup.add(topNeck);
+
+// Anello Fisso (3)
+const centerY = 0.65;
+const R3 = 1.32, R2 = 1.08, R1 = 0.84;
+
+const ring3Group = new THREE.Group();
+ring3Group.position.y = centerY;
+supportGroup.add(ring3Group);
+
+const ring3Mesh = registerMesh('anello3', new THREE.Mesh(new THREE.TorusGeometry(R3, 0.055, 20, 64), materials.brassSatin), materials.brassSatin);
+ring3Group.add(ring3Mesh);
+
+const pivotTop3 = registerMesh('anello3', new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.26, 16), materials.brassDark), materials.brassDark);
+pivotTop3.position.y = R3 - 0.06;
+ring3Group.add(pivotTop3);
+
+const finialTop = registerMesh('anello3', new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 20), materials.brassPolished), materials.brassPolished);
+finialTop.position.y = R3 + 0.08;
+ring3Group.add(finialTop);
+
+const pivotBot3 = registerMesh('anello3', new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.28, 16), materials.brassDark), materials.brassDark);
+pivotBot3.position.y = -R3 + 0.04;
+ring3Group.add(pivotBot3);
+
+// Anello Esterno (2)
+const ring2Group = new THREE.Group();
+ring3Group.add(ring2Group);
+
+const ring2Mesh = registerMesh('anello2', new THREE.Mesh(new THREE.TorusGeometry(R2, 0.048, 20, 64), materials.brassPolished), materials.brassPolished);
+ring2Group.add(ring2Mesh);
+
+const pivotLeft2 = registerMesh('anello2', new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.24, 16), materials.brassDark), materials.brassDark);
+pivotLeft2.rotation.z = Math.PI / 2;
+pivotLeft2.position.x = -R2 + 0.12;
+ring2Group.add(pivotLeft2);
+
+const pivotRight2 = registerMesh('anello2', new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.24, 16), materials.brassDark), materials.brassDark);
+pivotRight2.rotation.z = Math.PI / 2;
+pivotRight2.position.x = R2 - 0.12;
+ring2Group.add(pivotRight2);
+
+// Anello Interno (1)
+const ring1Group = new THREE.Group();
+ring2Group.add(ring1Group);
+
+const ring1Mesh = registerMesh('anello1', new THREE.Mesh(new THREE.TorusGeometry(R1, 0.042, 20, 64), materials.brassSatin), materials.brassSatin);
+ring1Group.add(ring1Mesh);
+
+const rotorShaft = registerMesh('anello1', new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, R1 * 2.02, 16), materials.brassDark), materials.brassDark);
+rotorShaft.rotation.x = Math.PI / 2;
+ring1Group.add(rotorShaft);
+
+// Volano Ellissoide
+const flywheelGroup = new THREE.Group();
+ring1Group.add(flywheelGroup);
+
+const ellipsoidGeo = new THREE.SphereGeometry(0.58, 48, 36);
+ellipsoidGeo.scale(1.0, 1.0, 0.44);
+ellipsoidGeo.rotateX(Math.PI / 2);
+
+const flywheelMesh = registerMesh('volano', new THREE.Mesh(ellipsoidGeo, materials.flywheelMat), materials.flywheelMat);
+flywheelGroup.add(flywheelMesh);
+
+const hubFront = registerMesh('volano', new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.08, 24), materials.brassPolished), materials.brassPolished);
+hubFront.rotation.x = Math.PI / 2;
+hubFront.position.z = 0.26;
+flywheelGroup.add(hubFront);
+
+const hubBack = registerMesh('volano', new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.11, 0.08, 24), materials.brassPolished), materials.brassPolished);
+hubBack.rotation.x = Math.PI / 2;
+hubBack.position.z = -0.26;
+flywheelGroup.add(hubBack);
+
+const counterweightMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.09, 0.14, 20),
+    new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.6, roughness: 0.3 })
+);
+counterweightMesh.rotation.x = Math.PI / 2;
+counterweightMesh.position.z = R1 - 0.12;
+counterweightMesh.visible = false;
+ring1Group.add(counterweightMesh);
+
+// Vettori 3D
+const vectorsGroup = new THREE.Group();
+vectorsGroup.position.y = centerY;
+gyroRoot.add(vectorsGroup);
+
+const arrowOmega = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 1.4, 0x22d3ee, 0.24, 0.14);
+const arrowL = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 1.75, 0x10b981, 0.28, 0.16);
+const arrowTau = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1.2, 0xf97316, 0.24, 0.15);
+arrowTau.visible = false;
+
+vectorsGroup.add(arrowOmega);
+vectorsGroup.add(arrowL);
+vectorsGroup.add(arrowTau);
+
+/**
+ * 5. FISICA E SIMULAZIONE CON AVVIO/ARRESTO
+ */
+const clock = new THREE.Clock();
+
+function updatePhysics(dt) {
+    dt = Math.min(dt, 0.05);
+    
+    // Gestione accelerazione / frenata graduale del volano (Ramp-up / Ramp-down)
+    const targetActiveRpm = simState.isSpinning ? simState.targetRpm : 0;
+    const rpmRampRate = 4500; // RPM al secondo
+    if (simState.rpm < targetActiveRpm) {
+        simState.rpm = Math.min(targetActiveRpm, simState.rpm + rpmRampRate * dt);
+    } else if (simState.rpm > targetActiveRpm) {
+        simState.rpm = Math.max(targetActiveRpm, simState.rpm - rpmRampRate * dt);
+    }
+    
+    simState.omega = (simState.rpm * 2 * Math.PI) / 60;
+    const L_mag = simState.inertia * simState.omega;
+    
+    // Coppie esterne
+    const tauGravity = simState.gravityTorqueActive ? 0.32 * Math.cos(simState.theta) : 0;
+    
+    simState.impulseTorqueX *= Math.pow(0.08, dt);
+    simState.impulseTorqueY *= Math.pow(0.08, dt);
+    if (Math.abs(simState.impulseTorqueX) < 0.001) simState.impulseTorqueX = 0;
+    if (Math.abs(simState.impulseTorqueY) < 0.001) simState.impulseTorqueY = 0;
+    
+    const totalTorqueX = tauGravity + simState.impulseTorqueX;
+    const totalTorqueY = simState.impulseTorqueY;
+    const totalTorqueMag = Math.hypot(totalTorqueX, totalTorqueY);
+    
+    const gyroThreshold = 0.18; // ~700 RPM
+    let currentPrecessionRate = 0;
+    
+    if (L_mag > gyroThreshold) {
+        // REGIME GIROSCOPICO (Stabile / Precessione)
+        const cosTheta = Math.max(0.25, Math.cos(simState.theta));
+        const omegaPrecY = totalTorqueX / (L_mag * cosTheta);
+        const omegaPrecX = -totalTorqueY / L_mag;
+        
+        simState.psiVel = THREE.MathUtils.lerp(simState.psiVel, omegaPrecY, 12 * dt);
+        simState.thetaVel = THREE.MathUtils.lerp(simState.thetaVel, omegaPrecX, 12 * dt);
+        
+        simState.psi += simState.psiVel * dt;
+        simState.theta += simState.thetaVel * dt;
+        currentPrecessionRate = Math.hypot(simState.psiVel, simState.thetaVel);
+    } else {
+        // REGIME A ROTAZIONE FERMA / BASSO SPIN (Pendolo fisico / Cardano libero)
+        const I_gimbal = 0.018;
+        const alphaTheta = (totalTorqueX - 0.04 * simState.thetaVel) / I_gimbal;
+        const alphaPsi = (totalTorqueY - 0.03 * simState.psiVel) / I_gimbal;
+        
+        simState.thetaVel += alphaTheta * dt;
+        simState.psiVel += alphaPsi * dt;
+        
+        if (simState.gravityTorqueActive) {
+            const pendTorque = -0.38 * Math.sin(simState.theta);
+            simState.thetaVel += (pendTorque / I_gimbal) * dt;
+        }
+        
+        simState.theta += simState.thetaVel * dt;
+        simState.psi += simState.psiVel * dt;
+        
+        simState.thetaVel *= Math.pow(0.35, dt);
+        simState.psiVel *= Math.pow(0.35, dt);
+        currentPrecessionRate = 0;
+    }
+    
+    const maxTilt = Math.PI * 0.44;
+    if (simState.theta > maxTilt) {
+        simState.theta = maxTilt;
+        simState.thetaVel = -simState.thetaVel * 0.3;
+    } else if (simState.theta < -maxTilt) {
+        simState.theta = -maxTilt;
+        simState.thetaVel = -simState.thetaVel * 0.3;
+    }
+    
+    const visualSpinSpeed = Math.min(simState.omega, 55);
+    simState.phi = (simState.phi + visualSpinSpeed * dt) % (Math.PI * 2);
+    
+    // Aggiornamento gerarchia 3D
+    supportGroup.rotation.y = simState.baseAngleY;
+    ring2Group.rotation.y = simState.psi - simState.baseAngleY;
+    ring1Group.rotation.x = -simState.theta;
+    flywheelGroup.rotation.z = simState.phi;
+    
+    // Vettori 3D
+    ring1Group.updateMatrixWorld(true);
+    const spinAxisWorld = new THREE.Vector3(0, 0, 1).transformDirection(ring1Group.matrixWorld).normalize();
+    
+    arrowOmega.visible = simState.showOmega && simState.rpm > 10;
+    if (arrowOmega.visible) {
+        arrowOmega.setDirection(spinAxisWorld);
+        arrowOmega.setLength(0.85 + (simState.rpm / 10000) * 0.75, 0.22, 0.13);
+    }
+    
+    arrowL.visible = simState.showL && simState.rpm > 10;
+    if (arrowL.visible) {
+        arrowL.setDirection(spinAxisWorld);
+        arrowL.setLength(1.05 + (simState.rpm / 10000) * 0.95, 0.26, 0.15);
+    }
+    
+    arrowTau.visible = simState.showTau && totalTorqueMag > 0.015;
+    if (arrowTau.visible) {
+        const localTorqueVec = new THREE.Vector3(totalTorqueX, totalTorqueY, 0).normalize();
+        const worldTorqueVec = localTorqueVec.transformDirection(ring2Group.matrixWorld).normalize();
+        arrowTau.setDirection(worldTorqueVec);
+        arrowTau.setLength(Math.min(1.6, 0.75 + totalTorqueMag * 1.4), 0.24, 0.14);
+    }
+    
+    updateTelemetryUI(L_mag, currentPrecessionRate, totalTorqueMag);
+}
+
+let lastUiUpdate = 0;
+function updateTelemetryUI(L_mag, precRate, torqueMag) {
+    const now = performance.now();
+    if (now - lastUiUpdate < 80) return;
+    lastUiUpdate = now;
+    
+    document.getElementById('tel-omega').textContent = `${Math.round(simState.rpm)} RPM`;
+    document.getElementById('tel-L').textContent = `${L_mag.toFixed(2)} N·m·s`;
+    document.getElementById('tel-prec').textContent = `${precRate.toFixed(2)} rad/s`;
+    
+    const statusEl = document.getElementById('status-torque');
+    if (torqueMag > 0.02) {
+        statusEl.textContent = simState.rpm > 700 ? 'Precessione attiva' : 'Caduta pendolare';
+        statusEl.className = 'text-[11px] font-semibold text-orange-400';
+    } else {
+        statusEl.textContent = simState.rpm > 700 ? 'Equilibrio giroscopico' : 'Fermo / Inerte';
+        statusEl.className = 'text-[11px] font-medium text-slate-400';
+    }
+
+    // Badge stato spin
+    const badge = document.getElementById('spin-status-badge');
+    if (simState.isSpinning && simState.rpm < simState.targetRpm * 0.95) {
+        badge.textContent = 'Accelerazione...';
+        badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded bg-slate-900 text-amber-400 border border-slate-700';
+    } else if (simState.isSpinning) {
+        badge.textContent = 'In Rotazione (Attivo)';
+        badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded bg-slate-900 text-emerald-400 border border-slate-700';
+    } else if (!simState.isSpinning && simState.rpm > 10) {
+        badge.textContent = 'Frenatura...';
+        badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded bg-slate-900 text-amber-400 border border-slate-700';
+    } else {
+        badge.textContent = 'Fermo (0 RPM)';
+        badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded bg-slate-900 text-rose-400 border border-slate-700';
+    }
+}
+
+/**
+ * 6. INTERAZIONI UI E CONTROLLI
+ */
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabPanels = document.querySelectorAll('.tab-panel');
+
+tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab');
+        tabButtons.forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        
+        tabPanels.forEach(p => p.classList.remove('active'));
+        document.getElementById(`panel-${target}`).classList.add('active');
+    });
+});
+
+// Pulsante Principale Avvia / Ferma Rotazione
+const btnToggleSpin = document.getElementById('btn-toggle-spin');
+const spinBtnText = document.getElementById('spin-btn-text');
+const spinIcon = document.getElementById('spin-icon');
+
+btnToggleSpin.addEventListener('click', () => {
+    simState.isSpinning = !simState.isSpinning;
+    if (simState.isSpinning) {
+        spinBtnText.textContent = 'Ferma Rotazione';
+        btnToggleSpin.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'active:bg-emerald-700');
+        btnToggleSpin.classList.add('bg-rose-600', 'hover:bg-rose-500', 'active:bg-rose-700');
+        spinIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />';
+    } else {
+        spinBtnText.textContent = 'Avvia Rotazione';
+        btnToggleSpin.classList.remove('bg-rose-600', 'hover:bg-rose-500', 'active:bg-rose-700');
+        btnToggleSpin.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'active:bg-emerald-700');
+        spinIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+    }
+});
+
+// Slider Velocità Target RPM
+const sliderRpm = document.getElementById('slider-rpm');
+const valRpm = document.getElementById('val-rpm');
+sliderRpm.addEventListener('input', (e) => {
+    simState.targetRpm = parseInt(e.target.value, 10);
+    valRpm.textContent = `${simState.targetRpm} RPM`;
+});
+
+// Slider Base
+const sliderBase = document.getElementById('slider-base');
+const valBase = document.getElementById('val-base');
+sliderBase.addEventListener('input', (e) => {
+    const deg = parseInt(e.target.value, 10);
+    valBase.textContent = `${deg}°`;
+    simState.baseAngleY = THREE.MathUtils.degToRad(deg);
+});
+
+// Impulso
+document.getElementById('btn-impulse').addEventListener('click', () => {
+    simState.impulseTorqueX += 0.65;
+    simState.impulseTorqueY += 0.25;
+});
+
+// Contrappeso Gravitazionale
+const btnGravity = document.getElementById('btn-gravity-toggle');
+const txtGravity = document.getElementById('txt-gravity-btn');
+btnGravity.addEventListener('click', () => {
+    simState.gravityTorqueActive = !simState.gravityTorqueActive;
+    counterweightMesh.visible = simState.gravityTorqueActive;
+    btnGravity.setAttribute('aria-pressed', String(simState.gravityTorqueActive));
+    
+    if (simState.gravityTorqueActive) {
+        txtGravity.textContent = 'Contrappeso: ON';
+        btnGravity.classList.remove('bg-slate-700', 'border-slate-600');
+        btnGravity.classList.add('bg-orange-600', 'border-orange-400', 'text-white');
+    } else {
+        txtGravity.textContent = 'Contrappeso: OFF';
+        btnGravity.classList.add('bg-slate-700', 'border-slate-600');
+        btnGravity.classList.remove('bg-orange-600', 'border-orange-400', 'text-white');
+    }
+});
+
+// Vettori Toggle
+function setupVectorToggle(btnId, stateKey) {
+    const btn = document.getElementById(btnId);
+    btn.addEventListener('click', () => {
+        simState[stateKey] = !simState[stateKey];
+        const isActive = simState[stateKey];
+        btn.setAttribute('data-active', String(isActive));
+        if (isActive) {
+            btn.classList.remove('opacity-40', 'grayscale');
+        } else {
+            btn.classList.add('opacity-40', 'grayscale');
+        }
+    });
+}
+setupVectorToggle('toggle-vec-omega', 'showOmega');
+setupVectorToggle('toggle-vec-L', 'showL');
+setupVectorToggle('toggle-vec-tau', 'showTau');
+
+// Descrizioni Componenti
+const partDescriptions = {
+    volano: { title: 'Volano a Forma di Ellissoide', desc: 'Massa rotante in ottone ad elevato momento d\'inerzia. Quando viene avviato, genera il momento angolare L che stabilizza l\'asse nello spazio.' },
+    anello1: { title: 'Primo Anello (Cardano Interno)', desc: 'Anello concentrico interno imperniato lateralmente per ruotare liberamente attorno all\'asse orizzontale (beccheggio).' },
+    anello2: { title: 'Secondo Anello (Cardano Esterno)', desc: 'Anello concentrico intermedio imperniato in alto e in basso per ruotare attorno all\'asse verticale (imbardata).' },
+    anello3: { title: 'Terzo Anello Fisso', desc: 'Anello esterno in ottone solidale al supporto. Offre i punti di vincolo verticali per la sospensione cardanica.' },
+    colonna: { title: 'Sostegno in Legno Tornito', desc: 'Colonna centrale lavorata al tornio che collega il terzo anello fisso alla base.' },
+    base: { title: 'Base Circolare in Ottone', desc: 'Piedistallo circolare pesante che garantisce stabilità meccanica all\'intero strumento.' }
+};
+
+function highlightComponent(partKey) {
+    Object.keys(partGroups).forEach(key => {
+        partGroups[key].forEach(mesh => {
+            mesh.material = mesh.userData.originalMat;
+        });
+    });
+
+    const cardTitle = document.getElementById('part-title');
+    const cardDesc = document.getElementById('part-desc');
+    const clearBtn = document.getElementById('btn-clear-highlight');
+
+    if (!partKey) {
+        simState.highlightedPart = null;
+        cardTitle.textContent = 'Tutti i Componenti';
+        cardDesc.textContent = 'Il giroscopio cardanico consente al volano centrale di orientare il proprio asse di simmetria in qualsiasi direzione dello spazio tridimensionale.';
+        clearBtn.classList.add('hidden');
+        document.querySelectorAll('.part-btn').forEach(b => b.classList.remove('border-amber-400', 'bg-slate-700'));
+        return;
+    }
+
+    simState.highlightedPart = partKey;
+    partGroups[partKey].forEach(mesh => {
+        mesh.material = materials.highlightMat;
+    });
+
+    cardTitle.textContent = partDescriptions[partKey].title;
+    cardDesc.textContent = partDescriptions[partKey].desc;
+    clearBtn.classList.remove('hidden');
+
+    document.querySelectorAll('.part-btn').forEach(b => {
+        if (b.getAttribute('data-part') === partKey) {
+            b.classList.add('border-amber-400', 'bg-slate-700');
+        } else {
+            b.classList.remove('border-amber-400', 'bg-slate-700');
+        }
+    });
+}
+
+document.querySelectorAll('.part-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const part = btn.getAttribute('data-part');
+        if (simState.highlightedPart === part) {
+            highlightComponent(null);
+        } else {
+            highlightComponent(part);
+        }
+    });
+});
+
+document.getElementById('btn-clear-highlight').addEventListener('click', () => highlightComponent(null));
+
+document.getElementById('btn-center-view').addEventListener('click', () => {
+    camera.position.copy(defaultCamPos);
+    controls.target.copy(defaultTarget);
+    controls.update();
+});
+
+document.getElementById('btn-reset-sim').addEventListener('click', () => {
+    simState.isSpinning = false;
+    btnToggleSpin.click(); // Spegne e resetta bottone
+    simState.targetRpm = 6000;
+    sliderRpm.value = 6000;
+    valRpm.textContent = '6000 RPM';
+    simState.rpm = 0;
+    
+    simState.baseAngleY = 0;
+    sliderBase.value = 0;
+    valBase.textContent = '0°';
+    
+    simState.psi = 0.45;
+    simState.theta = 0.22;
+    simState.psiVel = 0;
+    simState.thetaVel = 0;
+    simState.impulseTorqueX = 0;
+    simState.impulseTorqueY = 0;
+    
+    if (simState.gravityTorqueActive) btnGravity.click();
+    highlightComponent(null);
+    camera.position.copy(defaultCamPos);
+    controls.target.copy(defaultTarget);
+    controls.update();
+});
+
+/**
+ * 7. RESIZE & ANIMATION LOOP
+ */
+function resizeRenderer() {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width === 0 || height === 0) return;
+    
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height, false);
+}
+
+window.addEventListener('resize', resizeRenderer);
+if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(resizeRenderer).observe(container);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    updatePhysics(dt);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+window.onload = function () {
+    renderAllMath();
+    resizeRenderer();
+    animate();
+};
+</script>
+</body>
+</html>
