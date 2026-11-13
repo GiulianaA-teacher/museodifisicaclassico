@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Modello a Vite e Filetto Triangolare</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        museum: {
+                            900: '#090d16',
+                            800: '#131b2e',
+                            700: '#1e293b',
+                            woodDark: '#3b1c0a',
+                            woodMid: '#633112',
+                            woodLight: '#944819',
+                            brass: '#d4af37',
+                            labelRed: '#b91c1c'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- MathJax for formula rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #080c14;
+            color: #f1f5f9;
+            touch-action: manipulation;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start p-3 sm:p-5">
+
+    <!-- App Container optimized for portrait smartphone view -->
+    <div class="w-full max-w-md mx-auto space-y-3.5 pb-12">
+
+        <!-- Header Card -->
+        <header class="bg-museum-800/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl flex items-center justify-between">
+            <div>
+                <h1 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                    Vite e Filetto Triangolare
+                </h1>
+                <p class="text-[11px] text-slate-400">Modello Storico Dimostrativo in Legno</p>
+            </div>
+            <span class="px-2.5 py-1 text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
+                Museo Lab
+            </span>
+        </header>
+
+        <!-- Component 1: Photographic Canvas Simulation Card -->
+        <section class="bg-museum-800/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Apparecchio Reale (Fotografia 2D)
+                </h2>
+                <span id="posStatus" class="text-[11px] font-mono text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">0.0 mm</span>
+            </div>
+
+            <!-- Canvas Wrapper (Portrait Optimized) -->
+            <div class="relative w-full aspect-[4/3] bg-museum-900 rounded-xl overflow-hidden border border-slate-800/80 flex items-center justify-center cursor-ew-resize shadow-inner">
+                <canvas id="appCanvas" class="w-full h-full object-contain"></canvas>
+                <div class="absolute bottom-2 left-2 pointer-events-none bg-slate-900/80 backdrop-blur px-2 py-1 rounded text-[10px] text-slate-300 border border-slate-800 flex items-center gap-1">
+                    <svg class="w-3 h-3 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
+                    Trascina il manico per azionare la vite
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="space-y-3 pt-1">
+                <!-- Rotation & Displacement Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs text-slate-300">
+                        <span>Rotazione Manopola ($\theta$):</span>
+                        <span id="angleLabel" class="font-mono font-bold text-amber-400">0.0 giri (0°)</span>
+                    </div>
+                    <input id="angleSlider" type="range" min="0" max="1080" step="1" value="0" 
+                        class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+
+                <!-- Parameters: Pitch & Thread Angle -->
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300">
+                            <span>Passo ($p$):</span>
+                            <span id="pitchLabel" class="font-mono font-bold text-sky-400">8.0 mm</span>
+                        </div>
+                        <input id="pitchSlider" type="range" min="4" max="14" step="0.5" value="8" 
+                            class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-sky-400">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300">
+                            <span>Angolo Filetto ($\alpha$):</span>
+                            <span id="alphaLabel" class="font-mono font-bold text-emerald-400">60°</span>
+                        </div>
+                        <input id="alphaSlider" type="range" min="30" max="90" step="5" value="60" 
+                            class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-emerald-400">
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <button id="resetBtn" class="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-slate-200 font-medium text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Reset
+                    </button>
+                    <button id="animBtn" class="py-2.5 px-3 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-medium text-xs rounded-xl shadow-lg shadow-amber-900/30 transition-all flex items-center justify-center gap-1.5 col-span-2">
+                        <svg id="animIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <span id="animText">Avvia Animazione</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Component 2: Telemetry & Mechanics Card -->
+        <section class="bg-museum-800/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <h2 class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                Telemetria & Parametri Meccanici
+            </h2>
+            <div class="grid grid-cols-2 gap-2.5">
+                <!-- Metric 1 -->
+                <div class="bg-museum-900/70 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Avanzamento ($s$)</span>
+                    <span id="teleDisp" class="text-base font-mono font-bold text-amber-400 mt-1">0.0 mm</span>
+                </div>
+                <!-- Metric 2 -->
+                <div class="bg-museum-900/70 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Vantaggio Meccanico ($MA$)</span>
+                    <span id="teleMA" class="text-base font-mono font-bold text-sky-400 mt-1">11.8</span>
+                </div>
+                <!-- Metric 3 -->
+                <div class="bg-museum-900/70 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Angolo d'Elica ($\psi$)</span>
+                    <span id="teleHelix" class="text-base font-mono font-bold text-emerald-400 mt-1">4.8°</span>
+                </div>
+                <!-- Metric 4 -->
+                <div class="bg-museum-900/70 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Rendimento Stimato ($\eta$)</span>
+                    <span id="teleEff" class="text-base font-mono font-bold text-purple-400 mt-1">78.5%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Component 3: Theory & Formulas Card -->
+        <section class="bg-museum-800/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <h2 class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                Teoria del Filetto Triangolare
+            </h2>
+            <div class="text-xs text-slate-300 space-y-2.5 leading-relaxed">
+                <p>
+                    Nel modello storico in legno, il <strong class="text-amber-400">filetto triangolare</strong> unisce la vite e la madrevite (blocco sdoppiato con targhetta descrittiva).
+                </p>
+                <div class="bg-museum-900/90 border border-slate-800 p-3 rounded-xl text-center overflow-x-auto shadow-inner">
+                    \[ s = n \cdot p \]
+                </div>
+                <p>
+                    Il vantaggio meccanico della vite dipende dal raggio della manopola \(R\) e dal passo \(p\):
+                </p>
+                <div class="bg-museum-900/90 border border-slate-800 p-3 rounded-xl text-center overflow-x-auto shadow-inner">
+                    \[ MA = \frac{2\pi R}{p} \]
+                </div>
+                <p class="text-[11px] text-slate-400">
+                    L'angolo del filetto \(\alpha\) (tipicamente 60° nei sistemi metrici) influenza l'attrito radente tra i denti lignei della vite e della madrevite.
+                </p>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        window.addEventListener('load', () => {
+            // Elements
+            const canvas = document.getElementById('appCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const angleSlider = document.getElementById('angleSlider');
+            const angleLabel = document.getElementById('angleLabel');
+            const pitchSlider = document.getElementById('pitchSlider');
+            const pitchLabel = document.getElementById('pitchLabel');
+            const alphaSlider = document.getElementById('alphaSlider');
+            const alphaLabel = document.getElementById('alphaLabel');
+            const resetBtn = document.getElementById('resetBtn');
+            const animBtn = document.getElementById('animBtn');
+            const animIcon = document.getElementById('animIcon');
+            const animText = document.getElementById('animText');
+            const posStatus = document.getElementById('posStatus');
+
+            const teleDisp = document.getElementById('teleDisp');
+            const teleMA = document.getElementById('teleMA');
+            const teleHelix = document.getElementById('teleHelix');
+            const teleEff = document.getElementById('teleEff');
+
+            // State variables
+            let angleDeg = 0;      // 0 to 1080 degrees (3 full rotations)
+            let pitch = 8.0;       // mm
+            let alphaAngle = 60;   // degrees thread angle
+            let isAnimating = false;
+            let isDragging = false;
+            let startX = 0;
+
+            // Resize canvas for high resolution
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * window.devicePixelRatio;
+                canvas.height = rect.height * window.devicePixelRatio;
+                ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Event Listeners
+            angleSlider.addEventListener('input', (e) => {
+                angleDeg = parseFloat(e.target.value);
+                updateValues();
+            });
+
+            pitchSlider.addEventListener('input', (e) => {
+                pitch = parseFloat(e.target.value);
+                pitchLabel.textContent = pitch.toFixed(1) + " mm";
+                updateValues();
+            });
+
+            alphaSlider.addEventListener('input', (e) => {
+                alphaAngle = parseInt(e.target.value);
+                alphaLabel.textContent = alphaAngle + "°";
+                updateValues();
+            });
+
+            resetBtn.addEventListener('click', () => {
+                angleDeg = 0;
+                angleSlider.value = 0;
+                if (isAnimating) toggleAnimation();
+                updateValues();
+            });
+
+            function toggleAnimation() {
+                isAnimating = !isAnimating;
+                if (isAnimating) {
+                    animText.textContent = "Ferma";
+                    animIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+                    animBtn.className = "py-2.5 px-3 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-medium text-xs rounded-xl shadow-lg shadow-rose-900/30 transition-all flex items-center justify-center gap-1.5 col-span-2";
+                } else {
+                    animText.textContent = "Avvia Animazione";
+                    animIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                    animBtn.className = "py-2.5 px-3 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-medium text-xs rounded-xl shadow-lg shadow-amber-900/30 transition-all flex items-center justify-center gap-1.5 col-span-2";
+                }
+            }
+
+            animBtn.addEventListener('click', toggleAnimation);
+
+            // Touch & Mouse Dragging on Canvas
+            canvas.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                canvas.setPointerCapture(e.pointerId);
+            });
+
+            canvas.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                const deltaX = e.clientX - startX;
+                startX = e.clientX;
+                angleDeg = Math.max(0, Math.min(1080, angleDeg + deltaX * 2));
+                angleSlider.value = angleDeg;
+                updateValues();
+            });
+
+            canvas.addEventListener('pointerup', (e) => {
+                isDragging = false;
+                try { canvas.releasePointerCapture(e.pointerId); } catch(err){}
+            });
+
+            function updateValues() {
+                const rotations = angleDeg / 360;
+                const displacement = rotations * pitch; // mm
+                const meanDiameter = 32.0; // mm
+                const handleRadius = 45.0; // mm
+                const MA = (2 * Math.PI * handleRadius) / pitch;
+                const helixRad = Math.atan(pitch / (Math.PI * meanDiameter));
+                const helixDeg = helixRad * (180 / Math.PI);
+                const frictionCoeff = 0.12; // wood on wood approx
+                const eff = Math.tan(helixRad) / Math.tan(helixRad + Math.atan(frictionCoeff / Math.cos((alphaAngle/2)*Math.PI/180))) * 100;
+
+                angleLabel.textContent = `${rotations.toFixed(2)} giri (${angleDeg.toFixed(0)}°)`;
+                posStatus.textContent = displacement.toFixed(1) + " mm";
+
+                teleDisp.textContent = displacement.toFixed(1) + " mm";
+                teleMA.textContent = MA.toFixed(1);
+                teleHelix.textContent = helixDeg.toFixed(1) + "°";
+                teleEff.textContent = Math.max(10, Math.min(95, eff)).toFixed(1) + "%";
+            }
+
+            // Drawing the Photorealistic Vintage Apparatus in 2D Isometric / Diagonal perspective
+            function drawApparatus(width, height) {
+                ctx.clearRect(0, 0, width, height);
+
+                // Background subtle gradient
+                const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+                bgGrad.addColorStop(0, '#090d16');
+                bgGrad.addColorStop(1, '#111827');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, width, height);
+
+                const cx = width / 2 - 15;
+                const cy = height / 2 + 15;
+
+                // Rotation calculation for screw translation
+                const rotations = angleDeg / 360;
+                const maxDisp = 55;
+                const currentDisp = (rotations * (pitch / 8)) * maxDisp;
+
+                ctx.save();
+                // Apply a slight diagonal tilt to match the photo angle
+                ctx.translate(cx, cy);
+                ctx.rotate(0.22); // ~12 degrees tilt like in photo
+
+                // 1. Madrevite / Split Nut Block (Fixed wooden block with 2 halves and label)
+                const blockW = 150;
+                const blockH = 95;
+                const blockX = -blockW / 2 - 20;
+                const blockY = -blockH / 2;
+
+                // Wood texture gradient for block
+                const blockGrad = ctx.createLinearGradient(blockX, blockY, blockX + blockW, blockY + blockH);
+                blockGrad.addColorStop(0, '#7c2d12');
+                blockGrad.addColorStop(0.5, '#57230d');
+                blockGrad.addColorStop(1, '#3b1c0a');
+
+                ctx.fillStyle = blockGrad;
+                ctx.strokeStyle = '#1e0c04';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(blockX, blockY, blockW, blockH, 10);
+                ctx.fill();
+                ctx.stroke();
+
+                // Split line across the block
+                ctx.strokeStyle = '#1e0c04';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(blockX, 0);
+                ctx.lineTo(blockX + blockW, 0);
+                ctx.stroke();
+
+                // Brass fixing screws/pins on block corners
+                [
+                    {x: blockX + 12, y: blockY + 12},
+                    {x: blockX + blockW - 12, y: blockY + 12},
+                    {x: blockX + 12, y: blockY + blockH - 12},
+                    {x: blockX + blockW - 12, y: blockY + blockH - 12}
+                ].forEach(pin => {
+                    ctx.fillStyle = '#eab308';
+                    ctx.beginPath();
+                    ctx.arc(pin.x, pin.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#78350f';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                });
+
+                // Red-bordered descriptive label plate on top of madrevite (just like in the photo!)
+                const labelW = 90;
+                const labelH = 24;
+                const labelX = blockX + (blockW - labelW) / 2;
+                const labelY = blockY + 14;
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.strokeStyle = '#b91c1c';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.roundRect(labelX, labelY, labelW, labelH, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '8px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('MODELLO VITE', labelX + labelW / 2, labelY + 9);
+                ctx.font = '7px Inter, sans-serif';
+                ctx.fillStyle = '#b91c1c';
+                ctx.fillText('FILETTATURA TRIANGOLARE', labelX + labelW / 2, labelY + 19);
+
+                // 2. Sliding Wooden Screw Shaft passing through the block
+                const screwStartX = blockX - 70 + currentDisp;
+                const screwLength = 220;
+                const screwRadius = 24;
+
+                ctx.save();
+                ctx.translate(screwStartX, 0);
+
+                // Shaft wood gradient
+                const shaftGrad = ctx.createLinearGradient(0, -screwRadius, 0, screwRadius);
+                shaftGrad.addColorStop(0, '#d97706');
+                shaftGrad.addColorStop(0.5, '#b45309');
+                shaftGrad.addColorStop(1, '#78350f');
+
+                ctx.fillStyle = shaftGrad;
+                ctx.strokeStyle = '#451a03';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.rect(0, -screwRadius, screwLength, screwRadius * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Triangular threads along the shaft
+                const threadSpacing = pitch * 3.2;
+                const phase = (angleDeg % 360) / 360 * threadSpacing;
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.strokeStyle = '#78350f';
+                ctx.lineWidth = 1.5;
+
+                for (let x = -20 + phase; x < screwLength + 20; x += threadSpacing) {
+                    if (x > -10 && x < screwLength + 10) {
+                        // Top thread tooth
+                        ctx.beginPath();
+                        ctx.moveTo(x, -screwRadius);
+                        ctx.lineTo(x + threadSpacing / 2, -screwRadius - 9);
+                        ctx.lineTo(x + threadSpacing, -screwRadius);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Bottom thread tooth
+                        ctx.beginPath();
+                        ctx.moveTo(x, screwRadius);
+                        ctx.lineTo(x + threadSpacing / 2, screwRadius + 9);
+                        ctx.lineTo(x + threadSpacing, screwRadius);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                }
+
+                // 3. Long turned vintage wooden handle / knob at the right end of the screw
+                const handleX = screwLength;
+                const knobRadius = 26;
+
+                // Turned handle stem
+                ctx.fillStyle = '#92400e';
+                ctx.beginPath();
+                ctx.roundRect(handleX - 10, -8, 35, 16, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Bulbous vintage wooden knob at the end
+                const knobGrad = ctx.createRadialGradient(handleX + 35, 0, 4, handleX + 35, 0, knobRadius);
+                knobGrad.addColorStop(0, '#fde68a');
+                knobGrad.addColorStop(0.5, '#b45309');
+                knobGrad.addColorStop(1, '#3f1f0e');
+
+                ctx.fillStyle = knobGrad;
+                ctx.strokeStyle = '#271005';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(handleX + 35, 0, knobRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Brass cap in center of knob
+                ctx.fillStyle = '#eab308';
+                ctx.beginPath();
+                ctx.arc(handleX + 35, 0, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#78350f';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.restore(); // restore screw translation
+                ctx.restore(); // restore global tilt translation
+            }
+
+            // Animation Loop
+            let lastTime = performance.now();
+            function animate(currentTime) {
+                const deltaTime = (currentTime - lastTime) / 1000;
+                lastTime = currentTime;
+
+                if (isAnimating) {
+                    angleDeg = (angleDeg + 50 * deltaTime) % 1080;
+                    angleSlider.value = angleDeg;
+                    updateValues();
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                drawApparatus(rect.width, rect.height);
+
+                requestAnimationFrame(animate);
+            }
+
+            updateValues();
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>
