@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arganetto Idraulico — Simulazione e Fisica</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- KaTeX per il rendering delle formule matematiche -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });"></script>
+
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0b1120;
+            color: #f1f5f9;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        #simCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 0.75rem;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 4px;
+            background: #1e293b;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #38bdf8;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+            border: 2px solid #0f172a;
+        }
+
+        .katex-display {
+            margin: 0.4em 0 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col max-w-md mx-auto px-3 py-2.5 select-none">
+
+    <!-- Header Compatto -->
+    <header class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <div>
+            <h1 class="text-base sm:text-lg font-bold text-sky-400 flex items-center gap-2 leading-tight">
+                <i class="fa-solid fa-water"></i>
+                <span>Arganetto Idraulico</span>
+            </h1>
+            <p class="text-[11px] text-slate-400">Turbina di Segner & Reazione Idrodinamica</p>
+        </div>
+        <div id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="statusText">Valvola Aperta</span>
+        </div>
+    </header>
+
+    <!-- Navigazione a Schede (Mobile Portrait) -->
+    <nav class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5" role="tablist">
+        <button id="tabSimBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all">
+            <i class="fa-solid fa-flask"></i> Simulazione
+        </button>
+        <button id="tabTheoryBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all">
+            <i class="fa-solid fa-book-open"></i> Teoria & Formule
+        </button>
+    </nav>
+
+    <!-- SCHEDA 1: SIMULAZIONE INTERATTIVA -->
+    <main id="simSection" class="flex-1 flex flex-col gap-2.5 pb-4">
+
+        <!-- Contenitore Canvas Responsivo in Sezione Verticale -->
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-xl border border-slate-700/80 shadow-xl overflow-hidden">
+            <canvas id="simCanvas"></canvas>
+
+            <!-- Overlay informazioni superiori -->
+            <div class="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                <span class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] text-slate-300 px-2 py-0.5 rounded-md">
+                    Sezione: <strong class="text-sky-400">Serbatoio → Tubo → Girante → Argano</strong>
+                </span>
+                <span id="rpmBadge" class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-emerald-300 px-2 py-0.5 rounded-md">
+                    0 RPM
+                </span>
+            </div>
+
+            <!-- Legenda inferiore canvas -->
+            <div class="absolute bottom-1.5 left-2 right-2 flex items-center justify-between gap-1 text-[9px] text-slate-300 bg-slate-950/80 backdrop-blur-sm px-2 py-1 rounded-md border border-slate-800/80 pointer-events-none">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-sky-400 inline-block"></span> Colonna acqua ($H$)</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-amber-400 inline-block"></span> Getti tangenziali</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Carico $M$</span>
+            </div>
+        </div>
+
+        <!-- Telemetria in Tempo Reale (4 Card) -->
+        <div class="grid grid-cols-2 gap-1.5">
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Velocità Angolare ($\omega$)</div>
+                <div id="telOmega" class="text-xs font-mono font-bold text-sky-400 mt-0.5">0.0 rad/s</div>
+                <div class="text-[9px] text-slate-500">Girante Segner</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Portata Volumetrica ($Q$)</div>
+                <div id="telFlow" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">0.00 L/s</div>
+                <div class="text-[9px] text-slate-500">Torricelli</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Altezza Sollevamento ($h$)</div>
+                <div id="telHeight" class="text-xs font-mono font-bold text-amber-400 mt-0.5">0.0 cm</div>
+                <div class="text-[9px] text-slate-500">Tamburo argano</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Potenza Meccanica ($P$)</div>
+                <div id="telPower" class="text-xs font-mono font-bold text-indigo-400 mt-0.5">0.0 W</div>
+                <div class="text-[9px] text-slate-500">Lavoro utile</div>
+            </div>
+        </div>
+
+        <!-- Pannello Controlli Touch-Friendly -->
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3 space-y-3 shadow-lg">
+
+            <!-- Riga 1: Valvola ON/OFF -->
+            <button id="valveBtn" class="w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-emerald-600 active:scale-[0.98] text-white shadow-md transition-all">
+                <i id="valveIcon" class="fa-solid fa-faucet"></i>
+                <span id="valveLabel">Valvola d'Afflusso: APERTA</span>
+            </button>
+
+            <!-- Riga 2: Sliders Carico d'Acqua H e Massa Carico M -->
+            <div class="space-y-2.5 pt-1 border-t border-slate-800/80">
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="headSlider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-arrow-up-from-bracket text-sky-400 mr-1"></i>Carico d'Acqua ($H$)
+                        </label>
+                        <span id="headValLabel" class="font-mono text-sky-300 font-semibold">2.0 m</span>
+                    </div>
+                    <input type="range" id="headSlider" min="5" max="40" value="20" class="w-full">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="loadSlider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-weight-hanging text-emerald-400 mr-1"></i>Massa del Carico ($M$)
+                        </label>
+                        <span id="loadValLabel" class="font-mono text-emerald-300 font-semibold">1.0 kg</span>
+                    </div>
+                    <input type="range" id="loadSlider" min="0" max="30" value="10" class="w-full">
+                </div>
+            </div>
+        </div>
+
+        <!-- Osservazione Contestuale -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
+            <div class="flex items-start gap-2.5">
+                <div class="mt-0.5 w-6 h-6 rounded-lg bg-sky-950 border border-sky-700/60 flex items-center justify-center shrink-0 text-sky-400">
+                    <i class="fa-solid fa-lightbulb text-xs"></i>
+                </div>
+                <div id="observationText">
+                    <strong class="text-sky-300 block mb-0.5">Principio di Funzionamento:</strong>
+                    L'acqua scende dal serbatoio superiore ed esce ad alta velocità dagli ugelli tangenziali della turbina basale. La forza di reazione fa ruotare l'albero e il tamburo, sollevando il carico appeso.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SCHEDA 2: TEORIA & FORMULE -->
+    <section id="theorySection" class="hidden flex-1 flex-col gap-3 pb-6 text-xs text-slate-300 leading-relaxed">
+
+        <!-- Card 1: Cos'è l'Arganetto Idraulico -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-sky-400 flex items-center gap-2">
+                <i class="fa-solid fa-landmark"></i> 1. Cos'è l'Arganetto Idraulico
+            </h2>
+            <p>
+                L'arganetto idraulico, noto anche come <strong>turbina di Segner</strong> (dal matematico Johann Andreas von Segner, 1750), è una macchina motrice a reazione idrodinamica. Converte l'energia potenziale di una colonna d'acqua in lavoro meccanico utile per sollevare pesi.
+            </p>
+        </article>
+
+        <!-- Card 2: Teorema di Torricelli -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> 2. Teorema di Torricelli (Velocità di Efflusso)
+            </h2>
+            <p>
+                Applicando il teorema di Bernoulli tra il pelo libero del serbatoio superiore e gli ugelli di scarico posti a distanza verticale $H$, la velocità teorica del getto d'acqua è:
+            </p>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-center text-emerald-300">
+                $$v = \sqrt{2 \cdot g \cdot H}$$
+            </div>
+            <p>
+                La portata volumetrica $Q$ dipenderà direttamente da tale velocità e dalla sezione totale degli ugelli $A$.
+            </p>
+        </article>
+
+        <!-- Card 3: Momento Torcente e Reazione -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-rotate"></i> 3. Coppia Motrice e Terzo Principio
+            </h2>
+            <p>
+                Per il <strong>terzo principio della dinamica (azione e reazione)</strong>, l'espulsione del fluido genera una forza tangenziale sugli ugelli. Il momento torcente $\tau$ applicato all'asse della turbina di raggio $r$ è dato da:
+            </p>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-center text-amber-300">
+                $$\tau = r \cdot \dot{m} \cdot (v_{\text{eff}} - \omega \cdot r)$$
+            </div>
+            <p>
+                Dove $\dot{m}$ è la portata massica del fluido e $\omega$ la velocità angolare della girante. L'equilibrio dinamico si raggiunge quando la coppia motrice eguaglia la resistenza del carico $M \cdot g \cdot R_{\text{tamburo}}$.
+            </p>
+        </article>
+
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('simCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const tabSimBtn = document.getElementById('tabSimBtn');
+            const tabTheoryBtn = document.getElementById('tabTheoryBtn');
+            const simSection = document.getElementById('simSection');
+            const theorySection = document.getElementById('theorySection');
+
+            const statusBadge = document.getElementById('statusBadge');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const rpmBadge = document.getElementById('rpmBadge');
+
+            const telOmega = document.getElementById('telOmega');
+            const telFlow = document.getElementById('telFlow');
+            const telHeight = document.getElementById('telHeight');
+            const telPower = document.getElementById('telPower');
+
+            const valveBtn = document.getElementById('valveBtn');
+            const valveIcon = document.getElementById('valveIcon');
+            const valveLabel = document.getElementById('valveLabel');
+
+            const headSlider = document.getElementById('headSlider');
+            const loadSlider = document.getElementById('loadSlider');
+            const headValLabel = document.getElementById('headValLabel');
+            const loadValLabel = document.getElementById('loadValLabel');
+            const observationText = document.getElementById('observationText');
+
+            // Stato Fisico della Simulazione
+            let isValveOpen = true;
+            let waterHeadM = 2.0;   // [0.5 .. 4.0 m]
+            let loadMassKg = 1.0;   // [0.0 .. 3.0 kg]
+
+            let turbineAngle = 0;   // rad
+            let omega = 0;          // rad/s
+            let liftHeightCm = 0;   // cm sollevati
+            let lastTime = performance.now();
+
+            // Particelle d'acqua per i getti tangenziali della turbina
+            const jets = [];
+
+            // Gestione Tabs
+            tabSimBtn.addEventListener('click', () => {
+                simSection.classList.remove('hidden');
+                simSection.classList.add('flex');
+                theorySection.classList.add('hidden');
+                theorySection.classList.remove('flex');
+
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+                resizeCanvas();
+            });
+
+            tabTheoryBtn.addEventListener('click', () => {
+                theorySection.classList.remove('hidden');
+                theorySection.classList.add('flex');
+                simSection.classList.add('hidden');
+                simSection.classList.remove('flex');
+
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+            });
+
+            // Resize Canvas ad alta risoluzione
+            let logicalW = 360;
+            let logicalH = 270;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                logicalW = rect.width;
+                logicalH = rect.height;
+
+                canvas.width = Math.round(logicalW * dpr);
+                canvas.height = Math.round(logicalH * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Event Listeners Controlli
+            valveBtn.addEventListener('click', () => {
+                isValveOpen = !isValveOpen;
+                if (isValveOpen) {
+                    valveBtn.className = 'w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-emerald-600 active:scale-[0.98] text-white shadow-md transition-all';
+                    valveIcon.className = 'fa-solid fa-faucet';
+                    valveLabel.textContent = "Valvola d'Afflusso: APERTA";
+                    statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60';
+                    statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                    statusText.textContent = 'Valvola Aperta';
+                } else {
+                    valveBtn.className = 'w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-rose-600 active:scale-[0.98] text-white shadow-md transition-all';
+                    valveIcon.className = 'fa-solid fa-faucet-slash';
+                    valveLabel.textContent = "Valvola d'Afflusso: CHIUSA";
+                    statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-950/80 text-rose-300 border border-rose-700/60';
+                    statusDot.className = 'w-2 h-2 rounded-full bg-rose-400';
+                    statusText.textContent = 'Valvola Chiusa';
+                }
+            });
+
+            headSlider.addEventListener('input', (e) => {
+                waterHeadM = parseInt(e.target.value, 10) / 10;
+                headValLabel.textContent = `${waterHeadM.toFixed(1)} m`;
+            });
+
+            loadSlider.addEventListener('input', (e) => {
+                loadMassKg = parseInt(e.target.value, 10) / 10;
+                loadValLabel.textContent = `${loadMassKg.toFixed(1)} kg`;
+            });
+
+            // Ciclo di animazione principale (60 FPS)
+            function animate(now) {
+                const dt = Math.min((now - lastTime) / 1000, 0.05);
+                lastTime = now;
+
+                const w = logicalW;
+                const h = logicalH;
+
+                // Calcoli Fisici
+                const g = 9.81;
+                // Torricelli: v = sqrt(2 * g * H)
+                const effluxVel = Math.sqrt(2 * g * waterHeadM);
+                const flowRateLps = isValveOpen ? (effluxVel * 0.35) : 0; // L/s stimati
+
+                // Dinamica rotazionale
+                const maxOmega = effluxVel * 5.5;
+                if (isValveOpen) {
+                    const targetOmega = Math.max(0, maxOmega * (1.0 - (loadMassKg / 3.5)));
+                    omega += (targetOmega - omega) * Math.min(1, 2.5 * dt);
+                    liftHeightCm += omega * dt * 2.2;
+                    if (liftHeightCm > 120) liftHeightCm = 0; // reset corda argano
+                } else {
+                    omega *= Math.max(0, 1 - 3.5 * dt);
+                }
+
+                turbineAngle += omega * dt;
+
+                const rpm = (omega * 60) / (2 * Math.PI);
+                const powerWatts = omega * (loadMassKg * 0.8);
+
+                // Aggiornamento Telemetria UI
+                telOmega.textContent = `${omega.toFixed(1)} rad/s`;
+                rpmBadge.textContent = `${Math.round(rpm)} RPM`;
+                telFlow.textContent = `${flowRateLps.toFixed(2)} L/s`;
+                telHeight.textContent = `${liftHeightCm.toFixed(1)} cm`;
+                telPower.textContent = `${powerWatts.toFixed(1)} W`;
+
+                // --- RENDERING CANVAS (Sezione Verticale) ---
+                ctx.clearRect(0, 0, w, h);
+
+                // Sfondo laboratorio tecnico
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, w, h);
+
+                // Griglia di sfondo sottile
+                ctx.strokeStyle = 'rgba(51, 65, 85, 0.2)';
+                ctx.lineWidth = 1;
+                for (let gx = 0; gx < w; gx += 20) {
+                    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+                }
+                for (let gy = 0; gy < h; gy += 20) {
+                    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+                }
+
+                // Coordinate chiave della sezione
+                const cx = w * 0.42;
+                const tankY = 32;
+                const tankW = 90;
+                const tankH = 50;
+                const turbineY = h - 65;
+
+                // 1. Serbatoio Superiore
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.roundRect(cx - tankW / 2, tankY, tankW, tankH, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Pelo libero dell'acqua nel serbatoio (scala con waterHeadM)
+                const waterFillH = (waterHeadM / 4.0) * (tankH - 12);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+                ctx.fillRect(cx - tankW / 2 + 2, tankY + tankH - waterFillH - 4, tankW - 4, waterFillH);
+
+                // 2. Tubo di Discesa Verticale
+                const pipeW = 14;
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(cx - pipeW / 2, tankY + tankH, pipeW, turbineY - (tankY + tankH));
+
+                if (isValveOpen) {
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+                    ctx.fillRect(cx - pipeW / 2 + 3, tankY + tankH, pipeW - 6, turbineY - (tankY + tankH));
+                }
+
+                // Valvola (cerchietto centrale sul tubo)
+                ctx.fillStyle = isValveOpen ? '#10b981' : '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(cx, tankY + tankH + 25, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 3. Turbina di Segner alla base (Vista dall'alto/sezione orizzontale della girante)
+                ctx.save();
+                ctx.translate(cx, turbineY);
+
+                // Corpo centrale girante
+                ctx.fillStyle = '#64748b';
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Bracci radiali con ugelli tangenziali
+                ctx.rotate(turbineAngle);
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+
+                // Braccio 1
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(42, 0); ctx.stroke();
+                // Ugello 1
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath(); ctx.arc(42, 0, 5, 0, Math.PI * 2); ctx.fill();
+
+                // Braccio 2
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-42, 0); ctx.stroke();
+                // Ugello 2
+                ctx.beginPath(); ctx.arc(-42, 0, 5, 0, Math.PI * 2); ctx.fill();
+
+                ctx.restore();
+
+                // 4. Generazione Particelle Getti Tangenziali
+                if (isValveOpen && omega > 0.5) {
+                    const n1Angle = turbineAngle;
+                    const n2Angle = turbineAngle + Math.PI;
+                    const armLen = 42;
+
+                    const n1x = cx + Math.cos(n1Angle) * armLen;
+                    const n1y = turbineY + Math.sin(n1Angle) * armLen;
+                    const n2x = cx + Math.cos(n2Angle) * armLen;
+                    const n2y = turbineY + Math.sin(n2Angle) * armLen;
+
+                    const tan1 = n1Angle - Math.PI / 2;
+                    const tan2 = n2Angle - Math.PI / 2;
+
+                    if (jets.length < 40 && Math.random() < 0.7) {
+                        jets.push({
+                            x: n1x, y: n1y,
+                            vx: Math.cos(tan1) * 80 - Math.sin(n1Angle) * omega * 20,
+                            vy: Math.sin(tan1) * 80 + Math.cos(n1Angle) * omega * 20,
+                            life: 1.0
+                        });
+                        jets.push({
+                            x: n2x, y: n2y,
+                            vx: Math.cos(tan2) * 80 - Math.sin(n2Angle) * omega * 20,
+                            vy: Math.sin(tan2) * 80 + Math.cos(n2Angle) * omega * 20,
+                            life: 1.0
+                        });
+                    }
+                }
+
+                for (let i = jets.length - 1; i >= 0; i--) {
+                    const j = jets[i];
+                    j.x += j.vx * dt;
+                    j.y += j.vy * dt;
+                    j.life -= 1.8 * dt;
+
+                    if (j.life <= 0) {
+                        jets.splice(i, 1);
+                    } else {
+                        ctx.fillStyle = `rgba(56, 189, 248, ${j.life})`;
+                        ctx.beginPath();
+                        ctx.arc(j.x, j.y, 2.0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // 5. Meccanismo di Sollevamento (Albero, Tamburo e Carico a destra)
+                const drumX = w * 0.78;
+                const drumY = turbineY;
+
+                // Asse di trasmissione (linea tratteggiata)
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(cx, turbineY);
+                ctx.lineTo(drumX, drumY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Tamburo dell'argano
+                ctx.fillStyle = '#334155';
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(drumX, drumY, 14, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Corda dell'argano
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1.5;
+                const ropeLen = 35 + (liftHeightCm % 45);
+                ctx.beginPath();
+                ctx.moveTo(drumX, drumY + 14);
+                ctx.lineTo(drumX, drumY + 14 + ropeLen);
+                ctx.stroke();
+
+                // Blocco Massa Carico M
+                ctx.fillStyle = '#10b981';
+                ctx.strokeStyle = '#059669';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(drumX - 16, drumY + 14 + ropeLen, 32, 26, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Etichetta peso sul blocco
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${loadMassKg.toFixed(1)} kg`, drumX, drumY + 27 + ropeLen);
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>

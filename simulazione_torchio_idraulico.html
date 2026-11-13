@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Interattiva - Torchio Idraulico</title>
+    <!-- Caricamento di Tailwind CSS per uno stile moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter per una leggibilità ottimale -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        /* Stile personalizzato per gli slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            border-radius: 9999px;
+            background: #e2e8f0;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            border: 3px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            border: 3px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+        }
+        #forceSlider::-webkit-slider-thumb {
+            background: #dc2626;
+            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
+        }
+        #forceSlider::-moz-range-thumb {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col items-center justify-center p-3 sm:p-6">
+
+    <!-- Contenitore Principale -->
+    <main class="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        
+        <!-- Intestazione -->
+        <header class="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-3 h-3 rounded-full bg-sky-400 animate-pulse"></span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-sky-300">Laboratorio di Fisica • Principio di Pascal</span>
+                </div>
+                <h1 class="text-xl sm:text-2xl font-bold mt-1">Simulazione del Torchio Idraulico</h1>
+            </div>
+            <button id="resetBtn" class="self-start sm:self-auto px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-sm font-medium rounded-xl transition flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Ripristina
+            </button>
+        </header>
+
+        <!-- Corpo della Simulazione -->
+        <div class="p-4 sm:p-6 space-y-6">
+            
+            <!-- Spiegazione Rapida -->
+            <div class="bg-sky-50 border border-sky-200 rounded-xl p-3.5 text-sm text-slate-700 flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p>
+                    Applica una forza <strong>F<sub>1</sub></strong> sul pistone piccolo a sinistra (oppure <strong>trascina direttamente il pistone rosso</strong> verso il basso). La pressione <strong>P</strong> si trasmette inalterata attraverso il fluido incomprimibile, generando una forza moltiplicata <strong>F<sub>2</sub></strong> sul pistone grande a destra.
+                </p>
+            </div>
+
+            <!-- Area Canvas Interattiva -->
+            <div class="relative w-full bg-slate-50 rounded-xl border-2 border-slate-200 overflow-hidden shadow-inner">
+                <canvas id="hydraulicCanvas" class="w-full block cursor-ns-resize"></canvas>
+                
+                <!-- Legenda Sovrapposta -->
+                <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-2 text-xs space-y-1.5 shadow-sm pointer-events-none">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-sm bg-red-500 inline-block"></span>
+                        <span class="font-medium text-slate-700">Pistone 1 (Spinta F<sub>1</sub>)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+                        <span class="font-medium text-slate-700">Pistone 2 (Carico F<sub>2</sub>)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-sm bg-sky-500 inline-block"></span>
+                        <span class="font-medium text-slate-700">Fluido incomprimibile</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controlli Interattivi -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Controllo Forza F1 -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="forceSlider" class="font-semibold text-slate-700 text-sm sm:text-base">
+                            Forza Applicata (F<sub>1</sub>)
+                        </label>
+                        <span class="px-2.5 py-1 bg-red-100 text-red-700 font-bold rounded-lg text-sm">
+                            <span id="forceVal">40</span> N
+                        </span>
+                    </div>
+                    <input type="range" id="forceSlider" min="0" max="100" value="40" step="1" class="w-full my-2">
+                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>0 N (Riposo)</span>
+                        <span>50 N</span>
+                        <span>100 N (Max)</span>
+                    </div>
+                </div>
+
+                <!-- Controllo Rapporto Aree / Raggio R2 -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="ratioSlider" class="font-semibold text-slate-700 text-sm sm:text-base">
+                            Guadagno Meccanico (A<sub>2</sub> / A<sub>1</sub>)
+                        </label>
+                        <span class="px-2.5 py-1 bg-blue-100 text-blue-700 font-bold rounded-lg text-sm">
+                            <span id="ratioVal">5.0</span>×
+                        </span>
+                    </div>
+                    <input type="range" id="ratioSlider" min="2" max="10" value="5" step="0.5" class="w-full my-2">
+                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>2× (Sezione media)</span>
+                        <span>5×</span>
+                        <span>10× (Sezione grande)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pannello Dati e Formule in Tempo Reale -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <!-- Pressione -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pressione Fluido (P)</div>
+                    <div class="text-xl sm:text-2xl font-bold text-sky-600 mt-1">
+                        <span id="pressureVal">0.0</span> <span class="text-sm font-medium text-slate-500">Pa</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1 font-mono">P = F<sub>1</sub> / A<sub>1</sub></div>
+                </div>
+
+                <!-- Forza Risultante F2 -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Forza Risultante (F<sub>2</sub>)</div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-600 mt-1">
+                        <span id="force2Val">0.0</span> <span class="text-sm font-medium text-slate-500">N</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1 font-mono">F<sub>2</sub> = F<sub>1</sub> · (A<sub>2</sub>/A<sub>1</sub>)</div>
+                </div>
+
+                <!-- Spostamento Pistone 1 -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discesa Pistone 1 (Δh<sub>1</sub>)</div>
+                    <div class="text-xl sm:text-2xl font-bold text-red-600 mt-1">
+                        -<span id="dh1Val">0.0</span> <span class="text-sm font-medium text-slate-500">cm</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1 font-mono">Volume spinto: ΔV</div>
+                </div>
+
+                <!-- Spostamento Pistone 2 -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Salita Pistone 2 (Δh<sub>2</sub>)</div>
+                    <div class="text-xl sm:text-2xl font-bold text-indigo-600 mt-1">
+                        +<span id="dh2Val">0.0</span> <span class="text-sm font-medium text-slate-500">cm</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1 font-mono">Δh<sub>2</sub> = Δh<sub>1</sub> / (A<sub>2</sub>/A<sub>1</sub>)</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Riferimenti agli elementi DOM
+        const canvas = document.getElementById('hydraulicCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const forceSlider = document.getElementById('forceSlider');
+        const ratioSlider = document.getElementById('ratioSlider');
+        const resetBtn = document.getElementById('resetBtn');
+
+        const forceValSpan = document.getElementById('forceVal');
+        const ratioValSpan = document.getElementById('ratioVal');
+        const pressureValSpan = document.getElementById('pressureVal');
+        const force2ValSpan = document.getElementById('force2Val');
+        const dh1ValSpan = document.getElementById('dh1Val');
+        const dh2ValSpan = document.getElementById('dh2Val');
+
+        // Parametri fisici di riferimento
+        // Consideriamo un'area A1 di riferimento pari a 0.01 m² (100 cm²) per avere valori in Pascal realistici
+        const A1_m2 = 0.01; 
+        let isDragging = false;
+        let dragStartY = 0;
+        let dragStartForce = 0;
+
+        // Dimensioni logiche del canvas per il disegno
+        let width = 800;
+        let height = 380;
+
+        // Funzione per adattare il canvas alla risoluzione dello schermo (Retina / Mobile)
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            width = rect.width;
+            // Altezza proporzionata allo schermo
+            height = Math.max(300, Math.min(400, width * 0.5));
+            
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.height = `${height}px`;
+            
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+            
+            draw();
+        }
+
+        // Disegna una freccia vettoriale pulita
+        function drawArrow(fromX, fromY, toX, toY, color, lineWidth = 3.5) {
+            const headlen = 11;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+
+            // Asta della freccia
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Punta della freccia
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Funzione principale di rendering della simulazione
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Lettura valori dai controlli
+            const F1 = parseFloat(forceSlider.value);
+            const areaRatio = parseFloat(ratioSlider.value); // Rapporto A2 / A1
+
+            // Calcoli fisici
+            const A2_m2 = A1_m2 * areaRatio;
+            const pressure = F1 / A1_m2; // P = F1 / A1 (in Pascal)
+            const F2 = F1 * areaRatio;   // F2 = P * A2 = F1 * (A2 / A1)
+
+            // Spostamenti (in cm per la visualizzazione didattica)
+            // Corsa massima del pistone 1 = 10 cm quando F1 = 100 N
+            const dh1_cm = (F1 / 100) * 10; 
+            const dh2_cm = dh1_cm / areaRatio;
+
+            // Aggiornamento pannello dati HTML
+            forceValSpan.textContent = F1.toFixed(0);
+            ratioValSpan.textContent = areaRatio.toFixed(1);
+            pressureValSpan.textContent = pressure.toLocaleString('it-IT', { maximumFractionDigits: 0 });
+            force2ValSpan.textContent = F2.toFixed(1);
+            dh1ValSpan.textContent = dh1_cm.toFixed(2);
+            dh2ValSpan.textContent = dh2_cm.toFixed(2);
+
+            // Geometria proporzionale al canvas
+            const x1 = width * 0.26;
+            const x2 = width * 0.70;
+            
+            // Raggio visivo del cilindro 1 e calcolo del raggio visivo del cilindro 2
+            // Nota: In 2D la sezione trasversale è proporzionale al quadrato del raggio (A = πr²)
+            const r1 = Math.max(18, Math.min(28, width * 0.035));
+            const r2 = r1 * Math.sqrt(areaRatio);
+
+            const bottomPipeY = height - 45;
+            const pipeThickness = 26;
+            const restFluidY = height * 0.56; // Livello del fluido a riposo (F1 = 0)
+
+            // Conversione spostamento fisico in pixel
+            // Il pistone 1 SCENDE (+pixel verso il basso), il pistone 2 SALE (-pixel verso l'alto)
+            const maxPixelTravel = height * 0.22;
+            const disp1_px = (F1 / 100) * maxPixelTravel;
+            const disp2_px = disp1_px / areaRatio;
+
+            const piston1BottomY = restFluidY + disp1_px;
+            const piston2BottomY = restFluidY - disp2_px;
+
+            const cyl1TopY = height * 0.24;
+            const cyl2TopY = height * 0.24;
+            const wallThickness = 6;
+
+            // 1. LINEA DI RIFERIMENTO LIVELLO DI RIPOSO (tratteggiata)
+            ctx.save();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x1 - r1 - 25, restFluidY);
+            ctx.lineTo(x2 + r2 + 25, restFluidY);
+            ctx.stroke();
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.fillText('Livello riposo', x1 - r1 - 25, restFluidY - 6);
+            ctx.restore();
+
+            // 2. FLUIDO INCOMPRIMIBILE (Gradiente azzurro/blu)
+            const fluidGrad = ctx.createLinearGradient(0, cyl1TopY, 0, bottomPipeY + pipeThickness);
+            fluidGrad.addColorStop(0, '#38bdf8');
+            fluidGrad.addColorStop(1, '#0284c7');
+
+            ctx.fillStyle = fluidGrad;
+            ctx.beginPath();
+            // Parte sinistra (sotto pistone 1)
+            ctx.moveTo(x1 - r1, piston1BottomY);
+            ctx.lineTo(x1 - r1, bottomPipeY + pipeThickness);
+            // Condotto inferiore
+            ctx.lineTo(x2 + r2, bottomPipeY + pipeThickness);
+            // Parte destra (sotto pistone 2)
+            ctx.lineTo(x2 + r2, piston2BottomY);
+            ctx.lineTo(x2 - r2, piston2BottomY);
+            // Ritorno lungo la parete interna destra verso il condotto
+            ctx.lineTo(x2 - r2, bottomPipeY);
+            ctx.lineTo(x1 + r1, bottomPipeY);
+            // Risalita lungo la parete interna sinistra
+            ctx.lineTo(x1 + r1, piston1BottomY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Effetto pressione nel fluido (linee di flusso / particelle di pressione)
+            if (F1 > 0) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 8]);
+                const flowOffset = (F1 * 0.5) % 16;
+                ctx.lineDashOffset = -flowOffset;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, piston1BottomY + 10);
+                ctx.lineTo(x1, bottomPipeY + pipeThickness / 2);
+                ctx.lineTo(x2, bottomPipeY + pipeThickness / 2);
+                ctx.lineTo(x2, piston2BottomY + 10);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 3. PARETI DEI CILINDRI E DEL CONDOTTO (Vetro/Metallo)
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = wallThickness;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            // Contorno esterno U-tube
+            ctx.beginPath();
+            ctx.moveTo(x1 - r1 - wallThickness / 2, cyl1TopY);
+            ctx.lineTo(x1 - r1 - wallThickness / 2, bottomPipeY + pipeThickness + wallThickness / 2);
+            ctx.lineTo(x2 + r2 + wallThickness / 2, bottomPipeY + pipeThickness + wallThickness / 2);
+            ctx.lineTo(x2 + r2 + wallThickness / 2, cyl2TopY);
+            ctx.stroke();
+
+            // Contorno interno U-tube
+            ctx.beginPath();
+            ctx.moveTo(x1 + r1 + wallThickness / 2, cyl1TopY);
+            ctx.lineTo(x1 + r1 + wallThickness / 2, bottomPipeY - wallThickness / 2);
+            ctx.lineTo(x2 - r2 - wallThickness / 2, bottomPipeY - wallThickness / 2);
+            ctx.lineTo(x2 - r2 - wallThickness / 2, cyl2TopY);
+            ctx.stroke();
+
+            // 4. PISTONE 1 (Sinistra - Piccolo, Rosso)
+            const pistonHeight = 16;
+            // Stelo del pistone 1
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(x1 - 5, piston1BottomY - pistonHeight - 36, 10, 36);
+            // Piatto superiore di spinta
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(x1 - r1 * 0.8, piston1BottomY - pistonHeight - 42, r1 * 1.6, 6);
+
+            // Testa del pistone 1
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.roundRect(x1 - r1 + 1, piston1BottomY - pistonHeight, (r1 * 2) - 2, pistonHeight, 3);
+            ctx.fill();
+            ctx.strokeStyle = '#b91c1c';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // 5. PISTONE 2 (Destra - Grande, Verde)
+            // Stelo del pistone 2
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(x2 - 7, piston2BottomY - pistonHeight - 32, 14, 32);
+            // Piatto di carico superiore
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(x2 - r2 * 0.75, piston2BottomY - pistonHeight - 38, r2 * 1.5, 7);
+
+            // Peso / Carico sollevato sul pistone 2 (dimensione proporzionale alla forza F2)
+            if (F1 > 0) {
+                const blockW = Math.min(r2 * 1.3, 36 + (F2 / 1000) * 60);
+                const blockH = Math.min(42, 18 + (F2 / 1000) * 24);
+                const blockY = piston2BottomY - pistonHeight - 38 - blockH;
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.roundRect(x2 - blockW / 2, blockY, blockW, blockH, 4);
+                ctx.fill();
+                ctx.strokeStyle = '#b45309';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Testo sul carico
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${F2.toFixed(0)} N`, x2, blockY + blockH / 2 + 4);
+            }
+
+            // Testa del pistone 2
+            ctx.fillStyle = '#10b981';
+            ctx.beginPath();
+            ctx.roundRect(x2 - r2 + 1, piston2BottomY - pistonHeight, (r2 * 2) - 2, pistonHeight, 3);
+            ctx.fill();
+            ctx.strokeStyle = '#047857';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // 6. FRECCE DELLE FORZE (F1 verso il basso, F2 verso l'alto)
+            if (F1 > 0) {
+                // Freccia F1 (rossa, punta verso il basso sul pistone piccolo)
+                const arrow1Len = 22 + (F1 / 100) * 28;
+                const arrow1EndY = piston1BottomY - pistonHeight - 46;
+                const arrow1StartY = arrow1EndY - arrow1Len;
+                drawArrow(x1, arrow1StartY, x1, arrow1EndY, '#dc2626', 3.5);
+
+                ctx.fillStyle = '#dc2626';
+                ctx.font = 'bold 13px Inter, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`F₁ = ${F1} N`, x1 - 12, arrow1StartY + arrow1Len / 2 + 4);
+
+                // Freccia F2 (verde, punta verso l'alto sotto il pistone grande)
+                const arrow2Len = 22 + Math.min(45, (F2 / 1000) * 45);
+                const arrow2StartY = piston2BottomY + arrow2Len + 10;
+                const arrow2EndY = piston2BottomY + 6;
+                drawArrow(x2, arrow2StartY, x2, arrow2EndY, '#059669', 4);
+
+                ctx.fillStyle = '#047857';
+                ctx.font = 'bold 13px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Spinta F₂ = ${F2.toFixed(1)} N`, x2, arrow2StartY + 16);
+            }
+
+            // 7. ETICHETTE DEI CILINDRI E QUOTE SPOSTAMENTO
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 13px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Cilindro 1 (Sezione A₁)', x1, cyl1TopY - 14);
+            ctx.fillText(`Cilindro 2 (Sezione A₂ = ${areaRatio.toFixed(1)}·A₁)`, x2, cyl2TopY - 14);
+
+            // Indicatore visivo spostamento Δh1
+            if (disp1_px > 4) {
+                ctx.save();
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 1.5;
+                const markerX = x1 - r1 - 14;
+                ctx.beginPath();
+                ctx.moveTo(markerX, restFluidY);
+                ctx.lineTo(markerX, piston1BottomY);
+                ctx.stroke();
+                ctx.fillStyle = '#dc2626';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Δh₁`, markerX - 4, (restFluidY + piston1BottomY) / 2 + 4);
+                ctx.restore();
+            }
+
+            // Indicatore visivo spostamento Δh2
+            if (disp2_px > 3) {
+                ctx.save();
+                ctx.strokeStyle = '#4f46e5';
+                ctx.lineWidth = 1.5;
+                const markerX = x2 + r2 + 14;
+                ctx.beginPath();
+                ctx.moveTo(markerX, restFluidY);
+                ctx.lineTo(markerX, piston2BottomY);
+                ctx.stroke();
+                ctx.fillStyle = '#4f46e5';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(`Δh₂`, markerX + 4, (restFluidY + piston2BottomY) / 2 + 4);
+                ctx.restore();
+            }
+        }
+
+        // Gestione trascinamento diretto sul canvas (Mouse e Touch)
+        function getClientY(e) {
+            return e.touches ? e.touches[0].clientY : e.clientY;
+        }
+
+        function handleStart(e) {
+            isDragging = true;
+            dragStartY = getClientY(e);
+            dragStartForce = parseFloat(forceSlider.value);
+        }
+
+        function handleMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const currentY = getClientY(e);
+            const deltaY = currentY - dragStartY;
+            // Trascinare verso il basso aumenta la forza F1
+            const newForce = Math.max(0, Math.min(100, Math.round(dragStartForce + deltaY * 0.8)));
+            forceSlider.value = newForce;
+            draw();
+        }
+
+        function handleEnd() {
+            isDragging = false;
+        }
+
+        // Event Listeners
+        canvas.addEventListener('mousedown', handleStart);
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+
+        forceSlider.addEventListener('input', draw);
+        ratioSlider.addEventListener('input', draw);
+
+        resetBtn.addEventListener('click', () => {
+            forceSlider.value = 40;
+            ratioSlider.value = 5;
+            draw();
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Avvio iniziale al caricamento della pagina
+        window.onload = function () {
+            resizeCanvas();
+        };
+    </script>
+</body>
+</html>

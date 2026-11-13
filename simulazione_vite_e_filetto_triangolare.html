@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Vite e Filetto Triangolare</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        /* Custom smooth scroll and range slider styling */
+        input[type="range"] {
+            accent-color: #2563eb;
+        }
+        .canvas-container {
+            touch-action: pan-y;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Header / Navbar -->
+    <header class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <h1 class="text-lg font-bold tracking-tight">Meccanica: Vite e Madrevite</h1>
+            </div>
+            <span class="text-xs bg-blue-700 px-2.5 py-1 rounded-full font-medium">ISO 60°</span>
+        </div>
+    </header>
+
+    <!-- Main Container - Optimized for Mobile Portrait -->
+    <main class="max-w-md mx-auto w-full px-4 py-5 flex-1 space-y-5">
+
+        <!-- Intro Card -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <h2 class="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-1">Modello Matematico e Fisico</h2>
+            <p class="text-xs text-slate-600 leading-relaxed">
+                La filettatura è un piano inclinato avvolto a elica. L'accoppiamento tra <strong>vite</strong> (esterno) e <strong>madrevite</strong> (interno) trasforma il moto rotatorio in moto assiale lineare.
+            </p>
+        </section>
+
+        <!-- Canvas Simulation Card -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col items-center">
+            <div class="w-full flex justify-between items-center mb-2">
+                <h3 class="text-sm font-bold text-slate-800">Simulazione in Sezione</h3>
+                <span id="statusBadge" class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">Inattivo</span>
+            </div>
+            
+            <!-- Canvas Container -->
+            <div class="canvas-container w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner aspect-[4/3] flex items-center justify-center">
+                <canvas id="threadCanvas" class="w-full h-full block"></canvas>
+                <!-- Overlay hint -->
+                <div id="canvasOverlay" class="absolute bottom-2 left-2 right-2 text-center text-[10px] text-slate-400 bg-slate-950/60 backdrop-blur-sm py-1 px-2 rounded-lg pointer-events-none">
+                    Profilo triangolare ISO 60° • Vista Sezione Assiale
+                </div>
+            </div>
+
+            <!-- Simulation Controls Bar -->
+            <div class="w-full grid grid-cols-3 gap-2 mt-3">
+                <button id="playBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    <span id="playText">Avvia</span>
+                </button>
+                <button id="pauseBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    <span>Pausa</span>
+                </button>
+                <button id="resetBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Interactive Parameters Card -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold text-slate-800">Parametri Geometrici</h3>
+                <span class="text-xs text-blue-600 font-medium">Regolabile</span>
+            </div>
+
+            <!-- Pitch Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs font-medium">
+                    <span class="text-slate-600">Passo (P):</span>
+                    <span id="pitchVal" class="text-blue-600 font-bold">2.5 mm</span>
+                </div>
+                <input id="pitchSlider" type="range" min="1" max="6" step="0.5" value="2.5" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>1 mm (Fine)</span>
+                    <span>6 mm (Grosso)</span>
+                </div>
+            </div>
+
+            <!-- Rotations Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs font-medium">
+                    <span class="text-slate-600">Giri (N):</span>
+                    <span id="rotationsVal" class="text-blue-600 font-bold">2.00 giri</span>
+                </div>
+                <input id="rotationsSlider" type="range" min="0" max="5" step="0.25" value="2" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>0 giri</span>
+                    <span>5 giri</span>
+                </div>
+            </div>
+
+            <!-- Diameter Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs font-medium">
+                    <span class="text-slate-600">Diametro Nominale (d):</span>
+                    <span id="diaVal" class="text-blue-600 font-bold">20 mm</span>
+                </div>
+                <input id="diaSlider" type="range" min="10" max="40" step="2" value="20" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>10 mm</span>
+                    <span>40 mm</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real-time Telemetry / Calculation Card -->
+        <section class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-blue-900">Risultati e Calcoli in Tempo Reale</h3>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white/85 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                    <span class="block text-[11px] font-medium text-slate-500">Avanzamento Assiale (s)</span>
+                    <span id="axialAdvance" class="text-base font-bold text-blue-700">5.00 mm</span>
+                    <span class="block text-[10px] text-slate-400">s = N × P</span>
+                </div>
+                <div class="bg-white/85 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                    <span class="block text-[11px] font-medium text-slate-500">Angolo d'Elica (λ)</span>
+                    <span id="helixAngle" class="text-base font-bold text-blue-700">2.28°</span>
+                    <span class="block text-[10px] text-slate-400">arctan(P / (π × d))</span>
+                </div>
+            </div>
+
+            <div class="bg-white/85 backdrop-blur-sm p-3 rounded-xl border border-blue-100 flex items-center justify-between">
+                <div>
+                    <span class="block text-[11px] font-medium text-slate-500">Profilo Filetto ISO</span>
+                    <span class="text-sm font-bold text-slate-800">Angolo al vertice: 60°</span>
+                </div>
+                <div class="text-right">
+                    <span class="block text-[11px] font-medium text-slate-500">Vantaggio Meccanico</span>
+                    <span class="text-sm font-bold text-emerald-600">Elevato (Autoarresto)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Educational Sections (Accordions/Cards) -->
+        <section class="space-y-3">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center mb-1">
+                    <svg class="w-4 h-4 text-blue-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Il Principio Fisico
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Il filetto triangolare si basa sul principio del <strong>piano inclinato</strong> avvolto attorno a un cilindro. La rotazione applicata alla vite genera una spinta lungo l'asse con un elevato rapporto di moltiplicazione della forza (vantaggio meccanico), consentendo il bloccaggio stabile sotto carico (autoarresto).
+                </p>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center mb-1">
+                    <svg class="w-4 h-4 text-blue-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    La Standardizzazione ISO
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Nel XX secolo, l'introduzione della <strong>filettatura metrica ISO</strong> ha stabilito standard dimensionali globali (profilo triangolare con angolo di 60°). Questo ha reso possibili la produzione in serie, l'intercambiabilità universale dei pezzi e l'accelerazione dell'industria moderna.
+                </p>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center mb-1">
+                    <svg class="w-4 h-4 text-blue-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Applicazioni Meccaniche
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    I collegamenti filettati triangolari sono largamente impiegati come:
+                    <br>• <strong>Giunzioni</strong> (bulloni e dadi in strutture e motori)
+                    <br>• <strong>Arresto e fissaggio</strong> (grani di bloccaggio)
+                    <br>• <strong>Manovra e regolazione</strong> (micrometri, morse)
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-6 py-4 text-center text-xs text-slate-500">
+        <p>Simulatore Interattivo Didattico • Vite & Madrevite ISO</p>
+    </footer>
+
+    <!-- Custom Message Modal (No alert() used) -->
+    <div id="msgModal" class="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl space-y-3 text-center">
+            <h3 id="modalTitle" class="text-sm font-bold text-slate-950">Notifica</h3>
+            <p id="modalText" class="text-xs text-slate-600"></p>
+            <button id="modalCloseBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-xl text-xs transition">Ho capito</button>
+        </div>
+    </div>
+
+    <!-- Simulation & UI JavaScript -->
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('threadCanvas');
+        const ctx = canvas.getContext('2d');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const playText = document.getElementById('playText');
+        const statusBadge = document.getElementById('statusBadge');
+
+        const pitchSlider = document.getElementById('pitchSlider');
+        const rotationsSlider = document.getElementById('rotationsSlider');
+        const diaSlider = document.getElementById('diaSlider');
+
+        const pitchVal = document.getElementById('pitchVal');
+        const rotationsVal = document.getElementById('rotationsVal');
+        const diaVal = document.getElementById('diaVal');
+
+        const axialAdvance = document.getElementById('axialAdvance');
+        const helixAngle = document.getElementById('helixAngle');
+
+        // Simulation State
+        let isPlaying = false;
+        let currentRotations = parseFloat(rotationsSlider.value);
+        let maxRotations = 5.0;
+        let animSpeed = 0.015; // Speed per frame when playing
+
+        // Resize Canvas dynamically to fit container cleanly
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawSimulation();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Update UI Text & Calculations
+        function updateCalculations() {
+            const P = parseFloat(pitchSlider.value);
+            const N = currentRotations;
+            const d = parseFloat(diaSlider.value);
+
+            pitchVal.innerText = P.toFixed(1) + ' mm';
+            rotationsVal.innerText = N.toFixed(2) + ' giri';
+            diaVal.innerText = d + ' mm';
+
+            const s = N * P;
+            axialAdvance.innerText = s.toFixed(2) + ' mm';
+
+            // Helix angle calculation: lambda = arctan(P / (pi * d)) in degrees
+            const lambdaRad = Math.atan(P / (Math.PI * d));
+            const lambdaDeg = lambdaRad * (180 / Math.PI);
+            helixAngle.innerText = lambdaDeg.toFixed(2) + '°';
+        }
+
+        // Draw Simulation on Canvas
+        function drawSimulation() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const P = parseFloat(pitchSlider.value);
+            const N = currentRotations;
+            const d = parseFloat(diaSlider.value);
+
+            // Scale factors for visual representation
+            const scaleY = 12; // pixels per mm of pitch
+            const pitchPx = P * scaleY;
+            const axialShiftPx = N * pitchPx;
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // 1. Draw Madrevite (Nut - Fixed outer part with internal triangular teeth)
+            ctx.save();
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+
+            // Nut housing (Top block & Bottom block)
+            const nutWidth = 140;
+            const nutHeight = 120;
+            const nutLeft = centerX - nutWidth / 2;
+            const nutTop = centerY - nutHeight / 2;
+
+            // Draw outer nut body with rounded look
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(nutLeft, nutTop, nutWidth, nutHeight);
+
+            // Cut out inner bore hole for screw
+            const boreRadius = 45;
+            ctx.clearRect(nutLeft + 40, nutTop - 5, nutWidth - 80, nutHeight + 10);
+
+            // Draw internal triangular teeth of nut (60 degree profile)
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            let teethCount = Math.floor(nutHeight / pitchPx) + 2;
+            let startY = nutTop + 10;
+            for (let i = 0; i < teethCount; i++) {
+                let ty = startY + (i * pitchPx);
+                // Left internal teeth pointing right
+                ctx.moveTo(nutLeft + 40, ty);
+                ctx.lineTo(nutLeft + 55, ty + pitchPx / 2);
+                ctx.lineTo(nutLeft + 40, ty + pitchPx);
+            }
+            ctx.fill();
+
+            ctx.beginPath();
+            for (let i = 0; i < teethCount; i++) {
+                let ty = startY + (i * pitchPx);
+                // Right internal teeth pointing left
+                ctx.moveTo(nutLeft + nutWidth - 40, ty);
+                ctx.lineTo(nutLeft + nutWidth - 55, ty + pitchPx / 2);
+                ctx.lineTo(nutLeft + nutWidth - 40, ty + pitchPx);
+            }
+            ctx.fill();
+            ctx.restore();
+
+            // 2. Draw Vite (Screw - Moving axially with axialShiftPx)
+            ctx.save();
+            // We apply translation based on current rotation N * Pitch
+            // Let's center base position such that N=0 is aligned
+            let baseOffsetY = -(maxRotations * pitchPx) / 2;
+            let currentShiftY = (N * pitchPx) + baseOffsetY;
+
+            ctx.translate(0, currentShiftY);
+
+            // Screw shank center
+            const screwLeft = centerX - 35;
+            const screwWidth = 70;
+            const screwTop = centerY - 90;
+            const screwBottom = centerY + 90;
+
+            // Screw core body gradient/fill
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(screwLeft + 15, screwTop, screwWidth - 30, screwBottom - screwTop);
+
+            // Draw external triangular threads (60 degree ISO profile) on screw
+            ctx.fillStyle = '#60a5fa';
+            ctx.strokeStyle = '#1d4ed8';
+            ctx.lineWidth = 1.5;
+
+            let screwTeethCount = 12;
+            let screwStartY = screwTop - 20;
+
+            for (let i = 0; i < screwTeethCount; i++) {
+                let ty = screwStartY + (i * pitchPx);
+                
+                // Left thread tooth
+                ctx.beginPath();
+                ctx.moveTo(screwLeft + 15, ty);
+                ctx.lineTo(screwLeft, ty + (pitchPx / 2));
+                ctx.lineTo(screwLeft + 15, ty + pitchPx);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Right thread tooth
+                ctx.beginPath();
+                ctx.moveTo(screwLeft + screwWidth - 15, ty);
+                ctx.lineTo(screwLeft + screwWidth, ty + (pitchPx / 2));
+                ctx.lineTo(screwLeft + screwWidth - 15, ty + pitchPx);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            // 3. Draw Dimension Annotations & Guidance
+            // Pitch dimension indicator on the side
+            ctx.save();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.fillStyle = '#94a3b8';
+            ctx.lineWidth = 1;
+            
+            const dimX = centerX + 85;
+            const dimY1 = centerY - pitchPx / 2;
+            const dimY2 = centerY + pitchPx / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(dimX, dimY1);
+            ctx.lineTo(dimX + 15, dimY1);
+            ctx.moveTo(dimX, dimY2);
+            ctx.lineTo(dimX + 15, dimY2);
+            ctx.moveTo(dimX + 10, dimY1);
+            ctx.lineTo(dimX + 10, dimY2);
+            ctx.stroke();
+
+            ctx.font = '10px Inter, sans-serif';
+            ctx.fillText('P (' + P + 'mm)', dimX + 18, centerY + 3);
+            ctx.restore();
+        }
+
+        // Animation Loop
+        function animate() {
+            if (isPlaying) {
+                currentRotations += animSpeed;
+                if (currentRotations > maxRotations) {
+                    currentRotations = 0; // Loop back
+                }
+                rotationsSlider.value = currentRotations;
+                updateCalculations();
+                drawSimulation();
+                requestAnimationFrame(animate);
+            }
+        }
+
+        // Event Listeners for Controls
+        playBtn.addEventListener('click', () => {
+            if (!isPlaying) {
+                isPlaying = true;
+                statusBadge.innerText = 'In Esecuzione';
+                statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-medium animate-pulse';
+                playText.innerText = 'Pausa';
+                animate();
+            } else {
+                isPlaying = false;
+                statusBadge.innerText = 'In Pausa';
+                statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-medium';
+                playText.innerText = 'Riprendi';
+            }
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            isPlaying = false;
+            statusBadge.innerText = 'In Pausa';
+            statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-medium';
+            playText.innerText = 'Avvia';
+        });
+
+        resetBtn.addEventListener('click', () => {
+            isPlaying = false;
+            currentRotations = 0;
+            rotationsSlider.value = 0;
+            statusBadge.innerText = 'Inattivo';
+            statusBadge.className = 'text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium';
+            playText.innerText = 'Avvia';
+            updateCalculations();
+            drawSimulation();
+        });
+
+        rotationsSlider.addEventListener('input', (e) => {
+            currentRotations = parseFloat(e.target.value);
+            updateCalculations();
+            drawSimulation();
+        });
+
+        pitchSlider.addEventListener('input', () => {
+            updateCalculations();
+            drawSimulation();
+        });
+
+        diaSlider.addEventListener('input', () => {
+            updateCalculations();
+            drawSimulation();
+        });
+
+        // Initialize on load
+        window.onload = () => {
+            resizeCanvas();
+            updateCalculations();
+        };
+    </script>
+</body>
+</html>

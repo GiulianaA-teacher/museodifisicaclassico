@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lampada ad Arco - Laboratorio di Fisica</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            background: #f59e0b;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col overflow-x-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sticky top-0 z-30 flex items-center justify-between shrink-0 shadow-lg">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner">
+                <i class="fa-solid fa-bolt-lightning text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xs tracking-tight text-slate-100">Lampada ad Arco Storica</h1>
+                <p class="text-[10px] text-slate-400">Apparato da Laboratorio (1802)</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleModal(true)" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition active:scale-95 shadow-sm" aria-label="Informazioni didattiche">
+                <i class="fa-solid fa-circle-info text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container (Portrait Optimized) -->
+    <main class="flex-1 flex flex-col max-w-md w-full mx-auto p-3 space-y-3 overflow-y-auto">
+
+        <!-- Visual Simulation Card (Canvas Apparatus) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col relative shadow-xl shrink-0">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
+                    <span id="status-text-badge">Sistema Pronto</span>
+                </span>
+                <span id="temp-badge" class="text-xs font-mono bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md text-amber-400 shadow-inner">
+                    T: 20 °C
+                </span>
+            </div>
+
+            <!-- Canvas Wrapper (Apparatus Rendering) -->
+            <div class="w-full h-64 bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden relative flex items-center justify-center shadow-inner">
+                <canvas id="apparatusCanvas" class="w-full h-full block"></canvas>
+                
+                <!-- Overlay Instructions -->
+                <div id="canvas-overlay" class="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 text-center transition-opacity duration-300 pointer-events-none">
+                    <p class="text-xs text-slate-300 font-medium bg-slate-900/90 border border-slate-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2">
+                        <i class="fa-solid fa-power-off text-amber-400"></i>
+                        <span>Attiva l'interruttore per avviare l'arco</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Electrode Wear Progress Bar -->
+            <div class="mt-3 space-y-1">
+                <div class="flex justify-between text-[11px] text-slate-400 font-medium">
+                    <span>Consumo Carboncini (Anodo/Catodo)</span>
+                    <span id="wear-val">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden shadow-inner">
+                    <div id="wear-bar" class="bg-gradient-to-r from-amber-500 to-red-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry & Physics Dashboard -->
+        <div class="grid grid-cols-3 gap-2 shrink-0">
+            <!-- Current I -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Corrente (I)</span>
+                <div class="my-1">
+                    <span id="telemetry-current" class="text-base font-bold font-mono text-cyan-400">0.0</span>
+                    <span class="text-[10px] text-slate-400">A</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">I = V / R</span>
+            </div>
+            <!-- Power P -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Potenza (P)</span>
+                <div class="my-1">
+                    <span id="telemetry-power" class="text-base font-bold font-mono text-emerald-400">0</span>
+                    <span class="text-[10px] text-slate-400">W</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">P = V × I</span>
+            </div>
+            <!-- Resistance R -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-col justify-between shadow-sm">
+                <span class="text-[10px] text-slate-400 uppercase font-medium">Resistenza (R)</span>
+                <div class="my-1">
+                    <span id="telemetry-resistance" class="text-base font-bold font-mono text-purple-400">--</span>
+                    <span class="text-[10px] text-slate-400">Ω</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">R<sub>arc</sub> + R<sub>air</sub></span>
+            </div>
+        </div>
+
+        <!-- Control Panel Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shrink-0 shadow-xl">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Pannello di Controllo</span>
+                <!-- Power Switch Button -->
+                <button id="power-btn" onclick="togglePower()" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl font-medium text-xs transition active:scale-95 bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 shadow-sm">
+                    <i class="fa-solid fa-power-off text-sm" id="power-icon"></i>
+                    <span id="power-text">OFF</span>
+                </button>
+            </div>
+
+            <!-- Voltage Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-300 font-medium">Tensione Alimentazione (V)</span>
+                    <span id="voltage-label" class="font-mono font-semibold text-amber-400">75 V</span>
+                </div>
+                <input type="range" id="voltage-slider" min="0" max="120" step="1" value="75" oninput="updateVoltage(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer shadow-inner">
+            </div>
+
+            <!-- Electrode Gap Slider -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-300 font-medium">Distanza Elettrodi (Manopola Vite)</span>
+                    <span id="gap-label" class="font-mono font-semibold text-cyan-400">4.0 mm</span>
+                </div>
+                <input type="range" id="gap-slider" min="0" max="20" step="0.5" value="4.0" oninput="updateGap(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer shadow-inner">
+            </div>
+
+            <!-- Preset Operating Modes -->
+            <div class="space-y-2 pt-1">
+                <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Preset Apparato</span>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setPreset('ignition')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-3 rounded-xl font-medium transition active:scale-95 flex items-center justify-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-sparkles text-amber-400 text-xs"></i>
+                        <span>Accensione</span>
+                    </button>
+                    <button onclick="setPreset('stable')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-3 rounded-xl font-medium transition active:scale-95 flex items-center justify-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-fire text-emerald-400 text-xs"></i>
+                        <span>Arco Stabile</span>
+                    </button>
+                    <button onclick="setPreset('critical')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-3 rounded-xl font-medium transition active:scale-95 flex items-center justify-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-arrows-split-up-and-left text-rose-400 text-xs"></i>
+                        <span>Distanza Critica</span>
+                    </button>
+                    <button onclick="setPreset('short')" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs py-2 px-3 rounded-xl font-medium transition active:scale-95 flex items-center justify-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation text-yellow-400 text-xs"></i>
+                        <span>Cortocircuito</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Reset Wear Button -->
+            <button onclick="resetWear()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs py-2 rounded-xl font-medium transition active:scale-95 flex items-center justify-center space-x-2 shadow-sm">
+                <i class="fa-solid fa-rotate-right text-slate-400"></i>
+                <span>Sostituisci Carboncini</span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Educational Modal (Popup) -->
+    <div id="info-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-graduation-cap text-amber-400"></i>
+                    <span>Informazioni Storiche e Fisiche</span>
+                </h3>
+                <button onclick="toggleModal(false)" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    Questo apparato storico, ideato da <strong>Humphry Davy</strong> nel 1802, dimostra la produzione di luce e calore estremi tramite una scarica elettrica continua in aria (arco voltaico) tra due elettrodi di carbone.
+                </p>
+                <div>
+                    <h4 class="font-semibold text-amber-400 mb-1">Anatomia dell'Apparato:</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                        <li><strong>Base a Treppiede:</strong> Fornisce stabilità meccanica in ghisa pesante da laboratorio.</li>
+                        <li><strong>Meccanismo a Vite Filettata:</strong> La manopola laterale consente di regolare con precisione micrometrica la distanza dei morsetti orizzontali.</li>
+                        <li><strong>Elettrodi di Carbone:</strong> I due carboncini contrapposti ionizzano l'aria circostante quando alimentati ad alta tensione.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-cyan-400 mb-1">Fenomeno Fisico:</h4>
+                    <p class="text-slate-400">
+                        Applicando una differenza di potenziale e avvicinando i carboncini, gli elettroni estraggono corrente ionizzando il gas. L'anodo (polo positivo) forma un caratteristico cratere incandescente a oltre 3500-5500 °C.
+                    </p>
+                </div>
+            </div>
+
+            <button onclick="toggleModal(false)" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold py-2.5 rounded-xl text-xs transition shadow-lg shadow-amber-500/10">
+                Ho capito, chiudi
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Simulation Engine -->
+    <script>
+        const state = {
+            powerOn: false,
+            voltage: 75,
+            gap: 4.0,
+            wear: 0.0,
+            status: 'off',
+            temperature: 20,
+            current: 0,
+            power: 0,
+            resistance: 0
+        };
+
+        const canvas = document.getElementById('apparatusCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            requestAnimationFrame(loop);
+        });
+
+        // UI References
+        const powerBtn = document.getElementById('power-btn');
+        const powerIcon = document.getElementById('power-icon');
+        const powerText = document.getElementById('power-text');
+        const canvasOverlay = document.getElementById('canvas-overlay');
+        const voltageSlider = document.getElementById('voltage-slider');
+        const voltageLabel = document.getElementById('voltage-label');
+        const gapSlider = document.getElementById('gap-slider');
+        const gapLabel = document.getElementById('gap-label');
+        const statusDot = document.getElementById('status-dot');
+        const statusTextBadge = document.getElementById('status-text-badge');
+        const tempBadge = document.getElementById('temp-badge');
+        const wearBar = document.getElementById('wear-bar');
+        const wearVal = document.getElementById('wear-val');
+        
+        const telemetryCurrent = document.getElementById('telemetry-current');
+        const telemetryPower = document.getElementById('telemetry-power');
+        const telemetryResistance = document.getElementById('telemetry-resistance');
+
+        function togglePower() {
+            state.powerOn = !state.powerOn;
+            if (state.powerOn) {
+                powerBtn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                powerBtn.classList.add('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+                powerIcon.className = "fa-solid fa-power-off text-sm text-amber-400";
+                powerText.innerText = "ON";
+                canvasOverlay.style.opacity = '0';
+                canvasOverlay.style.pointerEvents = 'none';
+            } else {
+                powerBtn.classList.add('bg-slate-800', 'border-slate-700', 'text-slate-400');
+                powerBtn.classList.remove('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+                powerIcon.className = "fa-solid fa-power-off text-sm";
+                powerText.innerText = "OFF";
+                canvasOverlay.style.opacity = '1';
+                canvasOverlay.style.pointerEvents = 'auto';
+            }
+            updatePhysics();
+        }
+
+        function updateVoltage(val) {
+            state.voltage = parseFloat(val);
+            voltageLabel.innerText = state.voltage + ' V';
+            updatePhysics();
+        }
+
+        function updateGap(val) {
+            state.gap = parseFloat(val);
+            gapLabel.innerText = state.gap.toFixed(1) + ' mm';
+            updatePhysics();
+        }
+
+        function setPreset(type) {
+            if (!state.powerOn) togglePower();
+            switch(type) {
+                case 'ignition':
+                    state.voltage = 60;
+                    state.gap = 0.5;
+                    break;
+                case 'stable':
+                    state.voltage = 80;
+                    state.gap = 4.0;
+                    break;
+                case 'critical':
+                    state.voltage = 80;
+                    state.gap = 14.0;
+                    break;
+                case 'short':
+                    state.voltage = 80;
+                    state.gap = 0.0;
+                    break;
+            }
+            voltageSlider.value = state.voltage;
+            voltageLabel.innerText = state.voltage + ' V';
+            gapSlider.value = state.gap;
+            gapLabel.innerText = state.gap.toFixed(1) + ' mm';
+            updatePhysics();
+        }
+
+        function resetWear() {
+            state.wear = 0.0;
+            wearBar.style.width = '0%';
+            wearVal.innerText = '0%';
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('info-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function updatePhysics() {
+            if (!state.powerOn) {
+                state.status = 'off';
+                state.current = 0;
+                state.power = 0;
+                state.resistance = 0;
+                state.temperature = 20;
+                statusDot.className = "w-2 h-2 rounded-full bg-slate-500";
+                statusTextBadge.innerText = "Sistema Spento";
+                tempBadge.innerText = "T: 20 °C";
+                return;
+            }
+
+            if (state.gap === 0) {
+                state.status = 'short';
+                state.resistance = 0.2;
+                state.current = state.voltage / state.resistance;
+                state.power = state.voltage * state.current;
+                state.temperature = 800;
+                statusDot.className = "w-2 h-2 rounded-full bg-yellow-500 animate-pulse";
+                statusTextBadge.innerText = "Cortocircuito!";
+            } else if (state.gap > 10.0) {
+                state.status = 'overgap';
+                state.resistance = 9999;
+                state.current = 0;
+                state.power = 0;
+                state.temperature = 100;
+                statusDot.className = "w-2 h-2 rounded-full bg-rose-500 animate-pulse";
+                statusTextBadge.innerText = "Arco Interrotto (Distanza Critica)";
+            } else if (state.voltage < 40) {
+                state.status = 'lowvoltage';
+                state.resistance = 5.0 + (state.gap * 2);
+                state.current = state.voltage / state.resistance;
+                state.power = state.voltage * state.current;
+                state.temperature = 300;
+                statusDot.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+                statusTextBadge.innerText = "Tensione Insufficiente";
+            } else {
+                state.status = 'stable';
+                state.resistance = 2.0 + (state.gap * 1.5);
+                state.current = state.voltage / state.resistance;
+                state.power = state.voltage * state.current;
+                state.temperature = Math.min(5500, Math.round(800 + (state.power * 2.5)));
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                statusTextBadge.innerText = "Arco Stabile";
+            }
+
+            telemetryCurrent.innerText = state.current.toFixed(1);
+            telemetryPower.innerText = Math.round(state.power);
+            telemetryResistance.innerText = state.resistance > 1000 ? '∞' : state.resistance.toFixed(1);
+            tempBadge.innerText = `T: ${state.temperature.toLocaleString()} °C`;
+
+            if (state.status === 'stable' || state.status === 'short') {
+                state.wear = Math.min(100, state.wear + (state.power * 0.0001));
+                wearBar.style.width = state.wear.toFixed(1) + '%';
+                wearVal.innerText = state.wear.toFixed(0) + '%';
+            }
+        }
+
+        let animTime = 0;
+        function loop() {
+            animTime += 0.05;
+            renderApparatus();
+            requestAnimationFrame(loop);
+        }
+
+        function renderApparatus() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            ctx.clearRect(0, 0, width, height);
+
+            // Background
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            bgGrad.addColorStop(0, '#090d16');
+            bgGrad.addColorStop(1, '#020617');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const centerY = height / 2 + 10;
+
+            // 1. Draw Tripod Base at bottom
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            
+            // Base legs
+            const baseY = height - 25;
+            // Center hub
+            ctx.beginPath();
+            ctx.ellipse(centerX, baseY, 18, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Splayed legs
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10, baseY);
+            ctx.lineTo(centerX - 55, baseY + 12);
+            ctx.lineTo(centerX - 45, baseY + 18);
+            ctx.lineTo(centerX - 5, baseY + 8);
+            ctx.fill(); ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(centerX + 10, baseY);
+            ctx.lineTo(centerX + 55, baseY + 12);
+            ctx.lineTo(centerX + 45, baseY + 18);
+            ctx.lineTo(centerX + 5, baseY + 8);
+            ctx.fill(); ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, baseY + 4);
+            ctx.lineTo(centerX, baseY + 18);
+            ctx.lineTo(centerX + 10, baseY + 18);
+            ctx.lineTo(centerX, baseY + 4);
+            ctx.fill(); ctx.stroke();
+
+            // 2. Vertical Central Rod
+            const rodTopY = centerY - 15;
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(centerX - 4, rodTopY, 8, baseY - rodTopY);
+
+            // Clamping T-handle screw on central rod
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(centerX - 12, rodTopY + 25, 24, 8);
+            ctx.fillRect(centerX - 22, rodTopY + 27, 10, 4);
+            ctx.fillRect(centerX + 12, rodTopY + 27, 10, 4);
+
+            // 3. Horizontal Crossbar Assembly (Guide rails + Threaded rod)
+            const barY = rodTopY - 12;
+            const barWidth = 160;
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(centerX - barWidth/2, barY - 10, barWidth, 20);
+
+            // Threaded rod detail
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(centerX - barWidth/2 + 5, barY);
+            ctx.lineTo(centerX + barWidth/2 - 15, barY);
+            ctx.stroke();
+
+            // Adjustment Knob on the Right side
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#475569';
+            ctx.beginPath();
+            ctx.roundRect(centerX + barWidth/2 - 15, barY - 14, 16, 28, 4);
+            ctx.fill(); ctx.stroke();
+            // Knob ridges
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(centerX + barWidth/2 - 12, barY - 10, 2, 20);
+            ctx.fillRect(centerX + barWidth/2 - 7, barY - 10, 2, 20);
+
+            // 4. Two Electrode Holders moving horizontally along crossbar based on Gap
+            // Gap in mm (0 to 20mm -> 0 to 60px total spread)
+            const spreadPx = 25 + (state.gap * 3.0);
+            const leftHolderX = centerX - spreadPx;
+            const rightHolderX = centerX + spreadPx;
+
+            const uprightHeight = 45;
+            const uprightY = barY - uprightHeight;
+
+            // Left Upright & Holder
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(leftHolderX - 8, uprightY, 16, uprightHeight);
+            // Clamp top left
+            ctx.fillRect(leftHolderX - 12, uprightY - 10, 24, 12);
+            ctx.fillStyle = '#d97706'; // brass screw detail
+            ctx.fillRect(leftHolderX - 16, uprightY - 6, 6, 4);
+
+            // Right Upright & Holder
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(rightHolderX - 8, uprightY, 16, uprightHeight);
+            // Clamp top right
+            ctx.fillRect(rightHolderX - 12, uprightY - 10, 24, 12);
+            ctx.fillStyle = '#d97706';
+            ctx.fillRect(rightHolderX + 10, uprightY - 6, 6, 4);
+
+            // 5. Carbon Rods (Opposing horizontally)
+            const carbonLength = 40;
+            const wearOffset = (state.wear / 100) * 10;
+            const actualCarbonLen = carbonLength - wearOffset;
+
+            const leftCarbonRightEdge = leftHolderX + actualCarbonLen;
+            const rightCarbonLeftEdge = rightHolderX - actualCarbonLen;
+
+            // Carbon Grad
+            const carbonGrad = ctx.createLinearGradient(0, uprightY - 4, 0, uprightY + 4);
+            carbonGrad.addColorStop(0, '#1e293b');
+            carbonGrad.addColorStop(0.5, '#475569');
+            carbonGrad.addColorStop(1, '#0f172a');
+
+            ctx.fillStyle = carbonGrad;
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+
+            // Left Carbon (Anode)
+            ctx.beginPath();
+            ctx.roundRect(leftHolderX, uprightY - 5, actualCarbonLen, 10, [2, 0, 0, 2]);
+            ctx.fill(); ctx.stroke();
+
+            // Right Carbon (Cathode)
+            ctx.beginPath();
+            ctx.roundRect(rightCarbonLeftEdge, uprightY - 5, actualCarbonLen, 10, [0, 2, 2, 0]);
+            ctx.fill(); ctx.stroke();
+
+            // Labels
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Anodo (+)', leftHolderX, uprightY - 16);
+            ctx.fillText('Catodo (-)', rightHolderX, uprightY - 16);
+
+            // 6. Plasma Arc Effects
+            const arcCenterX = (leftCarbonRightEdge + rightCarbonLeftEdge) / 2;
+            const arcY = uprightY;
+
+            if (state.powerOn && (state.status === 'stable' || state.status === 'short')) {
+                // Glow
+                const glowRadius = 35 + Math.sin(animTime * 12) * 6;
+                const gradient = ctx.createRadialGradient(arcCenterX, arcY, 2, arcCenterX, arcY, glowRadius);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+                gradient.addColorStop(0.3, 'rgba(56, 189, 248, 0.85)');
+                gradient.addColorStop(0.7, 'rgba(245, 158, 11, 0.5)');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(arcCenterX, arcY, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Jagged Lightning Arc
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5 + Math.random() * 1.5;
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 18;
+                ctx.beginPath();
+                ctx.moveTo(leftCarbonRightEdge, arcY);
+                
+                const segs = 5;
+                const segW = (rightCarbonLeftEdge - leftCarbonRightEdge) / segs;
+                for (let i = 1; i < segs; i++) {
+                    const jitterY = (Math.random() - 0.5) * 12;
+                    ctx.lineTo(leftCarbonRightEdge + (i * segW), arcY + jitterY);
+                }
+                ctx.lineTo(rightCarbonLeftEdge, arcY);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Sparks
+                for (let i = 0; i < 4; i++) {
+                    const sparkX = leftCarbonRightEdge + Math.random() * (rightCarbonLeftEdge - leftCarbonRightEdge);
+                    const sparkY = arcY + (Math.random() - 0.5) * 20;
+                    ctx.fillStyle = Math.random() > 0.5 ? '#f59e0b' : '#38bdf8';
+                    ctx.fillRect(sparkX, sparkY, 2.5, 2.5);
+                }
+            } else if (state.powerOn && state.status === 'lowvoltage') {
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(leftCarbonRightEdge, arcY);
+                ctx.lineTo(rightCarbonLeftEdge, arcY);
+                ctx.stroke();
+            }
+        }
+
+        updatePhysics();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Diapason Elettromagnetico da Laboratorio</title>
+    <!-- Tailwind CSS per layout moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter e JetBrains Mono per dati tecnici -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .font-mono-tech {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #7dd3fc;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
+
+    <!-- Header del Laboratorio -->
+    <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 sm:px-6 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-800/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 3v11a3 3 0 0 0 6 0V3"/>
+                    <path d="M12 17v4"/>
+                    <path d="M8 21h8"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">Diapason Elettromagnetico <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-sky-400 border border-slate-700 ml-1">Lab Fisica</span></h1>
+                <p class="text-xs text-slate-400">Simulazione dinamica accoppiata (Oscillatore armonico smorzato forzato + Induzione di Faraday)</p>
+            </div>
+        </div>
+
+        <!-- Indicatori Rapidi di Stato -->
+        <div class="flex items-center gap-3 sm:gap-5 text-xs font-mono-tech">
+            <div class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/80">
+                <span class="text-slate-400">f₀ Naturale:</span>
+                <span class="text-emerald-400 font-semibold ml-1" id="stat-f0">50.00 Hz</span>
+            </div>
+            <div class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/80 hidden sm:block">
+                <span class="text-slate-400">Ampiezza:</span>
+                <span class="text-sky-400 font-semibold ml-1" id="stat-amp">0.00 mm</span>
+            </div>
+            <div class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/80 hidden md:block">
+                <span class="text-slate-400">Pick-up V<sub>ind</sub>:</span>
+                <span class="text-purple-400 font-semibold ml-1" id="stat-vind">0.0 mV</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenuto Principale -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+
+        <!-- Colonna Sinistra / Centrale: Apparato Fisico + Pannello Controlli -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+            
+            <!-- Vista Apparato da Laboratorio (Canvas 2D) -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+                <div class="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="status-led"></span>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Banco Ottico / Apparato Sperimentale</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-800 hover:bg-slate-750 px-2.5 py-1 rounded-lg border border-slate-700 transition">
+                            <input type="checkbox" id="toggle-field" checked class="rounded text-sky-500 focus:ring-0 bg-slate-900 border-slate-600">
+                            <span>Campo Magnetico & Corrente</span>
+                        </label>
+                        <button id="btn-impulse" class="text-xs bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg transition font-medium" title="Dai un colpetto meccanico al rebbio">
+                            Colpetto Meccanico
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Contenitore Canvas Apparato -->
+                <div class="relative w-full h-[310px] sm:h-[360px] bg-[#d8dfd6]">
+                    <canvas id="apparatusCanvas"></canvas>
+                    
+                    <!-- Badge informativo sovrapposto -->
+                    <div class="absolute bottom-3 left-3 bg-slate-900/85 backdrop-blur-sm text-slate-200 text-[11px] px-3 py-1.5 rounded-lg border border-slate-700/80 pointer-events-none flex items-center gap-3">
+                        <span>Scala visiva spostamento: <strong class="text-sky-400">Amplificata 15×</strong></span>
+                        <span class="text-slate-500">|</span>
+                        <span id="time-scale-badge">Velocità: <strong class="text-amber-400">Slow-Motion (1/20×)</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pannello di Controllo Interattivo -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-800">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+                        Generatore di Funzioni & Controlli
+                    </h2>
+
+                    <!-- Interruttori Principali: Alimentazione ON/OFF e Slow-Motion -->
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button id="btn-power" class="px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-2 transition shadow-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                            <span id="btn-power-text">ALIMENTAZIONE: ON</span>
+                        </button>
+
+                        <button id="btn-slowmo" class="px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition border bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span id="btn-slowmo-text">Slow-Motion: ATTIVO</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sliders Parametri Fisici -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    
+                    <!-- Tensione V0 -->
+                    <div class="bg-slate-800/50 p-3.5 rounded-xl border border-slate-700/60 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label for="slider-voltage" class="text-xs font-medium text-slate-300">Tensione Bobina (V₀)</label>
+                                <span class="text-xs font-mono-tech font-bold text-sky-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700" id="val-voltage">12.0 V</span>
+                            </div>
+                            <input type="range" id="slider-voltage" min="0" max="15" step="0.5" value="12" class="w-full my-2">
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono-tech mt-1">
+                            <span>0 V</span>
+                            <span class="text-slate-400">Nominale: 12 V</span>
+                            <span>15 V</span>
+                        </div>
+                    </div>
+
+                    <!-- Frequenza f -->
+                    <div class="bg-slate-800/50 p-3.5 rounded-xl border border-slate-700/60 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label for="slider-freq" class="text-xs font-medium text-slate-300">Frequenza (f)</label>
+                                <span class="text-xs font-mono-tech font-bold text-amber-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700" id="val-freq">50.0 Hz</span>
+                            </div>
+                            <input type="range" id="slider-freq" min="30" max="70" step="0.2" value="50" class="w-full my-2">
+                        </div>
+                        <div class="flex items-center justify-between mt-1">
+                            <span class="text-[10px] text-slate-500 font-mono-tech">30–70 Hz</span>
+                            <button id="btn-resonance" class="text-[11px] font-semibold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded transition">
+                                Risonanza 50 Hz
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Smorzamento c -->
+                    <div class="bg-slate-800/50 p-3.5 rounded-xl border border-slate-700/60 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label for="slider-damping" class="text-xs font-medium text-slate-300">Smorzamento (c)</label>
+                                <span class="text-xs font-mono-tech font-bold text-emerald-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700" id="val-damping">0.35 kg/s</span>
+                            </div>
+                            <input type="range" id="slider-damping" min="0.10" max="1.50" step="0.05" value="0.35" class="w-full my-2">
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono-tech mt-1">
+                            <span>Basso (Q alto)</span>
+                            <span>Alto (Smorzato)</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Nota didattica / fisica -->
+                <div class="mt-4 pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <p>
+                        <strong class="text-slate-200">Suggerimento sperimentale:</strong> Spegni l'alimentazione (<span class="text-emerald-400 font-mono-tech">OFF</span>) dopo aver raggiunto la risonanza per osservare nel grafico (a) il decadimento esponenziale libero dei rebbi.
+                    </p>
+                    <span class="font-mono-tech text-[11px] text-slate-500 shrink-0">m = 50 g | k = 4934.8 N/m</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonna Destra: Grafici Oscilloscopio & Analisi in Frequenza -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            
+            <!-- Grafico A: Spostamento x(t) -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-3.5 shadow-xl flex-1 flex flex-col min-h-[195px]">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3 class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-sky-400"></span>
+                        a) Spostamento Rebbi nel Tempo x(t)
+                    </h3>
+                    <span class="text-[11px] font-mono-tech text-sky-400" id="readout-x">x = 0.00 mm</span>
+                </div>
+                <div class="relative flex-1 w-full bg-slate-950 rounded-xl border border-slate-800/90 overflow-hidden">
+                    <canvas id="chartDisplacement"></canvas>
+                </div>
+            </div>
+
+            <!-- Grafico B: Curva di Risonanza -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-3.5 shadow-xl flex-1 flex flex-col min-h-[195px]">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3 class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span>
+                        b) Risposta in Frequenza (Curva di Risonanza)
+                    </h3>
+                    <span class="text-[11px] font-mono-tech text-amber-400" id="readout-q">Fattore Q = 44.9</span>
+                </div>
+                <div class="relative flex-1 w-full bg-slate-950 rounded-xl border border-slate-800/90 overflow-hidden">
+                    <canvas id="chartResonance"></canvas>
+                </div>
+            </div>
+
+            <!-- Grafico C: Tensione Pick-up & Segnale Alimentazione -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-3.5 shadow-xl flex-1 flex flex-col min-h-[195px]">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3 class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-purple-400"></span>
+                        c) Tensione Pick-up V<sub>ind</sub>(t) & Eccitazione V(t)
+                    </h3>
+                    <div class="flex items-center gap-3 text-[10px] font-mono-tech">
+                        <span class="text-purple-400">● Pick-up [mV]</span>
+                        <span class="text-emerald-400/80">-- V<sub>drive</sub> [V]</span>
+                    </div>
+                </div>
+                <div class="relative flex-1 w-full bg-slate-950 rounded-xl border border-slate-800/90 overflow-hidden">
+                    <canvas id="chartPickup"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        /**
+         * SIMULAZIONE FISICA E RENDERING INTERATTIVO DEL DIAPASON ELETTROMAGNETICO
+         * Basato su modello meccanico massa-molla-smorzatore accoppiato a bobina elettromagnetica
+         * e rilevamento tramite legge di induzione di Faraday-Neumann-Lenz.
+         */
+        window.onload = function() {
+            // ==========================================
+            // 1. PARAMETRI FISICI E STATO DEL SISTEMA
+            // ==========================================
+            const physics = {
+                m: 0.050,              // Massa effettiva del rebbio [kg] (50 g)
+                f0: 50.0,              // Frequenza di risonanza naturale [Hz]
+                k: 0,                  // Costante elastica [N/m] (calcolata sotto)
+                c: 0.35,               // Coefficiente di smorzamento viscoso [kg/s]
+                V0: 12.0,              // Ampiezza tensione di alimentazione [V]
+                freq: 50.0,            // Frequenza di eccitazione [Hz]
+                alphaDrive: 0.085,     // Fattore di accoppiamento forza/tensione [N/V]
+                betaPick: 0.18,        // Fattore di induzione Faraday V_ind / velocità [V/(m/s)]
+                
+                // Variabili di stato dinamiche
+                t: 0.0,                // Tempo simulato [s]
+                phase: 0.0,            // Fase continua dell'oscillatore elettrico [rad]
+                x: 0.0,                // Spostamento istantaneo dei rebbi [m]
+                v: 0.0,                // Velocità istantanea dei rebbi [m/s]
+                vDriveInst: 0.0,       // Tensione istantanea bobina [V]
+                vPickupInst: 0.0,      // Tensione indotta istantanea [V]
+                
+                // Controlli utente
+                powerOn: true,
+                slowMotion: true,      // Inizia in slow-motion per mostrare chiaramente l'oscillazione a 50Hz
+                showField: true
+            };
+
+            // Calcolo rigidezza k affinché f0 = 50.0 Hz esatti
+            physics.k = physics.m * Math.pow(2 * Math.PI * physics.f0, 2);
+
+            // Buffer circolari per i grafici temporali (ultimi N campioni)
+            const maxSamples = 360;
+            const history = {
+                t: [],
+                x: [],        // in mm
+                vPickup: [],  // in mV
+                vDrive: []    // in V
+            };
+
+            // ==========================================
+            // 2. RIFERIMENTI DOM E GESTIONE EVENTI
+            // ==========================================
+            const elSliderV = document.getElementById('slider-voltage');
+            const elSliderF = document.getElementById('slider-freq');
+            const elSliderC = document.getElementById('slider-damping');
+            
+            const elValV = document.getElementById('val-voltage');
+            const elValF = document.getElementById('val-freq');
+            const elValC = document.getElementById('val-damping');
+
+            const btnPower = document.getElementById('btn-power');
+            const btnPowerText = document.getElementById('btn-power-text');
+            const statusLed = document.getElementById('status-led');
+
+            const btnSlowMo = document.getElementById('btn-slowmo');
+            const btnSlowMoText = document.getElementById('btn-slowmo-text');
+            const timeScaleBadge = document.getElementById('time-scale-badge');
+
+            const btnResonance = document.getElementById('btn-resonance');
+            const btnImpulse = document.getElementById('btn-impulse');
+            const toggleField = document.getElementById('toggle-field');
+
+            // Readouts numerici
+            const statAmp = document.getElementById('stat-amp');
+            const statVind = document.getElementById('stat-vind');
+            const readoutX = document.getElementById('readout-x');
+            const readoutQ = document.getElementById('readout-q');
+
+            // Event Listeners
+            elSliderV.addEventListener('input', (e) => {
+                physics.V0 = parseFloat(e.target.value);
+                elValV.textContent = `${physics.V0.toFixed(1)} V`;
+            });
+
+            elSliderF.addEventListener('input', (e) => {
+                physics.freq = parseFloat(e.target.value);
+                elValF.textContent = `${physics.freq.toFixed(1)} Hz`;
+            });
+
+            elSliderC.addEventListener('input', (e) => {
+                physics.c = parseFloat(e.target.value);
+                elValC.textContent = `${physics.c.toFixed(2)} kg/s`;
+                updateQFactor();
+            });
+
+            btnResonance.addEventListener('click', () => {
+                physics.freq = 50.0;
+                elSliderF.value = 50.0;
+                elValF.textContent = '50.0 Hz';
+            });
+
+            btnPower.addEventListener('click', () => {
+                physics.powerOn = !physics.powerOn;
+                if (physics.powerOn) {
+                    btnPower.className = "px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-2 transition shadow-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50";
+                    btnPowerText.textContent = "ALIMENTAZIONE: ON";
+                    statusLed.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                } else {
+                    btnPower.className = "px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-2 transition shadow-lg bg-rose-600/90 hover:bg-rose-500 text-white shadow-rose-950/50";
+                    btnPowerText.textContent = "ALIMENTAZIONE: OFF";
+                    statusLed.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+                }
+            });
+
+            btnSlowMo.addEventListener('click', () => {
+                physics.slowMotion = !physics.slowMotion;
+                if (physics.slowMotion) {
+                    btnSlowMo.className = "px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition border bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30";
+                    btnSlowMoText.textContent = "Slow-Motion: ATTIVO";
+                    timeScaleBadge.innerHTML = 'Velocità: <strong class="text-amber-400">Slow-Motion (1/20×)</strong>';
+                } else {
+                    btnSlowMo.className = "px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750";
+                    btnSlowMoText.textContent = "Tempo Reale (1×)";
+                    timeScaleBadge.innerHTML = 'Velocità: <strong class="text-emerald-400">Tempo Reale (1×)</strong>';
+                }
+            });
+
+            btnImpulse.addEventListener('click', () => {
+                // Impulso meccanico istantaneo (aggiunge velocità ai rebbi)
+                physics.v += 0.35;
+            });
+
+            toggleField.addEventListener('change', (e) => {
+                physics.showField = e.target.checked;
+            });
+
+            function updateQFactor() {
+                const Q = (2 * Math.PI * physics.f0 * physics.m) / physics.c;
+                readoutQ.textContent = `Fattore Q = ${Q.toFixed(1)}`;
+            }
+            updateQFactor();
+
+            // ==========================================
+            // 3. SETUP CANVAS RESPONSIVI (HIGH-DPI)
+            // ==========================================
+            const canvasApp = document.getElementById('apparatusCanvas');
+            const ctxApp = canvasApp.getContext('2d');
+
+            const canvasDisp = document.getElementById('chartDisplacement');
+            const ctxDisp = canvasDisp.getContext('2d');
+
+            const canvasRes = document.getElementById('chartResonance');
+            const ctxRes = canvasRes.getContext('2d');
+
+            const canvasPick = document.getElementById('chartPickup');
+            const ctxPick = canvasPick.getContext('2d');
+
+            function resizeAllCanvases() {
+                const dpr = window.devicePixelRatio || 1;
+                [canvasApp, canvasDisp, canvasRes, canvasPick].forEach(c => {
+                    const rect = c.parentElement.getBoundingClientRect();
+                    c.width = rect.width * dpr;
+                    c.height = rect.height * dpr;
+                    const ctx = c.getContext('2d');
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                });
+            }
+
+            window.addEventListener('resize', resizeAllCanvases);
+            resizeAllCanvases();
+
+            // ==========================================
+            // 4. MOTORE DI INTEGRAZIONE FISICA (RK4)
+            // ==========================================
+            function stepPhysics(dtSim) {
+                // Sub-stepping per garantire stabilità numerica assoluta ad alte frequenze
+                const subSteps = 12;
+                const h = dtSim / subSteps;
+
+                for (let i = 0; i < subSteps; i++) {
+                    const omega = 2 * Math.PI * physics.freq;
+                    physics.phase += omega * h;
+                    if (physics.phase > 2 * Math.PI * 1000) {
+                        physics.phase -= 2 * Math.PI * 1000;
+                    }
+
+                    // Tensione di alimentazione istantanea
+                    const V_t = physics.powerOn ? (physics.V0 * Math.sin(physics.phase)) : 0.0;
+                    physics.vDriveInst = V_t;
+
+                    // Forza elettromagnetica esercitata dalla bobina sui rebbi ferromagnetici
+                    // (In un elettromagnete AC, l'attrazione avviene su entrambi i picchi o con polarizzazione;
+                    // modelliamo l'accoppiamento lineare efficace alla frequenza fondamentale f)
+                    const F_em = physics.alphaDrive * V_t;
+
+                    // Integrazione Runge-Kutta 4 (RK4) per m*x'' + c*x' + k*x = F_em
+                    const acc = (x, v) => (F_em - physics.c * v - physics.k * x) / physics.m;
+
+                    const k1_x = physics.v;
+                    const k1_v = acc(physics.x, physics.v);
+
+                    const k2_x = physics.v + 0.5 * h * k1_v;
+                    const k2_v = acc(physics.x + 0.5 * h * k1_x, physics.v + 0.5 * h * k1_v);
+
+                    const k3_x = physics.v + 0.5 * h * k2_v;
+                    const k3_v = acc(physics.x + 0.5 * h * k2_x, physics.v + 0.5 * h * k2_v);
+
+                    const k4_x = physics.v + h * k3_v;
+                    const k4_v = acc(physics.x + h * k3_x, physics.v + h * k3_v);
+
+                    physics.x += (h / 6) * (k1_x + 2 * k2_x + 2 * k3_x + k4_x);
+                    physics.v += (h / 6) * (k1_v + 2 * k2_v + 2 * k3_v + k4_v);
+                    physics.t += h;
+                }
+
+                // Tensione indotta nella bobina di pick-up (Legge di Faraday: V_ind = -dPhi/dt proporzionale a v)
+                physics.vPickupInst = physics.betaPick * physics.v;
+
+                // Salva nei buffer storici per i grafici
+                history.t.push(physics.t);
+                history.x.push(physics.x * 1000);           // Converti in mm
+                history.vPickup.push(physics.vPickupInst * 1000); // Converti in mV
+                history.vDrive.push(physics.vDriveInst);    // in V
+
+                if (history.t.length > maxSamples) {
+                    history.t.shift();
+                    history.x.shift();
+                    history.vPickup.shift();
+                    history.vDrive.shift();
+                }
+            }
+
+            // ==========================================
+            // 5. RENDERING APPARATO REALISTICO (FOTO)
+            // ==========================================
+            function drawApparatus() {
+                const w = canvasApp.width / (window.devicePixelRatio || 1);
+                const h = canvasApp.height / (window.devicePixelRatio || 1);
+
+                ctxApp.clearRect(0, 0, w, h);
+
+                // --- Sfondo ambiente laboratorio (parete verde salvia chiaro + tavolo beige) ---
+                const wallHeight = h * 0.66;
+                const wallGrad = ctxApp.createLinearGradient(0, 0, 0, wallHeight);
+                wallGrad.addColorStop(0, '#a7b9a8');
+                wallGrad.addColorStop(1, '#bccbbd');
+                ctxApp.fillStyle = wallGrad;
+                ctxApp.fillRect(0, 0, w, wallHeight);
+
+                // Linea battiscopa / bordo tavolo
+                ctxApp.fillStyle = '#8b998c';
+                ctxApp.fillRect(0, wallHeight - 3, w, 3);
+
+                // Piano del tavolo chiaro
+                const tableGrad = ctxApp.createLinearGradient(0, wallHeight, 0, h);
+                tableGrad.addColorStop(0, '#e3dfd3');
+                tableGrad.addColorStop(1, '#cdc7b7');
+                ctxApp.fillStyle = tableGrad;
+                ctxApp.fillRect(0, wallHeight, w, h - wallHeight);
+
+                // Calcolo scala responsiva per centrare l'apparato
+                const scale = Math.min(w / 820, h / 340);
+                ctxApp.save();
+                ctxApp.translate(w * 0.5, h * 0.54);
+                ctxApp.scale(scale, scale);
+
+                // Coordinate di riferimento centrate (apparato lungo circa 740px logici)
+                // Amplificazione visiva dello spostamento x (x è in metri, tipicamente +/- 0.002 m = 2 mm)
+                // 2 mm * 16000 = 32 px di deflessione visiva ben apprezzabile
+                const visualDeflection = Math.max(-38, Math.min(38, physics.x * 16000));
+                const currentNorm = physics.powerOn ? (physics.vDriveInst / 15.0) : 0;
+
+                // Ombra morbida sul tavolo sotto l'apparato
+                ctxApp.fillStyle = 'rgba(20, 25, 20, 0.22)';
+                ctxApp.beginPath();
+                ctxApp.ellipse(-40, 82, 260, 18, 0, 0, Math.PI * 2);
+                ctxApp.fill();
+
+                // ----------------------------------------------------
+                // A. PERNO METALLICO CILINDRICO SPORGENTE A SINISTRA
+                // ----------------------------------------------------
+                const rodGrad = ctxApp.createLinearGradient(0, 12, 0, 32);
+                rodGrad.addColorStop(0, '#71787d');
+                rodGrad.addColorStop(0.35, '#d5dade');
+                rodGrad.addColorStop(0.7, '#899096');
+                rodGrad.addColorStop(1, '#4f5559');
+                ctxApp.fillStyle = rodGrad;
+                roundRect(ctxApp, -370, 14, 75, 18, 4);
+                ctxApp.fill();
+                ctxApp.strokeStyle = '#3f4448';
+                ctxApp.lineWidth = 1;
+                ctxApp.stroke();
+
+                // Segni di usura sul perno come in foto
+                ctxApp.fillStyle = 'rgba(40,42,45,0.45)';
+                ctxApp.fillRect(-345, 16, 6, 12);
+                ctxApp.fillRect(-325, 22, 10, 8);
+
+                // ----------------------------------------------------
+                // B. BASE RETTANGOLARE PESANTE IN METALLO VERDE SCURO
+                // ----------------------------------------------------
+                // Parte posteriore / superiore della base (prospettiva)
+                ctxApp.fillStyle = '#193529';
+                ctxApp.beginPath();
+                ctxApp.moveTo(-295, -24);
+                ctxApp.lineTo(-125, -24);
+                ctxApp.lineTo(-112, -12);
+                ctxApp.lineTo(-295, -12);
+                ctxApp.closePath();
+                ctxApp.fill();
+
+                // Corpo principale base verde scuro smaltato
+                const baseGrad = ctxApp.createLinearGradient(-300, -15, -300, 74);
+                baseGrad.addColorStop(0, '#274e3d');
+                baseGrad.addColorStop(0.25, '#1e4031');
+                baseGrad.addColorStop(1, '#12291f');
+                ctxApp.fillStyle = baseGrad;
+
+                ctxApp.beginPath();
+                ctxApp.moveTo(-300, -14);
+                ctxApp.lineTo(-120, -14);
+                ctxApp.lineTo(-120, 26);
+                ctxApp.lineTo(85, 26);
+                ctxApp.lineTo(85, 72);
+                ctxApp.lineTo(-300, 72);
+                ctxApp.closePath();
+                ctxApp.fill();
+                ctxApp.strokeStyle = '#0e2018';
+                ctxApp.lineWidth = 1.5;
+                ctxApp.stroke();
+
+                // Foro filettato laterale sulla base verde (come nella foto)
+                ctxApp.fillStyle = '#0c1712';
+                ctxApp.beginPath();
+                ctxApp.arc(-222, 32, 7.5, 0, Math.PI * 2);
+                ctxApp.fill();
+                ctxApp.strokeStyle = '#4c7361';
+                ctxApp.lineWidth = 1.5;
+                ctxApp.stroke();
+
+                // ----------------------------------------------------
+                // C. REBBIO POSTERIORE (SUPERIORE IN PROSPETTIVA)
+                // ----------------------------------------------------
+                drawProng(ctxApp, {
+                    startX: -290,
+                    startY: -22,
+                    length: 545,
+                    thickness: 12,
+                    deflection: -visualDeflection * 0.85, // I rebbi oscillano in opposizione di fase (modo simmetrico)
+                    isFront: false,
+                    currentNorm: currentNorm
+                });
+
+                // ----------------------------------------------------
+                // D. BOBINA ELETTROMAGNETICA CILINDRICA IN RAME + SUPPORTO
+                // ----------------------------------------------------
+                const coilX = -15;
+                const coilY = -20;
+
+                // Flangia posteriore bobina
+                ctxApp.fillStyle = '#18181b';
+                ctxApp.beginPath();
+                ctxApp.ellipse(coilX + 18, coilY + 8, 36, 44, 0, 0, Math.PI * 2);
+                ctxApp.fill();
+
+                // Avvolgimento in filo di rame smaltato (cilindro)
+                const copperGrad = ctxApp.createLinearGradient(coilX, coilY - 38, coilX, coilY + 46);
+                copperGrad.addColorStop(0, '#7c2d12');
+                copperGrad.addColorStop(0.22, '#ea580c');
+                copperGrad.addColorStop(0.45, '#fdba74'); // Riflesso lucido filo di rame
+                copperGrad.addColorStop(0.75, '#c2410c');
+                copperGrad.addColorStop(1, '#431407');
+
+                ctxApp.fillStyle = copperGrad;
+                ctxApp.beginPath();
+                ctxApp.moveTo(coilX - 8, coilY - 36);
+                ctxApp.lineTo(coilX + 18, coilY - 36);
+                ctxApp.arc(coilX + 18, coilY + 8, 34, -Math.PI / 2, Math.PI / 2);
+                ctxApp.lineTo(coilX - 8, coilY + 52);
+                ctxApp.closePath();
+                ctxApp.fill();
+
+                // Sottili striature degli avvolgimenti di rame
+                ctxApp.strokeStyle = 'rgba(67, 20, 7, 0.35)';
+                ctxApp.lineWidth = 1;
+                for (let wx = coilX - 4; wx <= coilX + 16; wx += 3.5) {
+                    ctxApp.beginPath();
+                    ctxApp.moveTo(wx, coilY - 35);
+                    ctxApp.lineTo(wx, coilY + 50);
+                    ctxApp.stroke();
+                }
+
+                // Flangia anteriore nera della bobina
+                ctxApp.fillStyle = '#27272a';
+                ctxApp.beginPath();
+                ctxApp.ellipse(coilX - 8, coilY + 8, 34, 44, 0, 0, Math.PI * 2);
+                ctxApp.fill();
+                ctxApp.strokeStyle = '#3f3f46';
+                ctxApp.lineWidth = 1.5;
+                ctxApp.stroke();
+
+                // Nucleo ferromagnetico interno
+                ctxApp.fillStyle = '#52525b';
+                ctxApp.beginPath();
+                ctxApp.ellipse(coilX - 8, coilY + 8, 14, 18, 0, 0, Math.PI * 2);
+                ctxApp.fill();
+
+                // Alone luminoso di eccitazione elettromagnetica quando percorsa da corrente
+                if (physics.showField && Math.abs(currentNorm) > 0.02) {
+                    const intensity = Math.min(1, Math.abs(currentNorm));
+                    const isPositive = currentNorm >= 0;
+                    const glowColor = isPositive ? `rgba(56, 189, 248, ${0.35 * intensity})` : `rgba(251, 146, 60, ${0.35 * intensity})`;
+                    
+                    ctxApp.save();
+                    ctxApp.strokeStyle = isPositive ? `rgba(14, 165, 233, ${0.85 * intensity})` : `rgba(249, 115, 22, ${0.85 * intensity})`;
+                    ctxApp.lineWidth = 1.8;
+                    ctxApp.setLineDash([4, 4]);
+                    ctxApp.lineDashOffset = -physics.t * 120 * Math.sign(currentNorm);
+
+                    // Linee di flusso magnetico concatenate attorno alla bobina e ai rebbi
+                    for (let r = 1; r <= 3; r++) {
+                        ctxApp.beginPath();
+                        ctxApp.ellipse(coilX + 4, coilY + 6, 44 + r * 14, 38 + r * 11, 0, 0, Math.PI * 2);
+                        ctxApp.stroke();
+                    }
+                    ctxApp.restore();
+
+                    // Bagliore sul rame
+                    ctxApp.fillStyle = glowColor;
+                    ctxApp.beginPath();
+                    ctxApp.ellipse(coilX + 5, coilY + 8, 42, 48, 0, 0, Math.PI * 2);
+                    ctxApp.fill();
+                }
+
+                // ----------------------------------------------------
+                // E. REBBIO ANTERIORE (CON ETICHETTA BIANCA E BULLONI)
+                // ----------------------------------------------------
+                drawProng(ctxApp, {
+                    startX: -305,
+                    startY: -8,
+                    length: 575,
+                    thickness: 19,
+                    deflection: visualDeflection,
+                    isFront: true,
+                    currentNorm: currentNorm
+                });
+
+                // ----------------------------------------------------
+                // F. SUPPORTO NERO CON BOCCOLE ELETTRICHE "Max 12 V 50 Hz"
+                // ----------------------------------------------------
+                // Staffa nera frontale che scende verso le boccole
+                ctxApp.fillStyle = '#18181b';
+                roundRect(ctxApp, coilX - 38, 16, 76, 62, 5);
+                ctxApp.fill();
+                ctxApp.strokeStyle = '#3f3f46';
+                ctxApp.lineWidth = 1;
+                ctxApp.stroke();
+
+                // Targhetta nera "Max 12 V 50 Hz"
+                ctxApp.fillStyle = '#09090b';
+                ctxApp.fillRect(coilX - 28, 22, 56, 14);
+                ctxApp.fillStyle = '#e4e4e7';
+                ctxApp.font = 'bold 8px Inter, sans-serif';
+                ctxApp.textAlign = 'center';
+                ctxApp.fillText('Max 12 V 50 Hz', coilX, 31.5);
+
+                // Due boccole / morsetti elettrici neri frontali
+                drawTerminal(ctxApp, coilX - 18, 56, currentNorm);
+                drawTerminal(ctxApp, coilX + 18, 56, -currentNorm);
+
+                // ----------------------------------------------------
+                // G. DUE GRANDI BULLONI / DADI DI FISSAGGIO A SINISTRA
+                // ----------------------------------------------------
+                drawBolt(ctxApp, -276, 1.5);
+                drawBolt(ctxApp, -172, 1.5);
+
+                ctxApp.restore();
+            }
+
+            // Disegna uno dei due rebbi in acciaio con curvatura elastica (trave incastrata)
+            function drawProng(ctx, opts) {
+                const { startX, startY, length, thickness, deflection, isFront } = opts;
+                const clampEndX = startX + 185; // Punto di uscita dal morsetto/base
+                const freeLength = (startX + length) - clampEndX;
+
+                // Funzione profilo elastico di una trave incastrata (modo fondamentale):
+                // y(s) ~ (3 s^2 - s^3)/2 per s in [0, 1]
+                const getOffsetY = (x) => {
+                    if (x <= clampEndX) return 0;
+                    const s = (x - clampEndX) / freeLength;
+                    return deflection * (0.5 * (3 * s * s - s * s * s));
+                };
+
+                ctx.save();
+
+                // Gradiente metallico acciaio spazzolato
+                const steelGrad = ctx.createLinearGradient(0, startY - 10, 0, startY + thickness + 10);
+                if (isFront) {
+                    steelGrad.addColorStop(0, '#e2e8f0');
+                    steelGrad.addColorStop(0.3, '#cbd5e1');
+                    steelGrad.addColorStop(0.7, '#94a3b8');
+                    steelGrad.addColorStop(1, '#64748b');
+                } else {
+                    steelGrad.addColorStop(0, '#94a3b8');
+                    steelGrad.addColorStop(0.5, '#64748b');
+                    steelGrad.addColorStop(1, '#475569');
+                }
+
+                ctx.fillStyle = steelGrad;
+                ctx.strokeStyle = isFront ? '#334155' : '#1e293b';
+                ctx.lineWidth = 1.2;
+
+                // Costruzione poligono curvo del rebbio
+                const steps = 36;
+                ctx.beginPath();
+                // Bordo superiore da sinistra a destra
+                for (let i = 0; i <= steps; i++) {
+                    const px = startX + (length * i) / steps;
+                    const py = startY + getOffsetY(px);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                // Bordo inferiore da destra a sinistra
+                for (let i = steps; i >= 0; i--) {
+                    const px = startX + (length * i) / steps;
+                    const py = startY + thickness + getOffsetY(px);
+                    ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Se è il rebbio anteriore, disegna l'etichetta bianca "DIAPASON ELETTROMAGNETICO"
+                // e la sottile lamella metallica flessibile fissata all'estremità destra!
+                if (isFront) {
+                    // --- ETICHETTA BIANCA "DIAPASON ELETTROMAGNETICO" ---
+                    const labelStartX = 28;
+                    const labelEndX = 205;
+                    const labelSteps = 16;
+
+                    ctx.save();
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 0.8;
+
+                    ctx.beginPath();
+                    for (let i = 0; i <= labelSteps; i++) {
+                        const lx = labelStartX + ((labelEndX - labelStartX) * i) / labelSteps;
+                        const ly = startY + 2.5 + getOffsetY(lx);
+                        if (i === 0) ctx.moveTo(lx, ly);
+                        else ctx.lineTo(lx, ly);
+                    }
+                    for (let i = labelSteps; i >= 0; i--) {
+                        const lx = labelStartX + ((labelEndX - labelStartX) * i) / labelSteps;
+                        const ly = startY + thickness - 2.5 + getOffsetY(lx);
+                        ctx.lineTo(lx, ly);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Testo scritto sull'etichetta che segue l'inclinazione locale del rebbio
+                    const midX = (labelStartX + labelEndX) * 0.5;
+                    const midY = startY + thickness * 0.5 + getOffsetY(midX);
+                    const slope = (getOffsetY(labelEndX) - getOffsetY(labelStartX)) / (labelEndX - labelStartX);
+                    ctx.translate(midX, midY);
+                    ctx.rotate(Math.atan(slope));
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('DIAPASON ELETTROMAGNETICO', 0, 0.5);
+                    ctx.restore();
+
+                    // --- SOTTILE LAMELLA / PUNTA METALLICA FLESSIBILE ALL'ESTREMITÀ DESTRA ---
+                    const tipBaseX = startX + length - 18;
+                    const tipBaseY = startY + getOffsetY(tipBaseX);
+                    const slopeTip = (getOffsetY(startX + length) - getOffsetY(tipBaseX - 10)) / 28;
+
+                    // Graffetta/rivetto di fissaggio della lamella sopra il rebbio destro
+                    ctx.fillStyle = '#475569';
+                    roundRect(ctx, tipBaseX - 8, tipBaseY - 3, 14, 4, 2);
+                    ctx.fill();
+
+                    // Lamella flessibile sporgente verso destra che frusta leggermente con inerzia
+                    ctx.save();
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 2.2;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(tipBaseX, tipBaseY - 1);
+                    const bladeLen = 95;
+                    const bladeEndX = tipBaseX + bladeLen;
+                    // La punta flessibile amplifica leggermente il movimento con un piccolo ritardo di fase
+                    const bladeWhip = deflection * 1.35 + slopeTip * bladeLen;
+                    const bladeEndY = tipBaseY + 12 + bladeWhip;
+                    ctx.bezierCurveTo(
+                        tipBaseX + bladeLen * 0.4, tipBaseY - 3 + bladeWhip * 0.3,
+                        tipBaseX + bladeLen * 0.75, tipBaseY + 4 + bladeWhip * 0.85,
+                        bladeEndX, bladeEndY
+                    );
+                    ctx.stroke();
+
+                    // Traccia fantasma (persistenza visiva) della punta oscillante
+                    if (Math.abs(deflection) > 1.5) {
+                        ctx.strokeStyle = 'rgba(14, 165, 233, 0.25)';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(bladeEndX, tipBaseY + 12 - Math.abs(bladeWhip));
+                        ctx.lineTo(bladeEndX, tipBaseY + 12 + Math.abs(bladeWhip));
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                ctx.restore();
+            }
+
+            // Disegna i bulloni/dadi esagonali con rondelle a sinistra
+            function drawBolt(ctx, cx, cy) {
+                ctx.save();
+                // Rondella
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Dado esagonale
+                const nutGrad = ctx.createRadialGradient(cx - 3, cy - 3, 2, cx, cy, 11);
+                nutGrad.addColorStop(0, '#f1f5f9');
+                nutGrad.addColorStop(0.6, '#94a3b8');
+                nutGrad.addColorStop(1, '#475569');
+                ctx.fillStyle = nutGrad;
+
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i;
+                    const px = cx + 10 * Math.cos(angle);
+                    const py = cy + 10 * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Perno filettato centrale
+                ctx.fillStyle = '#64748b';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Disegna le boccole/morsetti elettrici neri frontali
+            function drawTerminal(ctx, cx, cy, currentNorm) {
+                ctx.save();
+                // Corpo esterno boccola zigrinata nera
+                const termGrad = ctx.createRadialGradient(cx - 3, cy - 3, 2, cx, cy, 13);
+                termGrad.addColorStop(0, '#52525b');
+                termGrad.addColorStop(0.6, '#18181b');
+                termGrad.addColorStop(1, '#09090b');
+                ctx.fillStyle = termGrad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 12.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#3f3f46';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
+                // Foro banana plug interno
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Indicatore polarità alternata
+                if (physics.showField && Math.abs(currentNorm) > 0.05) {
+                    ctx.strokeStyle = currentNorm > 0 ? 'rgba(56, 189, 248, 0.8)' : 'rgba(249, 115, 22, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 8.5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            function roundRect(ctx, x, y, w, h, r) {
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + w - r, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                ctx.lineTo(x, y + r);
+                ctx.quadraticCurveTo(x, y, x + r, y);
+                ctx.closePath();
+            }
+
+            // ==========================================
+            // 6. RENDERING GRAFICI IN TEMPO REALE
+            // ==========================================
+            function drawGrid(ctx, w, h, padL, padR, padT, padB, yZero) {
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 1;
+                // Griglia verticale
+                for (let i = 0; i <= 6; i++) {
+                    const gx = padL + ((w - padL - padR) * i) / 6;
+                    ctx.beginPath();
+                    ctx.moveTo(gx, padT);
+                    ctx.lineTo(gx, h - padB);
+                    ctx.stroke();
+                }
+                // Griglia orizzontale
+                for (let j = 0; j <= 4; j++) {
+                    const gy = padT + ((h - padT - padB) * j) / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(padL, gy);
+                    ctx.lineTo(w - padR, gy);
+                    ctx.stroke();
+                }
+                // Asse dello zero evidenziato
+                if (yZero !== null) {
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(padL, yZero);
+                    ctx.lineTo(w - padR, yZero);
+                    ctx.stroke();
+                }
+            }
+
+            // Grafico a) Spostamento x(t) [mm]
+            function drawChartDisplacement() {
+                const w = canvasDisp.width / (window.devicePixelRatio || 1);
+                const h = canvasDisp.height / (window.devicePixelRatio || 1);
+                ctxDisp.clearRect(0, 0, w, h);
+
+                const padL = 44, padR = 12, padT = 14, padB = 22;
+                const plotW = w - padL - padR;
+                const plotH = h - padT - padB;
+                const midY = padT + plotH * 0.5;
+
+                drawGrid(ctxDisp, w, h, padL, padR, padT, padB, midY);
+
+                // Scala dinamica adattiva (minimo +/- 1.0 mm)
+                let maxVal = 1.0;
+                for (let val of history.x) {
+                    if (Math.abs(val) > maxVal) maxVal = Math.abs(val);
+                }
+                maxVal = Math.ceil(maxVal * 1.15 * 10) / 10;
+
+                // Etichette assi
+                ctxDisp.fillStyle = '#64748b';
+                ctxDisp.font = '10px "JetBrains Mono", monospace';
+                ctxDisp.textAlign = 'right';
+                ctxDisp.fillText(`+${maxVal.toFixed(1)}`, padL - 6, padT + 6);
+                ctxDisp.fillText('0.0', padL - 6, midY + 3);
+                ctxDisp.fillText(`-${maxVal.toFixed(1)}`, padL - 6, h - padB);
+
+                ctxDisp.textAlign = 'center';
+                ctxDisp.fillText('Tempo (finestra mobile)', padL + plotW * 0.5, h - 6);
+
+                if (history.x.length < 2) return;
+
+                // Tracciato onda spostamento
+                ctxDisp.strokeStyle = '#38bdf8';
+                ctxDisp.lineWidth = 2;
+                ctxDisp.beginPath();
+                for (let i = 0; i < history.x.length; i++) {
+                    const px = padL + (i / (maxSamples - 1)) * plotW;
+                    const py = midY - (history.x[i] / maxVal) * (plotH * 0.5);
+                    if (i === 0) ctxDisp.moveTo(px, py);
+                    else ctxDisp.lineTo(px, py);
+                }
+                ctxDisp.stroke();
+
+                // Punto attuale all'estremità destra
+                const lastIdx = history.x.length - 1;
+                const lastX = padL + (lastIdx / (maxSamples - 1)) * plotW;
+                const lastY = midY - (history.x[lastIdx] / maxVal) * (plotH * 0.5);
+                ctxDisp.fillStyle = '#7dd3fc';
+                ctxDisp.beginPath();
+                ctxDisp.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
+                ctxDisp.fill();
+            }
+
+            // Grafico b) Curva di risonanza A(f)
+            function drawChartResonance() {
+                const w = canvasRes.width / (window.devicePixelRatio || 1);
+                const h = canvasRes.height / (window.devicePixelRatio || 1);
+                ctxRes.clearRect(0, 0, w, h);
+
+                const padL = 44, padR = 14, padT = 14, padB = 24;
+                const plotW = w - padL - padR;
+                const plotH = h - padT - padB;
+
+                drawGrid(ctxRes, w, h, padL, padR, padT, padB, null);
+
+                const fMin = 30.0, fMax = 70.0;
+                const V_eff = physics.powerOn ? physics.V0 : 12.0; // Mostra curva teorica di riferimento anche a V0=0 se spento
+                const F0 = physics.alphaDrive * (V_eff > 0 ? V_eff : 12.0);
+
+                // Calcolo ampiezza di picco teorica alla risonanza per scalare l'asse Y
+                const omega0 = 2 * Math.PI * physics.f0;
+                const peakAmpMm = (F0 / (physics.c * omega0)) * 1000;
+                const maxY = Math.max(0.5, peakAmpMm * 1.15);
+
+                // Etichette assi
+                ctxRes.fillStyle = '#64748b';
+                ctxRes.font = '10px "JetBrains Mono", monospace';
+                ctxRes.textAlign = 'right';
+                ctxRes.fillText(`${maxY.toFixed(1)}`, padL - 6, padT + 7);
+                ctxRes.fillText(`${(maxY * 0.5).toFixed(1)}`, padL - 6, padT + plotH * 0.5 + 3);
+                ctxRes.fillText('0.0', padL - 6, h - padB);
+
+                ctxRes.textAlign = 'center';
+                [30, 40, 50, 60, 70].forEach(fv => {
+                    const fx = padL + ((fv - fMin) / (fMax - fMin)) * plotW;
+                    ctxRes.fillText(`${fv}Hz`, fx, h - 7);
+                });
+
+                // Linea verticale tratteggiata sulla frequenza naturale f0 = 50 Hz
+                const xRes = padL + ((physics.f0 - fMin) / (fMax - fMin)) * plotW;
+                ctxRes.save();
+                ctxRes.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+                ctxRes.setLineDash([4, 4]);
+                ctxRes.beginPath();
+                ctxRes.moveTo(xRes, padT);
+                ctxRes.lineTo(xRes, h - padB);
+                ctxRes.stroke();
+                ctxRes.restore();
+
+                // Curva Lorentziana / Risposta in ampiezza
+                ctxRes.strokeStyle = '#fbbf24';
+                ctxRes.lineWidth = 2;
+                ctxRes.beginPath();
+                const steps = 160;
+                for (let i = 0; i <= steps; i++) {
+                    const f = fMin + ((fMax - fMin) * i) / steps;
+                    const om = 2 * Math.PI * f;
+                    const ampMm = (F0 / Math.sqrt(Math.pow(physics.k - physics.m * om * om, 2) + Math.pow(physics.c * om, 2))) * 1000;
+                    const px = padL + (i / steps) * plotW;
+                    const py = (h - padB) - (ampMm / maxY) * plotH;
+                    if (i === 0) ctxRes.moveTo(px, py);
+                    else ctxRes.lineTo(px, py);
+                }
+                ctxRes.stroke();
+
+                // Indicatore pallino rosso/ambra sulla frequenza di lavoro attuale
+                const omCurr = 2 * Math.PI * physics.freq;
+                const ampCurrMm = physics.powerOn
+                    ? (F0 / Math.sqrt(Math.pow(physics.k - physics.m * omCurr * omCurr, 2) + Math.pow(physics.c * omCurr, 2))) * 1000
+                    : 0;
+                const currPx = padL + ((physics.freq - fMin) / (fMax - fMin)) * plotW;
+                const currPy = (h - padB) - (ampCurrMm / maxY) * plotH;
+
+                ctxRes.fillStyle = '#f43f5e';
+                ctxRes.beginPath();
+                ctxRes.arc(currPx, currPy, 5, 0, Math.PI * 2);
+                ctxRes.fill();
+                ctxRes.strokeStyle = '#ffffff';
+                ctxRes.lineWidth = 1.5;
+                ctxRes.stroke();
+            }
+
+            // Grafico c) Tensione indotta nel pick-up [mV] + Tensione di alimentazione [V]
+            function drawChartPickup() {
+                const w = canvasPick.width / (window.devicePixelRatio || 1);
+                const h = canvasPick.height / (window.devicePixelRatio || 1);
+                ctxPick.clearRect(0, 0, w, h);
+
+                const padL = 44, padR = 12, padT = 14, padB = 22;
+                const plotW = w - padL - padR;
+                const plotH = h - padT - padB;
+                const midY = padT + plotH * 0.5;
+
+                drawGrid(ctxPick, w, h, padL, padR, padT, padB, midY);
+
+                // Scala dinamica per tensione pick-up [mV]
+                let maxMv = 50.0;
+                for (let val of history.vPickup) {
+                    if (Math.abs(val) > maxMv) maxMv = Math.abs(val);
+                }
+                maxMv = Math.ceil(maxMv * 1.15);
+
+                ctxPick.fillStyle = '#64748b';
+                ctxPick.font = '10px "JetBrains Mono", monospace';
+                ctxPick.textAlign = 'right';
+                ctxPick.fillText(`+${maxMv}`, padL - 6, padT + 6);
+                ctxPick.fillText('0', padL - 6, midY + 3);
+                ctxPick.fillText(`-${maxMv}`, padL - 6, h - padB);
+
+                ctxPick.textAlign = 'center';
+                ctxPick.fillText('Induzione di Faraday (V_ind ∝ dx/dt)', padL + plotW * 0.5, h - 6);
+
+                if (history.vPickup.length < 2) return;
+
+                // 1. Segnale di alimentazione V_drive (normalizzato su +/- 15V per confronto di fase)
+                ctxPick.save();
+                ctxPick.strokeStyle = 'rgba(52, 211, 153, 0.45)';
+                ctxPick.lineWidth = 1.3;
+                ctxPick.setLineDash([4, 3]);
+                ctxPick.beginPath();
+                for (let i = 0; i < history.vDrive.length; i++) {
+                    const px = padL + (i / (maxSamples - 1)) * plotW;
+                    const py = midY - (history.vDrive[i] / 15.0) * (plotH * 0.45);
+                    if (i === 0) ctxPick.moveTo(px, py);
+                    else ctxPick.lineTo(px, py);
+                }
+                ctxPick.stroke();
+                ctxPick.restore();
+
+                // 2. Tensione indotta nel pick-up [mV]
+                ctxPick.strokeStyle = '#c084fc';
+                ctxPick.lineWidth = 2;
+                ctxPick.beginPath();
+                for (let i = 0; i < history.vPickup.length; i++) {
+                    const px = padL + (i / (maxSamples - 1)) * plotW;
+                    const py = midY - (history.vPickup[i] / maxMv) * (plotH * 0.5);
+                    if (i === 0) ctxPick.moveTo(px, py);
+                    else ctxPick.lineTo(px, py);
+                }
+                ctxPick.stroke();
+            }
+
+            // ==========================================
+            // 7. LOOP PRINCIPALE DI ANIMAZIONE
+            // ==========================================
+            let lastTimestamp = null;
+
+            function animate(timestamp) {
+                if (!lastTimestamp) lastTimestamp = timestamp;
+                const rawDt = Math.min((timestamp - lastTimestamp) / 1000, 0.05); // Cap a 50ms per cambi tab
+                lastTimestamp = timestamp;
+
+                // Scala temporale: Slow-Motion 1/20x permette di vedere chiaramente i 50 Hz (2.5 cicli/sec visivi)
+                const timeFactor = physics.slowMotion ? 0.05 : 1.0;
+                const dtSim = rawDt * timeFactor;
+
+                stepPhysics(dtSim);
+
+                // Aggiorna readouts numerici nell'interfaccia
+                const xMm = physics.x * 1000;
+                const vIndMv = physics.vPickupInst * 1000;
+
+                // Stima ampiezza inviluppo dai campioni recenti
+                let recentPeak = 0;
+                const lookback = Math.min(history.x.length, 60);
+                for (let i = history.x.length - lookback; i < history.x.length; i++) {
+                    if (Math.abs(history.x[i]) > recentPeak) recentPeak = Math.abs(history.x[i]);
+                }
+
+                statAmp.textContent = `${recentPeak.toFixed(2)} mm`;
+                statVind.textContent = `${vIndMv.toFixed(1)} mV`;
+                readoutX.textContent = `x = ${xMm >= 0 ? '+' : ''}${xMm.toFixed(2)} mm`;
+
+                // Renderizza apparato e i 3 grafici
+                drawApparatus();
+                drawChartDisplacement();
+                drawChartResonance();
+                drawChartPickup();
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>
