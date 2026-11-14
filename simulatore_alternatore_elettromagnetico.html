@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore Alternatore Elettromagnetico</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        lab: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                            600: '#475569',
+                            accent: '#38bdf8',
+                            glow: '#22d3ee'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- MathJax for formula rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0b0f19;
+            color: #f8fafc;
+            touch-action: manipulation;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start p-3 sm:p-6">
+
+    <!-- App Container optimized for portrait smartphone view -->
+    <div class="w-full max-w-md mx-auto space-y-4 pb-10">
+
+        <!-- Header Card -->
+        <header class="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Alternatore Vintage
+                </h1>
+                <p class="text-xs text-slate-400">Generatore Elettromagnetico da Laboratorio</p>
+            </div>
+            <span class="px-2.5 py-1 text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full animate-pulse">
+                Live Lab
+            </span>
+        </header>
+
+        <!-- Component 1: Visual Simulation Canvas Card -->
+        <section class="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <div class="flex justify-between items-center">
+                <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Simulazione Visiva 2D
+                </h2>
+                <span id="statusBadge" class="text-xs font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-800/50">In funzione</span>
+            </div>
+
+            <!-- Canvas Wrapper -->
+            <div class="relative w-full aspect-square bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80 flex items-center justify-center">
+                <canvas id="alternatorCanvas" class="w-full h-full object-contain"></canvas>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="space-y-3 pt-1">
+                <!-- RPM Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs text-slate-300">
+                        <span>Velocità Rotore:</span>
+                        <span id="rpmLabel" class="font-mono font-bold text-sky-400">120 RPM</span>
+                    </div>
+                    <input id="rpmSlider" type="range" min="0" max="300" step="5" value="120" 
+                        class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="playPauseBtn" class="flex items-center justify-center gap-2 py-2.5 px-4 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white font-medium text-xs rounded-xl shadow-lg shadow-sky-900/30 transition-all">
+                        <svg id="playPauseIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        <span id="playPauseText">Pausa</span>
+                    </button>
+                    <button id="reverseBtn" class="flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-medium text-xs rounded-xl border border-slate-700 transition-all">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Inverti Senso
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Component 2: Oscilloscope Graph Card -->
+        <section class="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <div class="flex justify-between items-center">
+                <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                    Oscilloscopio V(t)
+                </h2>
+                <span class="text-[10px] font-mono text-slate-400">Tensione Alternata</span>
+            </div>
+            <div class="relative w-full h-36 bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80">
+                <canvas id="oscopeCanvas" class="w-full h-full"></canvas>
+            </div>
+        </section>
+
+        <!-- Component 3: Telemetry Data Grid Card -->
+        <section class="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                Telemetria in Tempo Reale
+            </h2>
+            <div class="grid grid-cols-2 gap-2.5">
+                <!-- Metric 1 -->
+                <div class="bg-slate-950/60 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Velocità (RPM)</span>
+                    <span id="teleRpm" class="text-lg font-mono font-bold text-sky-400 mt-1">120</span>
+                </div>
+                <!-- Metric 2 -->
+                <div class="bg-slate-950/60 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Frequenza (Hz)</span>
+                    <span id="teleFreq" class="text-lg font-mono font-bold text-emerald-400 mt-1">4.0 Hz</span>
+                </div>
+                <!-- Metric 3 -->
+                <div class="bg-slate-950/60 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Tensione Picco ($V_0$)</span>
+                    <span id="teleVPeak" class="text-lg font-mono font-bold text-amber-400 mt-1">12.0 V</span>
+                </div>
+                <!-- Metric 4 -->
+                <div class="bg-slate-950/60 border border-slate-800/70 p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[11px] text-slate-400">Tensione RMS ($V_{rms}$)</span>
+                    <span id="teleVRMS" class="text-lg font-mono font-bold text-purple-400 mt-1">8.49 V</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Component 4: Theory & Formulas Card -->
+        <section class="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                Principio di Funzionamento & Teoria
+            </h2>
+            <div class="text-xs text-slate-300 space-y-2.5 leading-relaxed">
+                <p>
+                    L'alternatore elettromagnetico converte energia meccanica in energia elettrica sfruttando la 
+                    <strong class="text-sky-300">Legge dell'induzione elettromagnetica di Faraday-Neumann-Lenz</strong>.
+                </p>
+                <div class="bg-slate-950/80 border border-slate-800 p-3 rounded-xl text-center overflow-x-auto">
+                    \[ \mathcal{E} = -\frac{d\Phi_B}{dt} \]
+                </div>
+                <p>
+                    Quando il rotore azionato dalla manovella gira all'interno dello statore circolare a bobine fisse, il flusso del campo magnetico \(\Phi_B\) concatenato con le spire varia sinusoidalemente nel tempo, generando una forza elettromotrice alternata (f.e.m.):
+                </p>
+                <div class="bg-slate-950/80 border border-slate-800 p-3 rounded-xl text-center overflow-x-auto">
+                    \[ V(t) = V_0 \sin(\omega t) \]
+                </div>
+                <p class="text-[11px] text-slate-400">
+                    Dove \(V_0\) è la tensione di picco e \(\omega = 2\pi f\) è la pulsazione angolare determinata dalla velocità di rotazione del rotore.
+                </p>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        window.addEventListener('load', () => {
+            // Elements
+            const alternatorCanvas = document.getElementById('alternatorCanvas');
+            const oscopeCanvas = document.getElementById('oscopeCanvas');
+            const altCtx = alternatorCanvas.getContext('2d');
+            const oscCtx = oscopeCanvas.getContext('2d');
+
+            const rpmSlider = document.getElementById('rpmSlider');
+            const rpmLabel = document.getElementById('rpmLabel');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const playPauseIcon = document.getElementById('playPauseIcon');
+            const playPauseText = document.getElementById('playPauseText');
+            const reverseBtn = document.getElementById('reverseBtn');
+            const statusBadge = document.getElementById('statusBadge');
+
+            const teleRpm = document.getElementById('teleRpm');
+            const teleFreq = document.getElementById('teleFreq');
+            const teleVPeak = document.getElementById('teleVPeak');
+            const teleVRMS = document.getElementById('teleVRMS');
+
+            // State variables
+            let rpm = 120;
+            let isPlaying = true;
+            let direction = 1; // 1 or -1
+            let angle = 0;     // current rotor angle in radians
+            let time = 0;
+            
+            // Oscilloscope buffer
+            const waveHistory = [];
+            const maxHistoryPoints = 150;
+
+            // Resize canvases for retina / crisp rendering
+            function resizeCanvases() {
+                const altRect = alternatorCanvas.getBoundingClientRect();
+                alternatorCanvas.width = altRect.width * window.devicePixelRatio;
+                alternatorCanvas.height = altRect.height * window.devicePixelRatio;
+                altCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+                const oscRect = oscopeCanvas.getBoundingClientRect();
+                oscopeCanvas.width = oscRect.width * window.devicePixelRatio;
+                oscopeCanvas.height = oscRect.height * window.devicePixelRatio;
+                oscCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            }
+
+            window.addEventListener('resize', resizeCanvases);
+            resizeCanvases();
+
+            // Event Listeners
+            rpmSlider.addEventListener('input', (e) => {
+                rpm = parseInt(e.target.value);
+                rpmLabel.textContent = `${rpm} RPM`;
+                teleRpm.textContent = rpm;
+            });
+
+            playPauseBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                if (isPlaying) {
+                    playPauseText.textContent = "Pausa";
+                    playPauseIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+                    statusBadge.textContent = "In funzione";
+                    statusBadge.className = "text-xs font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-800/50";
+                } else {
+                    playPauseText.textContent = "Avvia";
+                    playPauseIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+                    statusBadge.textContent = "In pausa";
+                    statusBadge.className = "text-xs font-mono text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/50";
+                }
+            });
+
+            reverseBtn.addEventListener('click', () => {
+                direction *= -1;
+            });
+
+            // Drawing the Vintage Alternator
+            function drawAlternator(width, height) {
+                altCtx.clearRect(0, 0, width, height);
+
+                const cx = width / 2;
+                const cy = height / 2 - 10;
+                const radius = Math.min(cx, cy) * 0.72;
+
+                // 1. Wooden Base at the bottom
+                const baseWidth = width * 0.85;
+                const baseHeight = 22;
+                const baseX = cx - baseWidth / 2;
+                const baseY = height - 35;
+
+                // Wooden gradient texture
+                const woodGrad = altCtx.createLinearGradient(baseX, baseY, baseX, baseY + baseHeight);
+                woodGrad.addColorStop(0, '#b45309');
+                woodGrad.addColorStop(0.5, '#92400e');
+                woodGrad.addColorStop(1, '#78350f');
+                altCtx.fillStyle = woodGrad;
+                altCtx.beginPath();
+                altCtx.roundRect(baseX, baseY, baseWidth, baseHeight, 6);
+                altCtx.fill();
+                altCtx.strokeStyle = '#451a03';
+                altCtx.lineWidth = 2;
+                altCtx.stroke();
+
+                // Terminal posts on wooden base
+                [-0.3, 0, 0.3].forEach((offset, idx) => {
+                    const tx = cx + offset * baseWidth;
+                    altCtx.fillStyle = '#cbd5e1';
+                    altCtx.fillRect(tx - 4, baseY - 8, 8, 8);
+                    // Wire connection
+                    altCtx.strokeStyle = idx === 1 ? '#ef4444' : '#3b82f6';
+                    altCtx.lineWidth = 2;
+                    altCtx.beginPath();
+                    altCtx.moveTo(tx, baseY - 8);
+                    altCtx.quadraticCurveTo(tx + 10, baseY - 25, cx + (idx-1)*15, cy + radius * 0.9);
+                    altCtx.stroke();
+                });
+
+                // 2. Stator Ring (Dark cast iron look)
+                const statorGrad = altCtx.createRadialGradient(cx, cy, radius * 0.7, cx, cy, radius * 1.1);
+                statorGrad.addColorStop(0, '#1e293b');
+                statorGrad.addColorStop(0.8, '#0f172a');
+                statorGrad.addColorStop(1, '#020617');
+
+                altCtx.fillStyle = statorGrad;
+                altCtx.beginPath();
+                altCtx.arc(cx, cy, radius * 1.12, 0, Math.PI * 2);
+                altCtx.arc(cx, cy, radius * 0.78, 0, Math.PI * 2, true);
+                altCtx.fill('evenodd');
+
+                altCtx.strokeStyle = '#334155';
+                altCtx.lineWidth = 4;
+                altCtx.beginPath();
+                altCtx.arc(cx, cy, radius * 1.12, 0, Math.PI * 2);
+                altCtx.stroke();
+
+                altCtx.beginPath();
+                altCtx.arc(cx, cy, radius * 0.78, 0, Math.PI * 2);
+                altCtx.stroke();
+
+                // 3. Stator Coils (4 coils arranged symmetrically)
+                const numCoils = 4;
+                for (let i = 0; i < numCoils; i++) {
+                    const theta = (i * 2 * Math.PI) / numCoils - Math.PI / 2;
+                    const coilDist = radius * 0.95;
+                    const cX = cx + Math.cos(theta) * coilDist;
+                    const cY = cy + Math.sin(theta) * coilDist;
+
+                    altCtx.save();
+                    altCtx.translate(cX, cY);
+                    altCtx.rotate(theta + Math.PI / 2);
+
+                    // Coil copper body
+                    altCtx.fillStyle = '#b45309';
+                    altCtx.strokeStyle = '#78350f';
+                    altCtx.lineWidth = 2;
+                    altCtx.beginPath();
+                    altCtx.roundRect(-18, -24, 36, 48, 8);
+                    altCtx.fill();
+                    altCtx.stroke();
+
+                    // Inner winding details
+                    altCtx.strokeStyle = '#f59e0b';
+                    altCtx.lineWidth = 1.5;
+                    for (let w = -14; w <= 14; w += 6) {
+                        altCtx.beginPath();
+                        altCtx.moveTo(w, -20);
+                        altCtx.lineTo(w, 20);
+                        altCtx.stroke();
+                    }
+                    altCtx.restore();
+                }
+
+                // 4. Animated Magnetic Field Lines (Flux)
+                if (rpm > 0 && isPlaying) {
+                    altCtx.save();
+                    altCtx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+                    altCtx.lineWidth = 1.5;
+                    altCtx.setLineDash([4, 4]);
+                    for (let f = 0; f < 3; f++) {
+                        const fluxRadius = radius * (0.35 + f * 0.18 + (Math.sin(time * 5 + f) * 0.03));
+                        altCtx.beginPath();
+                        altCtx.arc(cx, cy, fluxRadius, 0, Math.PI * 2);
+                        altCtx.stroke();
+                    }
+                    altCtx.restore();
+                }
+
+                // 5. Rotor & Central Handle
+                altCtx.save();
+                altCtx.translate(cx, cy);
+                altCtx.rotate(angle);
+
+                // Rotor armature core (iron bar)
+                altCtx.fillStyle = '#475569';
+                altCtx.strokeStyle = '#1e293b';
+                altCtx.lineWidth = 3;
+                altCtx.beginPath();
+                altCtx.roundRect(-14, -radius * 0.65, 28, radius * 1.3, 10);
+                altCtx.fill();
+                altCtx.stroke();
+
+                // Rotor winding poles (Red & Blue)
+                altCtx.fillStyle = '#ef4444'; // North pole
+                altCtx.beginPath();
+                altCtx.roundRect(-12, -radius * 0.6, 24, 30, 6);
+                altCtx.fill();
+
+                altCtx.fillStyle = '#3b82f6'; // South pole
+                altCtx.beginPath();
+                altCtx.roundRect(-12, radius * 0.6 - 30, 24, 30, 6);
+                altCtx.fill();
+
+                altCtx.restore();
+
+                // Central Vintage Handle / Crank mechanism (Fixed front view with knob)
+                const handleLength = radius * 0.45;
+                const handleX = cx + Math.cos(angle) * handleLength;
+                const handleY = cy + Math.sin(angle) * handleLength;
+
+                // Handle arm rod
+                altCtx.strokeStyle = '#94a3b8';
+                altCtx.lineWidth = 6;
+                altCtx.lineCap = 'round';
+                altCtx.beginPath();
+                altCtx.moveTo(cx, cy);
+                altCtx.lineTo(handleX, handleY);
+                altCtx.stroke();
+
+                // Central ornate cap
+                const capGrad = altCtx.createRadialGradient(cx, cy, 2, cx, cy, 16);
+                capGrad.addColorStop(0, '#f1f5f9');
+                capGrad.addColorStop(0.5, '#cbd5e1');
+                capGrad.addColorStop(1, '#64748b');
+                altCtx.fillStyle = capGrad;
+                altCtx.beginPath();
+                altCtx.arc(cx, cy, 16, 0, Math.PI * 2);
+                altCtx.fill();
+                altCtx.strokeStyle = '#334155';
+                altCtx.lineWidth = 2;
+                altCtx.stroke();
+
+                // Handle wooden knob
+                altCtx.fillStyle = '#78350f';
+                altCtx.beginPath();
+                altCtx.arc(handleX, handleY, 12, 0, Math.PI * 2);
+                altCtx.fill();
+                altCtx.strokeStyle = '#b45309';
+                altCtx.lineWidth = 2;
+                altCtx.stroke();
+            }
+
+            // Drawing the Oscilloscope Sine Wave
+            function drawOscilloscope(width, height) {
+                oscCtx.clearRect(0, 0, width, height);
+
+                // Grid background lines
+                oscCtx.strokeStyle = '#1e293b';
+                oscCtx.lineWidth = 1;
+                const gridStepX = width / 10;
+                const gridStepY = height / 6;
+
+                for (let x = 0; x <= width; x += gridStepX) {
+                    oscCtx.beginPath();
+                    oscCtx.moveTo(x, 0);
+                    oscCtx.lineTo(x, height);
+                    oscCtx.stroke();
+                }
+                for (let y = 0; y <= height; y += gridStepY) {
+                    oscCtx.beginPath();
+                    oscCtx.moveTo(0, y);
+                    oscCtx.lineTo(width, y);
+                    oscCtx.stroke();
+                }
+
+                // Center axis
+                oscCtx.strokeStyle = '#334155';
+                oscCtx.lineWidth = 1.5;
+                oscCtx.beginPath();
+                oscCtx.moveTo(0, height / 2);
+                oscCtx.lineTo(width, height / 2);
+                oscCtx.stroke();
+
+                // If stopped or 0 RPM, show flat line
+                if (rpm === 0) {
+                    waveHistory.push(0);
+                    if (waveHistory.length > maxHistoryPoints) waveHistory.shift();
+                } else {
+                    const currentVoltage = (rpm / 300) * 12 * Math.sin(time * (rpm / 30) * direction);
+                    waveHistory.push(currentVoltage);
+                    if (waveHistory.length > maxHistoryPoints) waveHistory.shift();
+                }
+
+                // Plot waveform
+                if (waveHistory.length > 1) {
+                    oscCtx.strokeStyle = '#38bdf8';
+                    oscCtx.lineWidth = 2.5;
+                    oscCtx.shadowColor = '#0284c7';
+                    oscCtx.shadowBlur = 8;
+                    oscCtx.beginPath();
+
+                    const stepX = width / (maxHistoryPoints - 1);
+                    const centerY = height / 2;
+                    const scaleY = (height / 2.5) / 12; // max voltage is 12V
+
+                    for (let i = 0; i < waveHistory.length; i++) {
+                        const x = i * stepX;
+                        const y = centerY - waveHistory[i] * scaleY;
+                        if (i === 0) oscCtx.moveTo(x, y);
+                        else oscCtx.lineTo(x, y);
+                    }
+                    oscCtx.stroke();
+                    oscCtx.shadowBlur = 0; // reset shadow
+                }
+            }
+
+            // Update Telemetry UI Values
+            function updateTelemetry() {
+                const freq = (rpm / 60) * 2; // 2 pole pairs assumption
+                const vPeak = (rpm / 300) * 12.0;
+                const vRMS = vPeak / Math.sqrt(2);
+
+                teleRpm.textContent = rpm;
+                teleFreq.textContent = freq.toFixed(1) + " Hz";
+                teleVPeak.textContent = vPeak.toFixed(1) + " V";
+                teleVRMS.textContent = vRMS.toFixed(2) + " V";
+            }
+
+            // Main Animation Loop
+            let lastTime = performance.now();
+            function animate(currentTime) {
+                const deltaTime = (currentTime - lastTime) / 1000;
+                lastTime = currentTime;
+
+                if (isPlaying && rpm > 0) {
+                    const omega = (rpm / 60) * 2 * Math.PI;
+                    angle += omega * deltaTime * direction;
+                    time += deltaTime;
+                }
+
+                const altRect = alternatorCanvas.getBoundingClientRect();
+                drawAlternator(altRect.width, altRect.height);
+
+                const oscRect = oscopeCanvas.getBoundingClientRect();
+                drawOscilloscope(oscRect.width, oscRect.height);
+
+                updateTelemetry();
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>
