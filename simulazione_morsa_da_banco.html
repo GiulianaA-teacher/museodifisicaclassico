@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulazione Morsa da Banco Tradizionale</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #fafaf9;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 select-none">
+
+    <!-- Header / UI Overlay -->
+    <header class="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row justify-between items-center gap-4 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-stone-200 shadow-lg">
+        <div>
+            <h1 class="text-xl font-bold tracking-tight text-amber-900 flex items-center gap-2">
+                🪵 Morsa da Banco Tradizionale
+            </h1>
+            <p class="text-xs text-stone-500 mt-0.5">Simulazione basata sull'attrezzo artigianale storico</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Pulsante Inserisci / Rimuovi Pezzo -->
+            <button id="togglePieceBtn" class="px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer">
+                Rimuovi Pezzo di Legno
+            </button>
+            <!-- Pulsante Lavorazione (Seghetto / Pialla) -->
+            <button id="workWoodBtn" class="px-4 py-2 bg-stone-700 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer">
+                🪵 Lavora il Legno (Pialla/Sega)
+            </button>
+            <!-- Reset Camera -->
+            <button id="resetCamBtn" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium rounded-xl border border-stone-300 transition-all cursor-pointer">
+                Reset Vista
+            </button>
+        </div>
+    </header>
+
+    <!-- Interactive Control Panel (Bottom) -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-11/12 max-w-xl bg-white/95 backdrop-blur-md p-5 rounded-2xl border border-stone-200 shadow-xl flex flex-col gap-4">
+        <div class="flex justify-between items-center text-sm">
+            <span class="font-medium text-stone-700 flex items-center gap-2">
+                ⚙️ Vite di Manovra & Serraggio (Trascina la manopola o usa lo slider)
+            </span>
+            <span id="statusLabel" class="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                Pezzo Saldamente Bloccato
+            </span>
+        </div>
+
+        <!-- Slider per simulare rotazione manovra e apertura ganasce -->
+        <div class="flex items-center gap-4">
+            <span class="text-xs text-stone-500">Apri</span>
+            <input type="range" id="screwSlider" min="0" max="100" value="30" class="w-full accent-amber-800 bg-stone-200 h-2 rounded-lg cursor-pointer">
+            <span class="text-xs text-stone-500">Chiudi</span>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs text-stone-500 border-t border-stone-200 pt-3">
+            <div>Rotazione: <span id="valRotation" class="font-mono text-amber-900 font-semibold">0°</span></div>
+            <div>Apertura: <span id="valOpening" class="font-mono text-amber-900 font-semibold">3.7 cm</span></div>
+            <div>Pezzo: <span id="valPieceStatus" class="font-mono text-stone-700 font-semibold">Inserito</span></div>
+            <div>Serraggio: <span id="valClamp" class="font-mono text-emerald-600 font-bold">🔴 Serrato</span></div>
+        </div>
+    </div>
+
+    <!-- Instructions / Guide overlay on the right -->
+    <div class="absolute top-28 right-4 z-10 hidden lg:flex flex-col gap-2 max-w-xs bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-stone-200 text-xs text-stone-600 shadow-lg pointer-events-none">
+        <h3 class="font-semibold text-amber-900 mb-1">💡 Istruzioni Interattive</h3>
+        <p>• <strong>Trascina la manopola verticale</strong> della morsa direttamente in 3D con il mouse per stringere o aprire!</p>
+        <p>• Trascina lo sfondo con il tasto sinistro per ruotare la visuale.</p>
+        <p>• Clicca <strong>"Lavora il Legno"</strong> per simulare piallatura e segatura quando il pezzo è bloccato.</p>
+    </div>
+
+    <!-- Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Message Box (Custom modal replacement for alert) -->
+    <div id="msgModal" class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm hidden">
+        <div class="bg-white border border-stone-200 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl text-center flex flex-col gap-4">
+            <h3 id="modalTitle" class="text-lg font-bold text-amber-900">Avviso</h3>
+            <p id="modalText" class="text-xs text-stone-600"></p>
+            <button id="modalCloseBtn" class="w-full py-2.5 bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer">
+                Ho capito
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Custom message box function
+        function showMessage(title, text) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalText').innerText = text;
+            document.getElementById('msgModal').classList.remove('hidden');
+        }
+        document.getElementById('modalCloseBtn').addEventListener('click', () => {
+            document.getElementById('msgModal').classList.add('hidden');
+        });
+
+        // --- THREE.JS SCENE SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xfafaf9);
+        scene.fog = new THREE.FogExp2(0xfafaf9, 0.01);
+
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 22);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.1);
+        dirLight.position.set(10, 25, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.bias = -0.0005;
+        scene.add(dirLight);
+
+        const fillLight = new THREE.DirectionalLight(0xfef3c7, 0.4);
+        fillLight.position.set(-15, 10, -10);
+        scene.add(fillLight);
+
+        // --- MATERIALS (Vintage Wood & Oxidized Metal) ---
+        const woodTextureCanvas = document.createElement('canvas');
+        woodTextureCanvas.width = 256;
+        woodTextureCanvas.height = 256;
+        const ctx = woodTextureCanvas.getContext('2d');
+        ctx.fillStyle = '#8b5a2b'; // Tonalità legno antico vissuto
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.fillStyle = '#653a17';
+        for (let i = 0; i < 50; i++) {
+            ctx.fillRect(0, Math.random() * 256, 256, Math.random() * 5 + 1);
+        }
+        const woodTex = new THREE.CanvasTexture(woodTextureCanvas);
+        woodTex.wrapS = THREE.RepeatWrapping;
+        woodTex.wrapT = THREE.RepeatWrapping;
+        woodTex.repeat.set(3, 1);
+
+        const antiqueWoodMaterial = new THREE.MeshStandardMaterial({
+            map: woodTex,
+            roughness: 0.85,
+            metalness: 0.05
+        });
+
+        const darkCavityMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3e240c,
+            roughness: 0.9,
+            metalness: 0.05
+        });
+
+        // Metallo ossidato / ruggine tipico della foto
+        const rustyMetalMaterial = new THREE.MeshStandardMaterial({
+            color: 0x5a3d28,
+            roughness: 0.7,
+            metalness: 0.6
+        });
+
+        const handleWoodMaterial = new THREE.MeshStandardMaterial({
+            color: 0x6e401b,
+            roughness: 0.7
+        });
+
+        const workpieceMaterial = new THREE.MeshStandardMaterial({
+            color: 0xd4a373,
+            roughness: 0.6
+        });
+
+        // --- GROUP ASSEMBLY (MORSA DA BANCO ORIZZONTALE) ---
+        const viseGroup = new THREE.Group();
+        viseGroup.position.set(0, 0, 0);
+        scene.add(viseGroup);
+
+        // 1. Corpo principale fisso (allungato orizzontalmente come in foto)
+        const fixedBodyGeom = new THREE.BoxGeometry(16, 2.2, 2.2);
+        const fixedBody = new THREE.Mesh(fixedBodyGeom, antiqueWoodMaterial);
+        fixedBody.position.set(0, 0, 0);
+        fixedBody.castShadow = true;
+        fixedBody.receiveShadow = true;
+        viseGroup.add(fixedBody);
+
+        // Intaglio / cavità centrale scura del corpo fisso
+        const cavityGeom = new THREE.BoxGeometry(7, 1.4, 1.5);
+        const cavity = new THREE.Mesh(cavityGeom, darkCavityMaterial);
+        cavity.position.set(-2, 0, 0);
+        viseGroup.add(cavity);
+
+        // 2. Vite posteriore fissa (perno filettato sporgente a sinistra)
+        const rearScrewGeom = new THREE.CylinderGeometry(0.35, 0.35, 4, 16);
+        const rearScrew = new THREE.Mesh(rearScrewGeom, rustyMetalMaterial);
+        rearScrew.rotation.z = Math.PI / 2;
+        rearScrew.position.set(-10, 0, 0);
+        rearScrew.castShadow = true;
+        viseGroup.add(rearScrew);
+
+        // Pomello terminale sinistro della vite
+        const rearKnobGeom = new THREE.SphereGeometry(0.5, 12, 12);
+        const rearKnob = new THREE.Mesh(rearKnobGeom, rustyMetalMaterial);
+        rearKnob.position.set(-12, 0, 0);
+        viseGroup.add(rearKnob);
+
+        // 3. Ganascia mobile / Blocco scorrevole
+        const movingJawGroup = new THREE.Group();
+        movingJawGroup.position.set(0, 0, 0);
+        viseGroup.add(movingJawGroup);
+
+        const movingPartGeom = new THREE.BoxGeometry(3.5, 2.5, 2.5);
+        const movingPart = new THREE.Mesh(movingPartGeom, antiqueWoodMaterial);
+        movingPart.position.set(2, 0, 0);
+        movingPart.castShadow = true;
+        movingPart.receiveShadow = true;
+        movingJawGroup.add(movingPart);
+
+        // 4. Manopola verticale filettata (perno che attraversa la ganascia mobile)
+        const verticalPegGeom = new THREE.CylinderGeometry(0.4, 0.4, 4.5, 16);
+        const verticalPeg = new THREE.Mesh(verticalPegGeom, antiqueWoodMaterial);
+        verticalPeg.position.set(2, -2.5, 0);
+        verticalPeg.castShadow = true;
+        movingJawGroup.add(verticalPeg);
+
+        // Testa terminale della manopola verticale
+        const pegTipGeom = new THREE.SphereGeometry(0.5, 12, 12);
+        const pegTip = new THREE.Mesh(pegTipGeom, antiqueWoodMaterial);
+        pegTip.position.set(2, -4.7, 0);
+        movingJawGroup.add(pegTip);
+
+        // 5. Pezzo di legno inserito tra le ganasce
+        const workpieceGroup = new THREE.Group();
+        viseGroup.add(workpieceGroup);
+
+        const pieceGeom = new THREE.BoxGeometry(4, 1.8, 1.8);
+        const workpiece = new THREE.Mesh(pieceGeom, workpieceMaterial);
+        workpiece.position.set(-1.5, 0, 0);
+        workpiece.castShadow = true;
+        workpiece.receiveShadow = true;
+        workpieceGroup.add(workpiece);
+
+        // Trucioli di legno generati durante la lavorazione
+        const shavingsGroup = new THREE.Group();
+        scene.add(shavingsGroup);
+
+        // --- INTERACTION STATE ---
+        let hasWorkpiece = true;
+        let currentSliderVal = 30;
+        let isWorking = false;
+
+        const screwSlider = document.getElementById('screwSlider');
+        const valRotation = document.getElementById('valRotation');
+        const valOpening = document.getElementById('valOpening');
+        const valPieceStatus = document.getElementById('valPieceStatus');
+        const valClamp = document.getElementById('valClamp');
+        const statusLabel = document.getElementById('statusLabel');
+        const togglePieceBtn = document.getElementById('togglePieceBtn');
+        const workWoodBtn = document.getElementById('workWoodBtn');
+        const resetCamBtn = document.getElementById('resetCamBtn');
+
+        function updateViseState(sliderVal) {
+            currentSliderVal = Number(sliderVal);
+            const openingCm = 1.0 + (currentSliderVal / 100) * 9.0;
+            valOpening.innerText = openingCm.toFixed(1) + ' cm';
+
+            const jawPositionX = (currentSliderVal / 100) * 4.5;
+            movingJawGroup.position.x = jawPositionX;
+
+            const rotationDegrees = currentSliderVal * 14.4;
+            valRotation.innerText = Math.round(rotationDegrees) + '°';
+            
+            rearScrew.rotation.x = (currentSliderVal / 100) * (Math.PI * 6);
+
+            if (hasWorkpiece) {
+                valPieceStatus.innerText = 'Inserito';
+                workpieceGroup.visible = true;
+                if (openingCm <= 4.2) {
+                    valClamp.innerText = '🔴 Serrato / Bloccato';
+                    valClamp.className = 'font-mono text-emerald-600 font-bold';
+                    statusLabel.innerText = 'Pezzo Saldamente Bloccato (Pronto per la lavorazione)';
+                    statusLabel.className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200';
+                } else {
+                    valClamp.innerText = '⚪ Lasco (Non stretto)';
+                    valClamp.className = 'font-mono text-amber-900';
+                    statusLabel.innerText = 'Morsa Aperta / Attenzione: il pezzo può muoversi!';
+                    statusLabel.className = 'text-xs px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-200';
+                }
+            } else {
+                valPieceStatus.innerText = 'Assente';
+                workpieceGroup.visible = false;
+                valClamp.innerText = 'Inattivo (Vuoto)';
+                valClamp.className = 'font-mono text-stone-400';
+                statusLabel.innerText = 'Morsa a Vuoto';
+                statusLabel.className = 'text-xs px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 border border-stone-200';
+            }
+        }
+
+        screwSlider.addEventListener('input', (e) => {
+            updateViseState(e.target.value);
+        });
+
+        togglePieceBtn.addEventListener('click', () => {
+            hasWorkpiece = !hasWorkpiece;
+            if (hasWorkpiece) {
+                togglePieceBtn.innerText = 'Rimuovi Pezzo di Legno';
+                togglePieceBtn.className = 'px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer';
+                showMessage('Pezzo Inserito', 'Hai inserito un listello di legno nella morsa.');
+            } else {
+                togglePieceBtn.innerText = 'Inserisci Pezzo di Legno';
+                togglePieceBtn.className = 'px-4 py-2 bg-stone-700 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer';
+                showMessage('Pezzo Rimosso', 'Il listello di legno è stato rimosso.');
+            }
+            updateViseState(screwSlider.value);
+        });
+
+        workWoodBtn.addEventListener('click', () => {
+            if (!hasWorkpiece) {
+                showMessage('Attenzione', 'Inserisci prima un pezzo di legno nella morsa!');
+                return;
+            }
+            const openingCm = 1.0 + (currentSliderVal / 100) * 9.0;
+            if (openingCm > 4.2) {
+                showMessage('Attenzione', 'Il pezzo non è abbastanza stretto! Stringi la morsa prima di lavorarlo, altrimenti scivolerà via.');
+                return;
+            }
+
+            isWorking = true;
+            workWoodBtn.innerText = '🪚 Lavorazione in corso...';
+            workWoodBtn.classList.add('animate-pulse', 'bg-amber-700');
+            
+            // Genera particelle di trucioli di legno
+            for (let i = 0; i < 15; i++) {
+                const chipGeom = new THREE.BoxGeometry(0.15, 0.05, 0.25);
+                const chipMat = new THREE.MeshStandardMaterial({ color: 0xd9ae88 });
+                const chip = new THREE.Mesh(chipGeom, chipMat);
+                chip.position.set(-1.5 + (Math.random() - 0.5) * 2, 1.2 + Math.random() * 0.5, (Math.random() - 0.5) * 1);
+                chip.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                shavingsGroup.add(chip);
+            }
+
+            setTimeout(() => {
+                isWorking = false;
+                workWoodBtn.innerText = '🪵 Lavora il Legno (Pialla/Sega)';
+                workWoodBtn.classList.remove('animate-pulse', 'bg-amber-700');
+                showMessage('Lavorazione Completata!', 'Hai piallato e segato con successo il pezzo bloccato saldamente nella morsa da banco.');
+            }, 1500);
+        });
+
+        resetCamBtn.addEventListener('click', () => {
+            camera.position.set(0, 3, 22);
+            viseGroup.rotation.set(0.15, 0, 0);
+        });
+
+        viseGroup.rotation.set(0.15, 0, 0);
+        updateViseState(screwSlider.value);
+
+        // --- RAYCASTING & DRAGGING FOR 3D DIRECT INTERACTION ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let isDragging = false;
+        let isDraggingViseHandle = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        container.addEventListener('mousedown', (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(movingJawGroup.children, true);
+
+            if (intersects.length > 0) {
+                isDraggingViseHandle = true;
+            } else {
+                isDragging = true;
+            }
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            const deltaX = e.clientX - previousMousePosition.x;
+            const deltaY = e.clientY - previousMousePosition.y;
+
+            if (isDraggingViseHandle) {
+                currentSliderVal = Math.max(0, Math.min(100, currentSliderVal + deltaX * 0.5));
+                screwSlider.value = currentSliderVal;
+                updateViseState(currentSliderVal);
+            } else if (isDragging) {
+                viseGroup.rotation.y += deltaX * 0.008;
+                viseGroup.rotation.x += deltaY * 0.008;
+                viseGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, viseGroup.rotation.x));
+            }
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        window.addEventListener('mouseup', () => { 
+            isDragging = false; 
+            isDraggingViseHandle = false;
+        });
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            const deltaX = e.touches[0].clientX - previousMousePosition.x;
+            const deltaY = e.touches[0].clientY - previousMousePosition.y;
+            viseGroup.rotation.y += deltaX * 0.008;
+            viseGroup.rotation.x += deltaY * 0.008;
+            viseGroup.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, viseGroup.rotation.x));
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        });
+
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        window.addEventListener('wheel', (e) => {
+            camera.position.z += e.deltaY * 0.01;
+            camera.position.z = Math.max(12, Math.min(32, camera.position.z));
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isWorking) {
+                workpieceGroup.position.y = (Math.random() - 0.5) * 0.06;
+            } else {
+                workpieceGroup.position.y = 0;
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            animate();
+        };
+    </script>
+</body>
+</html>
