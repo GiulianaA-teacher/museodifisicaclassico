@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scala Apparecchio di Boyle</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1e1b18;
+            color: #f8fafc;
+            touch-action: pan-y;
+        }
+        /* Realistic wood texture for the apparatus board */
+        .wood-board {
+            background: linear-gradient(135deg, #7c4c23 0%, #5d3819 40%, #442710 100%);
+            box-shadow: inset 0 2px 8px rgba(255,255,255,0.15), 0 12px 30px rgba(0,0,0,0.6);
+            border: 3px solid #361f0c;
+        }
+        .wood-ruler {
+            background: linear-gradient(90deg, #f5e6cb 0%, #e8d0aa 50%, #d8be94 100%);
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.15);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #855833;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col items-center justify-between overflow-x-hidden p-3">
+
+    <!-- App Header -->
+    <header class="w-full max-w-sm bg-stone-900/90 backdrop-blur-md border border-stone-800 text-stone-100 shadow-xl py-3 px-4 rounded-2xl flex items-center justify-between mt-1 z-20">
+        <div class="flex items-center space-x-2.5">
+            <div class="bg-amber-800/80 p-2 rounded-xl text-amber-100 shadow-inner border border-amber-600/40">
+                <i class="fa-solid fa-ruler-vertical text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xs uppercase tracking-wider text-amber-100">Struttura & Scala</h1>
+                <p class="text-[10px] text-stone-400">Apparecchio di Boyle (Modello Reale)</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <span id="header-level" class="text-xs font-mono font-bold text-amber-400">100.0 cm</span>
+        </div>
+    </header>
+
+    <!-- Main Wooden Apparatus Container (Portrait Mobile View) -->
+    <main class="w-full max-w-sm flex-1 my-3 flex flex-col items-center justify-center relative">
+
+        <!-- Physical Wooden Board Stand -->
+        <div class="wood-board w-full h-[440px] rounded-2xl p-4 flex flex-col items-center relative overflow-hidden select-none" id="apparatusBoard">
+            
+            <!-- Metallic Top Hook / Screw (as seen in photo) -->
+            <div class="absolute top-2 w-4 h-4 rounded-full bg-gradient-to-br from-stone-300 to-stone-500 border border-stone-600 shadow-md"></div>
+
+            <!-- Inner Layout: Ruler on the left, Glass Tube Simulation on the right -->
+            <div class="w-full h-full flex justify-between items-center relative mt-3 px-2">
+
+                <!-- 1. Wooden Graduated Scale / Ruler -->
+                <div class="wood-ruler w-24 h-[380px] rounded-lg relative flex flex-col justify-between py-2 px-1.5 border border-amber-900/40 shadow-inner">
+                    <div class="absolute inset-0 flex flex-col justify-between py-2 px-1.5 pointer-events-none" id="ruler-ticks">
+                        <!-- Ticks generated dynamically via JS -->
+                    </div>
+
+                    <!-- Scale Title -->
+                    <div class="absolute top-2 left-0 right-0 text-center pointer-events-none">
+                        <span class="text-[8px] font-bold text-amber-950 uppercase tracking-widest bg-amber-100/80 px-1 py-0.5 rounded">Scala cm</span>
+                    </div>
+                </div>
+
+                <!-- 2. Transparent Glass Tube Guide -->
+                <div class="w-16 h-[380px] bg-stone-900/30 backdrop-blur-xs rounded-xl border border-stone-700/50 relative overflow-hidden flex flex-col items-center" id="tubeContainer">
+                    <!-- Glass Tube highlight -->
+                    <div class="absolute inset-y-0 left-1 w-1 bg-white/20 rounded-full blur-[0.5px]"></div>
+
+                    <!-- Interactive Movable Cursor / Indicator Ring (Draggable via Touch / Mouse) -->
+                    <div 
+                        id="cursorIndicator" 
+                        class="absolute w-20 h-10 -left-2 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-700 rounded-lg shadow-lg border-2 border-amber-300 flex items-center justify-between px-2 cursor-pointer transition-transform active:scale-105"
+                        style="bottom: 50%;"
+                    >
+                        <div class="w-2 h-2 rounded-full bg-amber-200 animate-pulse"></div>
+                        <span id="cursor-val-badge" class="text-[11px] font-mono font-bold text-white bg-black/60 px-1.5 py-0.5 rounded">100</span>
+                        <div class="w-2 h-2 rounded-full bg-amber-200 animate-pulse"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Base Wooden Support Label -->
+            <div class="absolute bottom-1.5 text-[9px] text-amber-200/70 uppercase tracking-widest font-semibold">
+                Legge di Boyle-Mariotte
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bottom Digital Control & Readout Panel -->
+    <footer class="w-full max-w-sm bg-stone-900/90 backdrop-blur-md border border-stone-800 rounded-2xl p-3.5 shadow-xl space-y-3">
+        
+        <!-- Live Measurements Grid -->
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-stone-950/60 p-2 rounded-xl border border-stone-800">
+                <span class="text-[9px] font-bold text-stone-400 uppercase">Altezza (h)</span>
+                <div id="readout-h" class="text-sm font-extrabold text-amber-400 font-mono mt-0.5">100.0</div>
+                <span class="text-[9px] text-stone-500">cm</span>
+            </div>
+            <div class="bg-stone-950/60 p-2 rounded-xl border border-stone-800">
+                <span class="text-[9px] font-bold text-stone-400 uppercase">Volume (V)</span>
+                <div id="readout-v" class="text-sm font-extrabold text-blue-400 font-mono mt-0.5">100.0</div>
+                <span class="text-[9px] text-stone-500">mL</span>
+            </div>
+            <div class="bg-stone-950/60 p-2 rounded-xl border border-stone-800">
+                <span class="text-[9px] font-bold text-stone-400 uppercase">Pressione (P)</span>
+                <div id="readout-p" class="text-sm font-extrabold text-emerald-400 font-mono mt-0.5">1.00</div>
+                <span class="text-[9px] text-stone-500">atm</span>
+            </div>
+        </div>
+
+        <!-- Fine Tuning Slider & Buttons -->
+        <div class="space-y-1.5 pt-1">
+            <div class="flex justify-between items-center text-[11px] text-stone-300 px-1">
+                <span>Regolazione Scorrevole</span>
+                <span id="slider-val-label" class="font-mono text-amber-400 font-semibold">100 cm</span>
+            </div>
+            <input 
+                id="scaleSlider" 
+                type="range" 
+                min="20" 
+                max="180" 
+                step="1" 
+                value="100" 
+                class="w-full h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
+                oninput="setHeightFromSlider(this.value)"
+            >
+            <div class="flex justify-between pt-1">
+                <button onclick="adjustLevel(-5)" class="bg-stone-800 hover:bg-stone-700 active:scale-95 text-stone-200 text-xs font-medium py-1 px-3 rounded-lg border border-stone-700 transition">
+                    <i class="fa-solid fa-minus text-[10px] mr-1"></i> 5 cm
+                </button>
+                <button onclick="resetLevel()" class="bg-amber-800/80 hover:bg-amber-700 active:scale-95 text-amber-100 text-xs font-medium py-1 px-3 rounded-lg border border-amber-600/50 transition">
+                    Reset (100)
+                </button>
+                <button onclick="adjustLevel(5)" class="bg-stone-800 hover:bg-stone-700 active:scale-95 text-stone-200 text-xs font-medium py-1 px-3 rounded-lg border border-stone-700 transition">
+                    5 cm <i class="fa-solid fa-plus text-[10px] ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+    </footer>
+
+    <!-- JavaScript Logic for Interactive Scale and Cursor -->
+    <script>
+        const K_CONST = 100.0; // P * V = k
+        let currentHeight = 100.0; // in cm / units (range 20 to 180)
+
+        const cursorIndicator = document.getElementById('cursorIndicator');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const readoutH = document.getElementById('readout-h');
+        const readoutV = document.getElementById('readout-v');
+        const readoutP = document.getElementById('readout-p');
+        const headerLevel = document.getElementById('header-level');
+        const sliderValLabel = document.getElementById('slider-val-label');
+        const cursorValBadge = document.getElementById('cursor-val-badge');
+        const rulerTicks = document.getElementById('ruler-ticks');
+
+        // Generate ruler tick marks
+        function generateRulerTicks() {
+            let html = '';
+            for (let i = 180; i >= 20; i -= 10) {
+                let isMajor = (i % 20 === 0);
+                html += `
+                    <div class="flex items-center justify-between w-full text-[9px] font-mono text-amber-950">
+                        <span class="font-bold">${i === 180 || i === 100 || i === 20 ? i : ''}</span>
+                        <div class="${isMajor ? 'w-4 h-[1.5px] bg-amber-950' : 'w-2.5 h-[1px] bg-amber-900/60'}"></div>
+                    </div>
+                `;
+            }
+            rulerTicks.innerHTML = html;
+        }
+        generateRulerTicks();
+
+        // Update Apparecchio State
+        function updateApparatus(heightVal) {
+            currentHeight = parseFloat(heightVal);
+            if (currentHeight < 20) currentHeight = 20;
+            if (currentHeight > 180) currentHeight = 180;
+
+            const volume = currentHeight;
+            const pressure = K_CONST / volume;
+
+            // Update UI Readouts
+            readoutH.textContent = currentHeight.toFixed(1);
+            readoutV.textContent = volume.toFixed(1);
+            readoutP.textContent = pressure.toFixed(2);
+            headerLevel.textContent = currentHeight.toFixed(1) + " cm";
+            sliderValLabel.textContent = Math.round(currentHeight) + " cm";
+            cursorValBadge.textContent = Math.round(currentHeight);
+            scaleSlider.value = currentHeight;
+
+            // Position cursor along the tube container (percentage calculation)
+            // height range: 20 (bottom) to 180 (top)
+            const percentage = ((currentHeight - 20) / (180 - 20)) * 85; // keep within bounds
+            cursorIndicator.style.bottom = percentage + "%";
+        }
+
+        function setHeightFromSlider(val) {
+            updateApparatus(val);
+        }
+
+        function adjustLevel(delta) {
+            updateApparatus(currentHeight + delta);
+        }
+
+        function resetLevel() {
+            updateApparatus(100);
+        }
+
+        // Enable Dragging / Touch interaction on the cursor indicator directly on the wooden board
+        const apparatusBoard = document.getElementById('apparatusBoard');
+        const tubeContainer = document.getElementById('tubeContainer');
+        let isDragging = false;
+
+        function handlePointerMove(clientY) {
+            const rect = tubeContainer.getBoundingClientRect();
+            const yPos = clientY - rect.top; // distance from top of tube
+            const heightPx = rect.height;
+
+            // Invert because bottom is high value or top is high value? 
+            // Let's map top (0px) -> 180 cm, bottom (heightPx) -> 20 cm
+            let ratio = 1 - (yPos / heightPx);
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+
+            const calculatedHeight = 20 + ratio * (180 - 20);
+            updateApparatus(calculatedHeight);
+        }
+
+        cursorIndicator.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            e.preventDefault();
+        });
+
+        cursorIndicator.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            handlePointerMove(e.clientY);
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            handlePointerMove(e.touches[0].clientY);
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // Also allow clicking directly on the tube container to jump cursor
+        tubeContainer.addEventListener('click', (e) => {
+            handlePointerMove(e.clientY);
+        });
+
+        // Initial setup
+        updateApparatus(100);
+    </script>
+</body>
+</html>
