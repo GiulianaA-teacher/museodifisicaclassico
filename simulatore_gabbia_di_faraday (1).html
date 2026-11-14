@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulatore Gabbia di Faraday</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { touch-action: manipulation; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col items-center justify-center font-sans antialiased m-0 p-0 overflow-hidden">
+
+    <!-- Mobile Frame Container (Portrait Optimized) -->
+    <div class="w-full max-w-md h-full max-h-[920px] flex flex-col bg-slate-900 shadow-2xl overflow-hidden border border-slate-800 relative">
+        
+        <!-- Header -->
+        <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex flex-col gap-1 z-10 shrink-0">
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    Gabbia di Faraday
+                </h1>
+                <span id="status-badge" class="px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 transition-all duration-300">
+                    Schermo Attivo (E = 0)
+                </span>
+            </div>
+            <p id="status-desc" class="text-xs text-slate-400">Campo elettrico interno nullo. Elettroscopio interno protetto.</p>
+        </header>
+
+        <!-- Central Canvas Area -->
+        <div class="relative flex-1 bg-slate-950 overflow-hidden m-3 rounded-2xl border border-slate-800 shadow-inner flex flex-col">
+            <canvas id="simCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            
+            <!-- Overlay hint for touch -->
+            <div id="touch-hint" class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur px-3 py-1 rounded-full text-[11px] text-slate-300 border border-slate-700 pointer-events-none transition-opacity duration-300">
+                Tocca o trascina per interagire con le cariche
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="bg-slate-900/95 backdrop-blur border-t border-slate-800 p-3 flex flex-col gap-2.5 shrink-0 z-10">
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btn-ext" class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Carica Gabbia
+                </button>
+                <button id="btn-ind" class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                    Carica Esterna
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btn-int" class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    Carica Interna
+                </button>
+                <button id="btn-reset" class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700 transition-all active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Physics Info Drawer -->
+        <div class="bg-slate-950 border-t border-slate-800/80 px-4 py-3 max-h-36 overflow-y-auto shrink-0 text-slate-300">
+            <h2 class="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Principio Fisico</h2>
+            <p id="info-text" class="text-xs leading-relaxed text-slate-400">
+                In un conduttore cavo in equilibrio elettrostatico, il campo elettrico interno è nullo (E = 0). Le cariche si distribuiscono esclusivamente sulla superficie esterna. Questo fenomeno protegge gli ambienti interni (effetto schermo), principio fondamentale usato contro i fulmini e le interferenze.
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Simulation states: 'neutral', 'external', 'induction', 'internal'
+        let currentMode = 'neutral';
+
+        // Interactive external charge position (for induction mode)
+        let extCharge = { x: 60, y: 0, active: false };
+
+        // Animation parameters
+        let particles = [];
+        let time = 0;
+
+        // Leaf divergence angles (radians)
+        let outerLeafAngle = 0.05;
+        let innerLeafAngle = 0.05;
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 40; i++) {
+                particles.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    speed: 0.005 + Math.random() * 0.005
+                });
+            }
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        // Mode controller attached to window for global access
+        window.setMode = function(mode) {
+            currentMode = mode;
+            
+            // Reset button active styles
+            ['ext', 'ind', 'int', 'reset'].forEach(id => {
+                const btn = document.getElementById('btn-' + id);
+                if (btn) {
+                    btn.className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95";
+                }
+            });
+
+            const statusBadge = document.getElementById('status-badge');
+            const statusDesc = document.getElementById('status-desc');
+            const infoText = document.getElementById('info-text');
+
+            if (mode === 'external') {
+                document.getElementById('btn-ext').className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-95";
+                statusBadge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                statusBadge.textContent = "Gabbia Carica (Esterno)";
+                statusDesc.textContent = "Carica immessa sulla superficie esterna.";
+                infoText.textContent = "Applicando cariche elettriche alla gabbia, queste si dispongono uniformemente sulla superficie esterna. L'elettroscopio esterno diverge, mentre quello interno resta a riposo (E = 0).";
+            } else if (mode === 'induction') {
+                document.getElementById('btn-ind').className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/20 transition-all active:scale-95";
+                statusBadge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20";
+                statusBadge.textContent = "Induzione Elettrostatica";
+                statusDesc.textContent = "Trascina la carica esterna per testare lo schermo.";
+                infoText.textContent = "Avvicinando una carica esterna, si genera induzione elettrostatica: la superficie si polarizza ma il campo elettrico interno rimane rigorosamente nullo (E = 0).";
+                extCharge.x = canvas.clientWidth * 0.2;
+                extCharge.y = canvas.clientHeight * 0.5;
+                extCharge.active = true;
+            } else if (mode === 'internal') {
+                document.getElementById('btn-int').className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20 transition-all active:scale-95";
+                statusBadge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                statusBadge.textContent = "Carica Interna alla Gabbia";
+                statusDesc.textContent = "La faccia interna si carica per induzione opposta.";
+                infoText.textContent = "Posizionando una carica all'interno, la faccia interna della gabbia acquista carica opposta, mentre quella esterna e l'elettroscopio esterno divergono con carica dello stesso segno.";
+                extCharge.active = false;
+            } else {
+                document.getElementById('btn-reset').className = "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-red-400 border border-red-500/30 transition-all active:scale-95";
+                statusBadge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                statusBadge.textContent = "Stato Neutro (E = 0)";
+                statusDesc.textContent = "Nessun campo elettrico applicato.";
+                infoText.textContent = "In un conduttore cavo in equilibrio elettrostatico, il campo elettrico interno è nullo (E = 0). Le cariche si distribuiscono esclusivamente sulla superficie esterna.";
+                extCharge.active = false;
+            }
+        };
+
+        // Attach event listeners to buttons programmatically to avoid any inline click issues
+        window.addEventListener('load', () => {
+            document.getElementById('btn-ext').addEventListener('click', () => setMode('external'));
+            document.getElementById('btn-ind').addEventListener('click', () => setMode('induction'));
+            document.getElementById('btn-int').addEventListener('click', () => setMode('internal'));
+            document.getElementById('btn-reset').addEventListener('click', () => setMode('neutral'));
+
+            resizeCanvas();
+            initParticles();
+            requestAnimationFrame(loop);
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Touch & Mouse handling for moving external charge
+        let isDragging = false;
+        canvas.addEventListener('pointerdown', (e) => {
+            if (currentMode === 'induction') {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                // Check if near extCharge
+                const dx = x - extCharge.x;
+                const dy = y - extCharge.y;
+                if (Math.sqrt(dx*dx + dy*dy) < 40) {
+                    isDragging = true;
+                }
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (isDragging && currentMode === 'induction') {
+                const rect = canvas.getBoundingClientRect();
+                extCharge.x = Math.max(30, Math.min(canvas.clientWidth * 0.45, e.clientX - rect.left));
+                extCharge.y = Math.max(40, Math.min(canvas.clientHeight - 40, e.clientY - rect.top));
+            }
+        });
+
+        window.addEventListener('pointerup', () => { isDragging = false; });
+
+        // Main render loop
+        function loop() {
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, w, h);
+
+            time += 0.03;
+
+            // Dimensions of the cage
+            const cageWidth = w * 0.45;
+            const cageHeight = h * 0.55;
+            const cageX = (w - cageWidth) / 2 + 20;
+            const cageY = (h - cageHeight) / 2;
+
+            // --- 1. Draw Electric Field Lines ---
+            ctx.save();
+            if (currentMode === 'external' || currentMode === 'induction') {
+                // Field lines bending around the cage
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+                ctx.lineWidth = 1.5;
+                const numLines = 10;
+                for (let i = 0; i < numLines; i++) {
+                    let yPos = cageY + (i / (numLines - 1)) * cageHeight;
+                    ctx.beginPath();
+                    if (currentMode === 'induction') {
+                        // Lines flow from external charge towards cage left surface
+                        let startX = extCharge.x + 15;
+                        let startY = extCharge.y;
+                        ctx.moveTo(startX, startY);
+                        ctx.quadraticCurveTo(cageX - 30, yPos, cageX, yPos);
+                    } else {
+                        // Radial field lines spreading from cage outward
+                        ctx.moveTo(cageX + cageWidth/2, cageY + cageHeight/2);
+                        let angle = (i / numLines) * Math.PI * 2;
+                        ctx.lineTo(cageX + cageWidth/2 + Math.cos(angle)*(w*0.4), cageY + cageHeight/2 + Math.sin(angle)*(h*0.4));
+                    }
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+
+            // --- 2. Draw Faraday Cage (Wire Mesh) ---
+            ctx.save();
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.6)';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(cageX, cageY, cageWidth, cageHeight, 16);
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw internal wire mesh grid lines
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+            ctx.lineWidth = 1;
+            const cols = 6;
+            const rows = 8;
+            for (let i = 1; i < cols; i++) {
+                let x = cageX + (cageWidth / cols) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, cageY + 2);
+                ctx.lineTo(x, cageY + cageHeight - 2);
+                ctx.stroke();
+            }
+            for (let j = 1; j < rows; j++) {
+                let y = cageY + (cageHeight / rows) * j;
+                ctx.beginPath();
+                ctx.moveTo(cageX + 2, y);
+                ctx.lineTo(cageX + cageWidth - 2, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // --- 3. Draw Charges on Surfaces ---
+            ctx.save();
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            if (currentMode === 'external') {
+                // Positive charges all over outer surface
+                ctx.fillStyle = '#60a5fa';
+                for (let i = 0; i < 8; i++) {
+                    ctx.fillText('+', cageX + (cageWidth/8)*i + 15, cageY - 8);
+                    ctx.fillText('+', cageX + (cageWidth/8)*i + 15, cageY + cageHeight + 12);
+                }
+            } else if (currentMode === 'induction') {
+                // Negative on left, positive on right
+                ctx.fillStyle = '#f87171'; // negative
+                ctx.fillText('-', cageX + 10, cageY + cageHeight/2);
+                ctx.fillStyle = '#60a5fa'; // positive
+                ctx.fillText('+', cageX + cageWidth - 10, cageY + cageHeight/2);
+            } else if (currentMode === 'internal') {
+                // Negative inside surface, positive outside surface
+                ctx.fillStyle = '#f87171';
+                ctx.fillText('-', cageX + cageWidth/2, cageY + 20);
+                ctx.fillStyle = '#60a5fa';
+                ctx.fillText('+', cageX + cageWidth/2, cageY - 8);
+            }
+            ctx.restore();
+
+            // --- 4. Draw External Electroscope ---
+            const extElecX = cageX + cageWidth + 45;
+            const extElecY = cageY + cageHeight - 50;
+            
+            // Target angle for external leaves based on mode
+            let targetOuterAngle = 0.05;
+            if (currentMode === 'external' || currentMode === 'induction' || currentMode === 'internal') {
+                targetOuterAngle = 0.45;
+            }
+            outerLeafAngle += (targetOuterAngle - outerLeafAngle) * 0.1;
+
+            drawElectroscope(extElecX, extElecY, outerLeafAngle, "Esterno", true);
+
+            // Wire connecting cage to outer electroscope
+            ctx.save();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cageX + cageWidth, cageY + 30);
+            ctx.lineTo(extElecX, extElecY - 35);
+            ctx.stroke();
+            ctx.restore();
+
+            // --- 5. Draw Internal Electroscope (Inside Cage) ---
+            const intElecX = cageX + cageWidth / 2;
+            const intElecY = cageY + cageHeight / 2 + 15;
+
+            // Target angle for internal leaves (Always 0.05 because E = 0 inside!)
+            let targetInnerAngle = 0.05;
+            if (currentMode === 'internal') {
+                // If there's an internal charge connected, inner electroscope could diverge, 
+                // but standard Faraday shielding keeps internal field zero unless connected directly.
+                // Let's keep it shielded (leaves closed) to prove the Faraday theorem!
+                targetInnerAngle = 0.05; 
+            }
+            innerLeafAngle += (targetInnerAngle - innerLeafAngle) * 0.1;
+
+            drawElectroscope(intElecX, intElecY, innerLeafAngle, "Interno (E=0)", false);
+
+            // --- 6. Draw External Point Charge (if Induction mode) ---
+            if (currentMode === 'induction') {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(extCharge.x, extCharge.y, 18, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#fca5a5';
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('+', extCharge.x, extCharge.y);
+                ctx.restore();
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // Helper function to draw an electroscope
+        function drawElectroscope(x, y, leafAngle, label, isOuter) {
+            ctx.save();
+            
+            // Base jar / glass bell
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+            ctx.strokeStyle = isOuter ? '#38bdf8' : '#64748b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y + 15, 22, Math.PI, 0, false);
+            ctx.lineTo(x + 22, y + 45);
+            ctx.lineTo(x - 22, y + 45);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Metal rod & top sphere
+            ctx.beginPath();
+            ctx.moveTo(x, y - 25);
+            ctx.lineTo(x, y + 15);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(x, y - 28, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#f59e0b';
+            ctx.fill();
+            ctx.stroke();
+
+            // Gold leaves inside jar
+            ctx.save();
+            ctx.translate(x, y + 15);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2.5;
+
+            // Left leaf
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-Math.sin(leafAngle) * 22, Math.cos(leafAngle) * 22);
+            ctx.stroke();
+
+            // Right leaf
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.sin(leafAngle) * 22, Math.cos(leafAngle) * 22);
+            ctx.stroke();
+            ctx.restore();
+
+            // Label below
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x, y + 60);
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
