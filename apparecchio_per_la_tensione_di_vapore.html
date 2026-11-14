@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Apparecchio Tensione di Vapore — Tre Ampolle</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- KaTeX per il rendering matematico -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });"></script>
+
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0b1120;
+            color: #f1f5f9;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        #vaporCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 0.75rem;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 4px;
+            background: #1e293b;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #38bdf8;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+            border: 2px solid #0f172a;
+        }
+
+        .katex-display {
+            margin: 0.4em 0 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col max-w-md mx-auto px-3 py-2.5 select-none">
+
+    <!-- Header Compatto -->
+    <header class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <div>
+            <h1 class="text-base sm:text-lg font-bold text-sky-400 flex items-center gap-2 leading-tight">
+                <i class="fa-solid fa-vials"></i>
+                <span>Tensione di Vapore</span>
+            </h1>
+            <p class="text-[11px] text-slate-400">Apparecchio a tre ampolle e tubi verticali</p>
+        </div>
+        <div id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="statusText">Equilibrio</span>
+        </div>
+    </header>
+
+    <!-- Navigazione a Schede (Mobile Portrait) -->
+    <nav class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5" role="tablist">
+        <button id="tabSimBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all">
+            <i class="fa-solid fa-flask"></i> Laboratorio
+        </button>
+        <button id="tabTheoryBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all">
+            <i class="fa-solid fa-book-open"></i> Teoria & Antoine
+        </button>
+    </nav>
+
+    <!-- SCHEDA 1: LABORATORIO INTERATTIVO -->
+    <main id="simSection" class="flex-1 flex flex-col gap-2.5 pb-4">
+
+        <!-- Contenitore Canvas Responsivo con Design Ispirato alla Foto -->
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-xl border border-slate-700/80 shadow-xl overflow-hidden touch-none">
+            <canvas id="vaporCanvas"></canvas>
+
+            <!-- Overlay informazioni superiori -->
+            <div class="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                <span id="activeFlaskBadge" class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] text-sky-300 px-2 py-0.5 rounded-md font-medium">
+                    Ampolla Selezionata: <strong class="text-amber-300">1 (Etere)</strong>
+                </span>
+                <span id="tempBadge" class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded-md">
+                    25.0 °C
+                </span>
+            </div>
+
+            <!-- Hint touch ampolle -->
+            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none bg-slate-950/80 border border-slate-800 px-2.5 py-0.5 rounded-full text-[9px] text-sky-300 font-medium">
+                <i class="fa-solid fa-hand-pointer mr-1"></i> Tocca un'ampolla sul canvas per selezionarla
+            </div>
+        </div>
+
+        <!-- Telemetria in Tempo Reale (4 Card) -->
+        <div class="grid grid-cols-2 gap-1.5">
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Liquido in Esame</div>
+                <div id="telLiquid" class="text-xs font-mono font-bold text-sky-400 mt-0.5">Etere Dietilico</div>
+                <div class="text-[9px] text-slate-500">Ampolla 1</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Tensione di Vapore ($P$)</div>
+                <div id="telPressure" class="text-xs font-mono font-bold text-amber-400 mt-0.5">647.3 mmHg</div>
+                <div class="text-[9px] text-slate-500">86.3 kPa</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Temperatura ($T$)</div>
+                <div id="telTemp" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">25.0 °C</div>
+                <div class="text-[9px] text-slate-500">Bagno termostatico</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Punto di Ebollizione ($T_b$)</div>
+                <div id="telBoiling" class="text-xs font-mono font-bold text-indigo-400 mt-0.5">34.6 °C</div>
+                <div class="text-[9px] text-slate-500">A 760 mmHg</div>
+            </div>
+        </div>
+
+        <!-- Pannello Controlli Touch-Friendly -->
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3 space-y-3 shadow-lg">
+
+            <!-- Selezione Rapida Ampolle -->
+            <div class="space-y-1">
+                <label class="text-[11px] font-medium text-slate-300 block">
+                    <i class="fa-solid fa-flask text-sky-400 mr-1"></i>Seleziona Ampolla (1, 2 o 3)
+                </label>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button data-flask="0" class="flask-tab-btn py-2 px-1 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow transition-all">
+                        1: Etere
+                    </button>
+                    <button data-flask="1" class="flask-tab-btn py-2 px-1 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all">
+                        2: Etanolo
+                    </button>
+                    <button data-flask="2" class="flask-tab-btn py-2 px-1 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all">
+                        3: Acqua
+                    </button>
+                </div>
+            </div>
+
+            <!-- Slider Temperatura -->
+            <div class="space-y-1 pt-1 border-t border-slate-800/80">
+                <div class="flex justify-between items-center text-[11px]">
+                    <label for="tempSlider" class="text-slate-300 font-medium">
+                        <i class="fa-solid fa-temperature-high text-amber-400 mr-1"></i>Temperatura del Sistema ($T$)
+                    </label>
+                    <span id="tempValLabel" class="font-mono text-amber-300 font-semibold">25.0 °C</span>
+                </div>
+                <input type="range" id="tempSlider" min="10" max="95" step="0.5" value="25" class="w-full">
+            </div>
+
+            <!-- Interruttore Riscaldatore -->
+            <button id="heaterBtn" class="w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 text-slate-300 active:scale-[0.98] transition-all">
+                <i id="heaterIcon" class="fa-solid fa-fire text-slate-400"></i>
+                <span id="heaterLabel">Riscaldatore: OFF</span>
+            </button>
+        </div>
+
+        <!-- Osservazione Contestuale -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
+            <div class="flex items-start gap-2.5">
+                <div class="mt-0.5 w-6 h-6 rounded-lg bg-sky-950 border border-sky-700/60 flex items-center justify-center shrink-0 text-sky-400">
+                    <i class="fa-solid fa-lightbulb text-xs"></i>
+                </div>
+                <div id="observationText">
+                    <strong class="text-sky-300 block mb-0.5">Confronto della Volatilità:</strong>
+                    L'etere dietilico (ampolla 1) ha la tensione di vapore più elevata ed ebollizione a bassa temperatura ($34.6^\circ\text{C}$), mentre l'acqua (ampolla 3) ha la volatilità minore e bolle a $100^\circ\text{C}$.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SCHEDA 2: TEORIA & EQUAZIONE DI ANTOINE -->
+    <section id="theorySection" class="hidden flex-1 flex-col gap-3 pb-6 text-xs text-slate-300 leading-relaxed">
+
+        <!-- Card 1: L'Apparecchio Sperimentale -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-sky-400 flex items-center gap-2">
+                <i class="fa-solid fa-landmark"></i> 1. L'Apparecchio a Tre Ampolle
+            </h2>
+            <p>
+                Visibile nella foto di laboratorio, questo apparecchio è montato su un solido basamento triangolare di ghisa con un'asta di supporto verticale. Sulla sbarra superiore sono sospese tre ampolle di vetro tramite tappi e collari con steli e fili di sospensione a doppio lato. Ciascuna ampolla contiene un liquido diverso collegato a un lungo tubo di vetro verticale che scende verso il basso per misurare la pressione di vapore.
+            </p>
+        </article>
+
+        <!-- Card 2: L'Equazione di Antoine -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> 2. L'Equazione di Antoine
+            </h2>
+            <p>
+                La dipendenza della tensione di vapore saturo $P$ dalla temperatura $T$ è descritta con grande precisione dall'<strong>equazione di Antoine</strong>:
+            </p>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-center text-emerald-300">
+                $$\log_{10}(P) = A - \frac{B}{T + C}$$
+            </div>
+            <p>
+                Dove $A$, $B$ e $C$ sono costanti caratteristiche empiriche specifiche per ogni sostanza, $T$ è in gradi Celsius ($^\circ\text{C}$) e $P$ in millimetri di mercurio ($\text{mmHg}$).
+            </p>
+        </article>
+
+        <!-- Card 3: Volatilità e Punti di Ebollizione -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-fire"></i> 3. Volatilità e Forze Intermolecolari
+            </h2>
+            <p>
+                Liquidi con forze intermolecolari deboli (come l'etere dietilico) evaporano molto facilmente, presentando una tensione di vapore elevata a basse temperature. Al contrario, liquidi con forti legami a idrogeno (come l'acqua) hanno tensioni di vapore inferiori e richiedono temperature più elevate per ebollire.
+            </p>
+        </article>
+
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('vaporCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const tabSimBtn = document.getElementById('tabSimBtn');
+            const tabTheoryBtn = document.getElementById('tabTheoryBtn');
+            const simSection = document.getElementById('simSection');
+            const theorySection = document.getElementById('theorySection');
+
+            const activeFlaskBadge = document.getElementById('activeFlaskBadge');
+            const tempBadge = document.getElementById('tempBadge');
+
+            const telLiquid = document.getElementById('telLiquid');
+            const telPressure = document.getElementById('telPressure');
+            const telTemp = document.getElementById('telTemp');
+            const telBoiling = document.getElementById('telBoiling');
+
+            const flaskTabBtns = document.querySelectorAll('.flask-tab-btn');
+            const tempSlider = document.getElementById('tempSlider');
+            const tempValLabel = document.getElementById('tempValLabel');
+            const heaterBtn = document.getElementById('heaterBtn');
+            const heaterIcon = document.getElementById('heaterIcon');
+            const heaterLabel = document.getElementById('heaterLabel');
+            const observationText = document.getElementById('observationText');
+
+            // Dati delle 3 Ampolle (Etere, Etanolo, Acqua) basate sull'apparecchio reale
+            const flasks = [
+                {
+                    name: 'Etere Dietilico',
+                    formula: '$C_4H_{10}O$',
+                    A: 6.90565, B: 1167.03, C: 228.00,
+                    boilingPoint: 34.6,
+                    color: '#38bdf8', // Cyan
+                    xRatio: 0.28
+                },
+                {
+                    name: 'Etanolo',
+                    formula: '$C_2H_5OH$',
+                    A: 8.20417, B: 1642.89, C: 230.30,
+                    boilingPoint: 78.4,
+                    color: '#a855f7', // Purple
+                    xRatio: 0.50
+                },
+                {
+                    name: 'Acqua',
+                    formula: '$H_2O$',
+                    A: 8.07131, B: 1730.63, C: 233.43,
+                    boilingPoint: 100.0,
+                    color: '#10b981', // Emerald
+                    xRatio: 0.72
+                }
+            ];
+
+            let activeFlaskIdx = 0;
+            let temperatureC = 25.0;
+            let isHeaterOn = false;
+
+            // Particelle di vapore animate per ciascuna ampolla
+            const vaporParticles = [[], [], []];
+            for (let f = 0; f < 3; f++) {
+                for (let i = 0; i < 12; i++) {
+                    vaporParticles[f].push({
+                        x: Math.random(),
+                        y: Math.random(),
+                        vx: (Math.random() - 0.5) * 0.003,
+                        vy: -Math.random() * 0.006 - 0.002
+                    });
+                }
+            }
+
+            // Gestione Tabs
+            tabSimBtn.addEventListener('click', () => {
+                simSection.classList.remove('hidden');
+                simSection.classList.add('flex');
+                theorySection.classList.add('hidden');
+                theorySection.classList.remove('flex');
+
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+                resizeCanvas();
+            });
+
+            tabTheoryBtn.addEventListener('click', () => {
+                theorySection.classList.remove('hidden');
+                theorySection.classList.add('flex');
+                simSection.classList.add('hidden');
+                simSection.classList.remove('flex');
+
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+            });
+
+            // Resize Canvas ad alta definizione
+            let logicalW = 360;
+            let logicalH = 270;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                logicalW = rect.width;
+                logicalH = rect.height;
+
+                canvas.width = Math.round(logicalW * dpr);
+                canvas.height = Math.round(logicalH * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Selezione Ampolle tramite Pulsanti UI
+            function selectFlask(idx) {
+                activeFlaskIdx = idx;
+                flaskTabBtns.forEach((btn, i) => {
+                    if (i === idx) {
+                        btn.className = 'flask-tab-btn py-2 px-1 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow transition-all';
+                    } else {
+                        btn.className = 'flask-tab-btn py-2 px-1 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all';
+                    }
+                });
+                const f = flasks[idx];
+                activeFlaskBadge.innerHTML = `Ampolla Selezionata: <strong class="text-amber-300">${idx+1} (${f.name})</strong>`;
+                telLiquid.textContent = f.name;
+                telBoiling.textContent = `${f.boilingPoint.toFixed(1)} °C`;
+            }
+
+            flaskTabBtns.forEach((btn, idx) => {
+                btn.addEventListener('click', () => selectFlask(idx));
+            });
+
+            // Interazione touch diretta sul canvas per selezionare l'ampolla
+            canvas.addEventListener('pointerdown', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                // Controlla quale ampolla è stata toccata in base alle posizioni xRatio
+                const d1 = Math.abs(clickX - logicalW * flasks[0].xRatio);
+                const d2 = Math.abs(clickX - logicalW * flasks[1].xRatio);
+                const d3 = Math.abs(clickX - logicalW * flasks[2].xRatio);
+
+                if (d1 < d2 && d1 < d3) selectFlask(0);
+                else if (d2 < d1 && d2 < d3) selectFlask(1);
+                else selectFlask(2);
+            });
+
+            // Controlli Riscaldatore e Slider
+            heaterBtn.addEventListener('click', () => {
+                isHeaterOn = !isHeaterOn;
+                if (isHeaterOn) {
+                    heaterBtn.className = 'w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-rose-600 border border-rose-500 text-white active:scale-[0.98] transition-all';
+                    heaterIcon.className = 'fa-solid fa-fire text-amber-300 animate-bounce';
+                    heaterLabel.textContent = 'Riscaldatore: ON';
+                } else {
+                    heaterBtn.className = 'w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 text-slate-300 active:scale-[0.98] transition-all';
+                    heaterIcon.className = 'fa-solid fa-fire text-slate-400';
+                    heaterLabel.textContent = 'Riscaldatore: OFF';
+                }
+            });
+
+            tempSlider.addEventListener('input', (e) => {
+                temperatureC = parseFloat(e.target.value);
+                tempValLabel.textContent = `${temperatureC.toFixed(1)} °C`;
+            });
+
+            // Ciclo principale di simulazione e rendering (60 FPS)
+            function animate(now) {
+                const dt = 0.016;
+
+                if (isHeaterOn && temperatureC < 95.0) {
+                    temperatureC = Math.min(95.0, temperatureC + 1.2 * dt);
+                    tempSlider.value = temperatureC;
+                    tempValLabel.textContent = `${temperatureC.toFixed(1)} °C`;
+                }
+
+                // Calcoli Antoine per l'ampolla attiva
+                const f = flasks[activeFlaskIdx];
+                const logP = f.A - (f.B / (temperatureC + f.C));
+                const pMmHg = Math.pow(10, logP);
+                const pKpa = pMmHg * 0.133322;
+
+                // Aggiornamento Telemetria UI
+                tempBadge.textContent = `${temperatureC.toFixed(1)} °C`;
+                telTemp.textContent = `${temperatureC.toFixed(1)} °C`;
+                telPressure.textContent = `${pMmHg.toFixed(1)} mmHg`;
+
+                if (temperatureC >= f.boilingPoint - 1.0) {
+                    observationText.innerHTML = `<strong class="text-rose-300 block mb-0.5">Ebollizione dell'${f.name}:</strong> La tensione di vapore ha raggiunto la pressione atmosferica ($760\\text{ mmHg}$).`;
+                } else {
+                    observationText.innerHTML = `<strong class="text-sky-300 block mb-0.5">Equilibrio per l'${f.name}:</strong> A $T = ${temperatureC.toFixed(1)}\\text{ °C}$, $P = ${pMmHg.toFixed(1)}\\text{ mmHg}$ (${pKpa.toFixed(1)}\\text{ kPa})$. Tocca le altre ampolle per confrontarle.`;
+                }
+
+                // --- RENDERING CANVAS (Ispirato alla foto dell'apparecchio) ---
+                ctx.clearRect(0, 0, logicalW, logicalH);
+
+                // Sfondo laboratorio tecnico
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, logicalW, logicalH);
+
+                // Griglia di sfondo
+                ctx.strokeStyle = 'rgba(51, 65, 85, 0.18)';
+                ctx.lineWidth = 1;
+                for (let gx = 0; gx < logicalW; gx += 20) {
+                    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, logicalH); ctx.stroke();
+                }
+                for (let gy = 0; gy < logicalH; gy += 20) {
+                    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(logicalW, gy); ctx.stroke();
+                }
+
+                // Struttura dell'Apparecchio dalla Foto:
+                const standX = logicalW * 0.12;
+                const topBarY = 28;
+                const baseY = logicalH - 24;
+
+                // 1. Base a triangolo e asta verticale
+                ctx.fillStyle = '#334155';
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2.5;
+
+                ctx.beginPath();
+                ctx.moveTo(standX - 18, baseY);
+                ctx.lineTo(standX + 28, baseY);
+                ctx.lineTo(standX, baseY - 12);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Asta verticale
+                ctx.fillRect(standX - 4, topBarY - 4, 8, baseY - topBarY);
+                ctx.strokeRect(standX - 4, topBarY - 4, 8, baseY - topBarY);
+
+                // 2. Sbarra orizzontale superiore
+                const barEndX = logicalW * 0.88;
+                ctx.fillRect(standX, topBarY - 3, barEndX - standX, 6);
+                ctx.strokeRect(standX, topBarY - 3, barEndX - standX, 6);
+
+                // 3. Disegno delle 3 Ampolle con steli, fili e lunghi tubi verticali
+                flasks.forEach((flaskItem, idx) => {
+                    const fx = logicalW * flaskItem.xRatio;
+                    const fy = topBarY + 28;
+                    const isSelected = (idx === activeFlaskIdx);
+
+                    // Evidenziazione ampolla selezionata
+                    if (isSelected) {
+                        ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+                        ctx.beginPath();
+                        ctx.arc(fx, fy + 8, 26, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#38bdf8';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+
+                    // Filetti di sospensione e collare superiore
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(fx - 10, topBarY + 3); ctx.lineTo(fx - 8, fy - 12);
+                    ctx.moveTo(fx + 10, topBarY + 3); ctx.lineTo(fx + 8, fy - 12);
+                    ctx.stroke();
+
+                    // Ampolla sferica in vetro
+                    ctx.fillStyle = flaskItem.color;
+                    ctx.globalAlpha = isSelected ? 0.65 : 0.40;
+                    ctx.beginPath();
+                    ctx.arc(fx, fy + 8, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(fx, fy + 8, 16, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Etichetta numero ampolla
+                    ctx.fillStyle = isSelected ? '#38bdf8' : '#94a3b8';
+                    ctx.font = 'bold 10px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${idx+1}`, fx, fy - 18);
+
+                    // 4. Lungo tubo di vetro verticale che scende verso il basso
+                    const tubeBotY = baseY - 15;
+                    ctx.strokeStyle = 'rgba(203, 213, 225, 0.75)';
+                    ctx.lineWidth = 3.5;
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy + 24);
+                    ctx.lineTo(fx, tubeBotY);
+                    ctx.stroke();
+
+                    // Colonna di liquido/pressione nel tubo in base ad Antoine
+                    const activeLogP = flaskItem.A - (flaskItem.B / (temperatureC + flaskItem.C));
+                    const activeMmHg = Math.pow(10, activeLogP);
+                    const columnHeight = Math.min(tubeBotY - (fy + 30), (activeMmHg / 760) * 110);
+
+                    ctx.strokeStyle = flaskItem.color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(fx, tubeBotY);
+                    ctx.lineTo(fx, tubeBotY - columnHeight);
+                    ctx.stroke();
+                });
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>
