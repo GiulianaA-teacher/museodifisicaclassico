@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rocchetto di Ruhmkorff — Induzione Elettromagnetica</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- KaTeX per il rendering matematico -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });"></script>
+
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0b1120;
+            color: #f1f5f9;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        #ruhmCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 0.75rem;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: #1e293b;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #38bdf8;
+            margin-top: -6px;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+            border: 2px solid #0f172a;
+        }
+
+        .katex-display {
+            margin: 0.4em 0 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col max-w-md mx-auto px-3 py-2.5 select-none">
+
+    <!-- Header Compatto -->
+    <header class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <div>
+            <h1 class="text-base sm:text-lg font-bold text-sky-400 flex items-center gap-2 leading-tight">
+                <i class="fa-solid fa-bolt-lightning"></i>
+                <span>Rocchetto di Ruhmkorff</span>
+            </h1>
+            <p class="text-[11px] text-slate-400">Generatore di alta tensione a induzione</p>
+        </div>
+        <div id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="statusText">Attivo</span>
+        </div>
+    </header>
+
+    <!-- Navigazione a Schede (Mobile Portrait) -->
+    <nav class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5" role="tablist">
+        <button id="tabSimBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all">
+            <i class="fa-solid fa-flask"></i> Simulazione
+        </button>
+        <button id="tabTheoryBtn" class="py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all">
+            <i class="fa-solid fa-book-open"></i> Teoria & Leggi
+        </button>
+    </nav>
+
+    <!-- SCHEDA 1: SIMULAZIONE INTERATTIVA -->
+    <main id="simSection" class="flex-1 flex flex-col gap-2.5 pb-4">
+
+        <!-- Contenitore Canvas Responsivo con Rocchetto Fedele alla Foto -->
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-xl border border-slate-700/80 shadow-xl overflow-hidden">
+            <canvas id="ruhmCanvas"></canvas>
+
+            <!-- Overlay informazioni superiori -->
+            <div class="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                <span class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] text-slate-300 px-2 py-0.5 rounded-md">
+                    Apparecchio: <strong class="text-sky-400">Culla in Legno & Cilindro</strong>
+                </span>
+                <span id="sparkBadge" class="bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-emerald-300 px-2 py-0.5 rounded-md">
+                    Scintilla: Attiva
+                </span>
+            </div>
+
+            <!-- Legenda inferiore canvas -->
+            <div class="absolute bottom-1.5 left-2 right-2 flex items-center justify-between gap-1 text-[9px] text-slate-300 bg-slate-950/80 backdrop-blur-sm px-2 py-1 rounded-md border border-slate-800/80 pointer-events-none">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Terminali HV</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span> Scintilla Elettrica</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block"></span> Trembler / Martelletto</span>
+            </div>
+        </div>
+
+        <!-- Telemetria in Tempo Reale (3 Card) -->
+        <div class="grid grid-cols-3 gap-1.5">
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Corrente Primaria ($I_p$)</div>
+                <div id="telCurrent" class="text-xs font-mono font-bold text-sky-400 mt-0.5">1.5 A</div>
+                <div class="text-[9px] text-slate-500">Circuito DC</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Tensione Secondaria ($V_s$)</div>
+                <div id="telVoltage" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">45.0 kV</div>
+                <div class="text-[9px] text-slate-500">Indotta ad alta $V$</div>
+            </div>
+            <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-2 text-center shadow">
+                <div class="text-[10px] text-slate-400">Stato Scintilla</div>
+                <div id="telSparkState" class="text-xs font-mono font-bold text-amber-400 mt-0.5">Arco Continuo</div>
+                <div class="text-[9px] text-slate-500">Dielettrico aria</div>
+            </div>
+        </div>
+
+        <!-- Pannello Controlli Touch-Friendly -->
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3 space-y-3 shadow-lg">
+
+            <!-- Interruttore Power ON/OFF -->
+            <button id="powerBtn" class="w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-emerald-600 active:scale-[0.98] text-white shadow-md transition-all">
+                <i id="powerIcon" class="fa-solid fa-power-off"></i>
+                <span id="powerLabel">Alimentazione: ON</span>
+            </button>
+
+            <!-- Sliders Input Voltage, Interrupter Freq, Spark Gap -->
+            <div class="space-y-2.5 pt-1 border-t border-slate-800/80">
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="voltageSlider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-bolt text-sky-400 mr-1"></i>Tensione Primaria ($V_p$)
+                        </label>
+                        <span id="voltageValLabel" class="font-mono text-sky-300 font-semibold">6.0 V</span>
+                    </div>
+                    <input type="range" id="voltageSlider" min="2" max="12" step="0.5" value="6" class="w-full">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="freqSlider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-wave-square text-emerald-400 mr-1"></i>Frequenza Interruttore ($f$)
+                        </label>
+                        <span id="freqValLabel" class="font-mono text-emerald-300 font-semibold">30 Hz</span>
+                    </div>
+                    <input type="range" id="freqSlider" min="10" max="80" step="5" value="30" class="w-full">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <label for="gapSlider" class="text-slate-300 font-medium">
+                            <i class="fa-solid fa-arrows-left-right text-amber-400 mr-1"></i>Distanza Scintilla ($d$)
+                        </label>
+                        <span id="gapValLabel" class="font-mono text-amber-300 font-semibold">2.0 cm</span>
+                    </div>
+                    <input type="range" id="gapSlider" min="0.5" max="5.0" step="0.25" value="2.0" class="w-full">
+                </div>
+            </div>
+        </div>
+
+        <!-- Osservazione Contestuale -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
+            <div class="flex items-start gap-2.5">
+                <div class="mt-0.5 w-6 h-6 rounded-lg bg-sky-950 border border-sky-700/60 flex items-center justify-center shrink-0 text-sky-400">
+                    <i class="fa-solid fa-lightbulb text-xs"></i>
+                </div>
+                <div id="observationText">
+                    <strong class="text-sky-300 block mb-0.5">Principio del Rocchetto di Ruhmkorff:</strong>
+                    Il martelletto interruttore (trembler) apre e chiude rapidamente il circuito primario a bassa tensione. La variazione brusca del flusso magnetico induce nel secondario impulsi a grandissima tensione ($\text{kV}$), capaci di saltare tra i terminali superiori.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SCHEDA 2: TEORIA & FISICA -->
+    <section id="theorySection" class="hidden flex-1 flex-col gap-3 pb-6 text-xs text-slate-300 leading-relaxed">
+
+        <!-- Card 1: Cos'è il Rocchetto di Ruhmkorff -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-sky-400 flex items-center gap-2">
+                <i class="fa-solid fa-landmark"></i> 1. Cos'è il Rocchetto di Ruhmkorff
+            </h2>
+            <p>
+                Inventato a metà del XIX secolo dal meccanico tedesco Heinrich Ruhmkorff, questo dispositivo è il precursore delle bobine di accensione e dei trasformatori elevatori ad alta tensione. Sorge su una solida culla in legno e consiste in un nucleo di ferro circondato da un avvolgimento primario a bassa resistenza e da un secondario con decine di migliaia di spire sottili.
+            </p>
+        </article>
+
+        <!-- Card 2: Legge di Faraday-Neumann-Lenz -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> 2. Induzione Elettromagnetica (Faraday-Neumann-Lenz)
+            </h2>
+            <p>
+                La forza elettromotrice indotta $\mathcal{E}$ in un circuito secondario con $N_s$ spire è direttamente proporzionale alla rapidità con cui varia il flusso magnetico $\Phi_B$:
+            </p>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-center text-emerald-300">
+                $$\mathcal{E} = -N_s \frac{d\Phi_B}{dt}$$
+            </div>
+            <p>
+                Grazie all'interruttore rapido (trembler), il termine $d\Phi_B / dt$ è estremamente elevato, generando tensioni di decine o centinaia di kilovolt.
+            </p>
+        </article>
+
+        <!-- Card 3: Rapporto di Trasformazione -->
+        <article class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow">
+            <h2 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <i class="fa-solid fa-rotate"></i> 3. Rapporto di Trasformazione
+            </h2>
+            <p>
+                Il rapporto tra la tensione indotta nel secondario ($V_s$) e quella applicata al primario ($V_p$) è legato al rapporto tra il numero di spire ($N_s$ e $N_p$):
+            </p>
+            <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-center text-amber-300">
+                $$\frac{V_s}{V_p} \approx \frac{N_s}{N_p}$$
+            </div>
+            <p class="pt-1">
+                Poiché $N_s \gg N_p$ (spesso $1000:1$ o più), la tensione di uscita raggiunge valori capaci di ionizzare l'aria e scoccare scintille luminose.
+            </p>
+        </article>
+
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('ruhmCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const tabSimBtn = document.getElementById('tabSimBtn');
+            const tabTheoryBtn = document.getElementById('tabTheoryBtn');
+            const simSection = document.getElementById('simSection');
+            const theorySection = document.getElementById('theorySection');
+
+            const statusBadge = document.getElementById('statusBadge');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const sparkBadge = document.getElementById('sparkBadge');
+
+            const telCurrent = document.getElementById('telCurrent');
+            const telVoltage = document.getElementById('telVoltage');
+            const telSparkState = document.getElementById('telSparkState');
+
+            const powerBtn = document.getElementById('powerBtn');
+            const powerIcon = document.getElementById('powerIcon');
+            const powerLabel = document.getElementById('powerLabel');
+
+            const voltageSlider = document.getElementById('voltageSlider');
+            const freqSlider = document.getElementById('freqSlider');
+            const gapSlider = document.getElementById('gapSlider');
+            const voltageValLabel = document.getElementById('voltageValLabel');
+            const freqValLabel = document.getElementById('freqValLabel');
+            const gapValLabel = document.getElementById('gapValLabel');
+            const observationText = document.getElementById('observationText');
+
+            // Stato Fisico della Simulazione
+            let isPowerOn = true;
+            let primaryVoltageV = 6.0;  // V
+            let interrupterFreq = 30;   // Hz
+            let sparkGapCm = 2.0;       // cm
+            let animTime = 0;
+
+            // Gestione Tabs
+            tabSimBtn.addEventListener('click', () => {
+                simSection.classList.remove('hidden');
+                simSection.classList.add('flex');
+                theorySection.classList.add('hidden');
+                theorySection.classList.remove('flex');
+
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+                resizeCanvas();
+            });
+
+            tabTheoryBtn.addEventListener('click', () => {
+                theorySection.classList.remove('hidden');
+                theorySection.classList.add('flex');
+                simSection.classList.add('hidden');
+                simSection.classList.remove('flex');
+
+                tabTheoryBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 bg-sky-600 text-white shadow transition-all';
+                tabSimBtn.className = 'py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+            });
+
+            // Resize Canvas ad alta definizione
+            let logicalW = 360;
+            let logicalH = 270;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                logicalW = rect.width;
+                logicalH = rect.height;
+
+                canvas.width = Math.round(logicalW * dpr);
+                canvas.height = Math.round(logicalH * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Event Listeners Controlli
+            powerBtn.addEventListener('click', () => {
+                isPowerOn = !isPowerOn;
+                if (isPowerOn) {
+                    powerBtn.className = 'w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-emerald-600 active:scale-[0.98] text-white shadow-md transition-all';
+                    powerIcon.className = 'fa-solid fa-power-off';
+                    powerLabel.textContent = 'Alimentazione: ON';
+                    statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60';
+                    statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                    statusText.textContent = 'Attivo';
+                } else {
+                    powerBtn.className = 'w-full py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 bg-rose-600 active:scale-[0.98] text-white shadow-md transition-all';
+                    powerIcon.className = 'fa-solid fa-power-off';
+                    powerLabel.textContent = 'Alimentazione: OFF';
+                    statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-950/80 text-rose-300 border border-rose-700/60';
+                    statusDot.className = 'w-2 h-2 rounded-full bg-rose-400';
+                    statusText.textContent = 'Spento';
+                }
+            });
+
+            voltageSlider.addEventListener('input', (e) => {
+                primaryVoltageV = parseFloat(e.target.value);
+                voltageValLabel.textContent = `${primaryVoltageV.toFixed(1)} V`;
+            });
+
+            freqSlider.addEventListener('input', (e) => {
+                interrupterFreq = parseInt(e.target.value, 10);
+                freqValLabel.textContent = `${interrupterFreq} Hz`;
+            });
+
+            gapSlider.addEventListener('input', (e) => {
+                sparkGapCm = parseFloat(e.target.value);
+                gapValLabel.textContent = `${sparkGapCm.toFixed(2)} cm`;
+            });
+
+            // Ciclo Principale di Simulazione e Rendering (60 FPS)
+            function animate(now) {
+                const dt = 0.016;
+                animTime += dt * (interrupterFreq / 30);
+
+                const currentI = isPowerOn ? (primaryVoltageV / 4.0) : 0.0;
+                // Tensione secondaria stimata (es. 6V * 1200 spire * frequenza/30)
+                const secondaryKv = isPowerOn ? (primaryVoltageV * 7.5 * (interrupterFreq / 30)) : 0.0;
+                // Rigidità dielettrica dell'aria ~ 30 kV / cm
+                const maxSparkableGap = secondaryKv / 30.0;
+                const canSpark = isPowerOn && (sparkGapCm <= maxSparkableGap);
+
+                // Aggiornamento Telemetria UI
+                telCurrent.textContent = `${currentI.toFixed(1)} A`;
+                telVoltage.textContent = `${secondaryKv.toFixed(1)} kV`;
+
+                if (!isPowerOn) {
+                    telSparkState.textContent = 'Spento';
+                    sparkBadge.textContent = 'Scintilla: Spenta';
+                    sparkBadge.className = 'bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded-md';
+                    observationText.innerHTML = `<strong class="text-rose-300 block mb-0.5">Apparecchio Disalimentato:</strong> Con l'interruttore su OFF non vi è passaggio di corrente nel primario né induzione nel secondario.`;
+                } else if (canSpark) {
+                    telSparkState.textContent = 'Arco Continuo';
+                    sparkBadge.textContent = 'Scintilla: Attiva ⚡';
+                    sparkBadge.className = 'bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-emerald-300 px-2 py-0.5 rounded-md';
+                    observationText.innerHTML = `<strong class="text-emerald-300 block mb-0.5">Scintilla Elettrica in Atto ($V_s = ${secondaryKv.toFixed(1)}\\text{ kV}$):</strong> La tensione indotta supera la rigidità dielettrica dell'aria nel traferro, innescando l'arco luminoso.`;
+                } else {
+                    telSparkState.textContent = 'Traferro Troppo Ampio';
+                    sparkBadge.textContent = 'Scintilla: Assente';
+                    sparkBadge.className = 'bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded-md';
+                    observationText.innerHTML = `<strong class="text-amber-300 block mb-0.5">Isolamento Dielettrico:</strong> La distanza tra i terminali ($d = ${sparkGapCm.toFixed(1)}\\text{ cm}$) richiede una tensione superiore a quella generata.`;
+                }
+
+                // --- RENDERING CANVAS (Ispirato alla foto del Rocchetto) ---
+                ctx.clearRect(0, 0, logicalW, logicalH);
+
+                // Sfondo laboratorio tecnico
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, logicalW, logicalH);
+
+                // Griglia di sfondo sottile
+                ctx.strokeStyle = 'rgba(51, 65, 85, 0.18)';
+                ctx.lineWidth = 1;
+                for (let gx = 0; gx < logicalW; gx += 20) {
+                    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, logicalH); ctx.stroke();
+                }
+                for (let gy = 0; gy < logicalH; gy += 20) {
+                    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(logicalW, gy); ctx.stroke();
+                }
+
+                const cx = logicalW * 0.50;
+                const cy = logicalH * 0.58;
+
+                // 1. Culla di Supporto in Legno (marrone/legno)
+                const cradleW = 260;
+                const cradleH = 45;
+                const cradleX = cx - cradleW / 2;
+                const cradleY = cy + 15;
+
+                ctx.fillStyle = '#78350f'; // Legno scuro
+                ctx.strokeStyle = '#451a03';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(cradleX, cradleY, cradleW, cradleH, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Piedistalli verticali della culla
+                ctx.fillRect(cradleX + 15, cradleY - 25, 22, 30);
+                ctx.strokeRect(cradleX + 15, cradleY - 25, 22, 30);
+                ctx.fillRect(cradleX + cradleW - 37, cradleY - 25, 22, 30);
+                ctx.strokeRect(cradleX + cradleW - 37, cradleY - 25, 22, 30);
+
+                // 2. Cilindro Principale / Bobina (Resina nera con bordi flangiati)
+                const cylW = 220;
+                const cylH = 65;
+                const cylX = cx - cylW / 2;
+                const cylY = cradleY - 45;
+
+                ctx.fillStyle = '#0f172a'; // Corpo nero lucido
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(cylX, cylY, cylW, cylH, 12);
+                ctx.fill();
+                ctx.stroke();
+
+                // Flange circolari laterali del cilindro
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(cylX - 8, cylY - 6, 12, cylH + 12);
+                ctx.strokeRect(cylX - 8, cylY - 6, 12, cylH + 12);
+                ctx.fillRect(cylX + cylW - 4, cylY - 6, 12, cylH + 12);
+                ctx.strokeRect(cylX + cylW - 4, cylY - 6, 12, cylH + 12);
+
+                // 3. Torri Terminali Alta Tensione verticali in alto
+                const termLeftX = cylX + 45;
+                const termRightX = cylX + cylW - 45;
+                const termTopY = cylY - 45;
+
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 6;
+                // Torre sinistra
+                ctx.beginPath(); ctx.moveTo(termLeftX, cylY); ctx.lineTo(termLeftX, termTopY); ctx.stroke();
+                // Torre destra
+                ctx.beginPath(); ctx.moveTo(termRightX, cylY); ctx.lineTo(termRightX, termTopY); ctx.stroke();
+
+                // Pomelli di contatto in ottone sui terminali
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath(); ctx.arc(termLeftX, termTopY, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(termRightX, termTopY, 6, 0, Math.PI * 2); ctx.fill();
+
+                // 4. Scintilla Elettrica tra i terminali (se attiva)
+                const sparkSpan = termRightX - termLeftX;
+                const currentSparkWidth = termLeftX + (sparkGapCm / 5.0) * sparkSpan;
+
+                if (canSpark) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(termLeftX, termTopY);
+
+                    // Disegno fulmine zigzag scintillante
+                    const segments = 10;
+                    const segLen = (currentSparkWidth - termLeftX) / segments;
+                    for (let s = 1; s < segments; s++) {
+                        const sx = termLeftX + s * segLen;
+                        const sy = termTopY + (Math.random() - 0.5) * 18 * (isPowerOn ? 1 : 0);
+                        ctx.lineTo(sx, sy);
+                    }
+                    ctx.lineTo(currentSparkWidth, termTopY);
+                    ctx.stroke();
+
+                    // Bagliore alone attorno alla scintilla
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+                    ctx.lineWidth = 8;
+                    ctx.stroke();
+                }
+
+                // 5. Martelletto Interruttore (Trembler) vibrante sul lato sinistro
+                const tremX = cylX - 25;
+                const tremY = cylY + 25;
+                const hammerOffset = isPowerOn ? Math.sin(animTime * 45) * 4 : 0;
+
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(tremX + hammerOffset, tremY - 8, 14, 16);
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(tremX + hammerOffset, tremY - 8, 14, 16);
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>
